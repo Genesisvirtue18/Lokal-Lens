@@ -1,0 +1,24 @@
+# Render blueprint for the API. Create a Web Service from the backend folder, or use this file with "New > Blueprint".
+services:
+  - type: web
+    name: lokal-lens-api
+    runtime: node
+    rootDir: Directory_backend-main/Directory_backend-main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    envVars:
+      - { key: NODE_ENV, value: production }
+      - { key: TRUST_PROXY, value: "1" }
+      - { key: JWT_ACCESS_SECRET, generateValue: true }
+      - { key: JWT_REFRESH_SECRET, generateValue: true }
+      - { key: MONGODB_URI, sync: false }
+      - { key: CLIENT_URL, sync: false }
+      - { key: SMTP_HOST, sync: false }
+      - { key: SMTP_PORT, sync: false }
+      - { key: SMTP_USER, sync: false }
+      - { key: SMTP_PASS, sync: false }
+      - { key: EMAIL_FROM, sync: false }
+      - { key: CLOUDINARY_CLOUD_NAME, sync: false }
+      - { key: CLOUDINARY_API_KEY, sync: false }
+      - { key: CLOUDINARY_API_SECRET, sync: false }

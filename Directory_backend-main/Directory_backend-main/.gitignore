@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+.cache/
+
+# Photos downloaded by scripts/attach-business-photos.js (use Cloudinary in production)
+uploads/businesses/

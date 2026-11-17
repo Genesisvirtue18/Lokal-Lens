@@ -1,0 +1,50 @@
+import { z } from 'zod';
+
+const secret = z.string().min(32).refine(value => !value.startsWith('replace-'), 'Replace the placeholder with a random secret');
+const clientOrigin = z.url().refine(value => {
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) && url.origin === value;
+  } catch {
+    return false;
+  }
+}, 'Use an HTTP(S) origin without a trailing slash or path');
+const schema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PORT: z.coerce.number().int().min(1).max(65535).default(5000),
+  MONGODB_URI: z.string().regex(/^mongodb(?:\+srv)?:\/\/\S+$/, 'A MongoDB connection URI is required'),
+  JWT_ACCESS_SECRET: secret,
+  JWT_REFRESH_SECRET: secret,
+  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
+  CLIENT_URL: clientOrigin,
+  CLIENT_URL_2: clientOrigin.optional(),
+  TRUST_PROXY: z.string().default(''),
+  EMAIL_FROM: z.string().optional(),
+  SMTP_HOST: z.string().trim().optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  SMTP_USER: z.string().trim().optional(),
+  SMTP_PASS: z.string().optional(),
+  RATE_LIMIT_MAX: z.coerce.number().int().min(10).max(100000).default(1000),
+  SMS_PROVIDER: z.string().default('development'),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
+  GOOGLE_PLACES_API_KEY: z.string().trim().optional(),
+  GOOGLE_PLACES_REVIEW_MODE: z.enum(['rating', 'reviews']).default('reviews'),
+  GOOGLE_PLACES_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1000).default(20),
+  GOOGLE_CLIENT_ID: z.string().trim().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().trim().optional(),
+  GOOGLE_REDIRECT_URI: z.union([z.literal(''), z.url()]).optional(),
+  GOOGLE_TOKEN_ENCRYPTION_KEY: z.union([z.literal(''), z.string().regex(/^[a-fA-F0-9]{64}$/)]).optional(),
+}).refine(value => value.JWT_ACCESS_SECRET !== value.JWT_REFRESH_SECRET, {
+  path: ['JWT_REFRESH_SECRET'], message: 'Access and refresh secrets must differ',
+});
+
+export function parseEnv(source = process.env) {
+  const result = schema.safeParse(source);
+  if (!result.success) {
+    throw new Error(`Invalid environment configuration:\n${result.error.issues.map(issue => `- ${issue.path.join('.')}: ${issue.message}`).join('\n')}`);
+  }
+  return Object.freeze(result.data);
+}

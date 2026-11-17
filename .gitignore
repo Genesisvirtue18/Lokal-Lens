@@ -42,9 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 # not part of the frontend repo
-/Directory_backend-main/
 /design/*.fig
-/render.yaml
 *.log
 *.tsbuildinfo
 /lokallens-business-upload-*.csv
@@ -54,3 +52,8 @@ next-env.d.ts
 /.codex/
 /.impeccable/
 /design/
+
+# backend (kept in this repo too)
+/Directory_backend-main/Directory_backend-main/node_modules/
+/Directory_backend-main/Directory_backend-main/uploads/
+/Directory_backend-main/Directory_backend-main/.env
