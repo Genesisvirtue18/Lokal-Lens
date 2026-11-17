@@ -1,0 +1,202 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Button, Field, Logo, cx, fieldClass } from "@/components/ds";
+
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "https://directory-backend-ai6r.onrender.com/api/v1").replace(/\/$/, "");
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function call(path, payload) {
+  const response = await fetch(`${apiUrl}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.errors?.[0]?.message || body.message || "Something went wrong. Please try again.");
+  return body;
+}
+
+// Sign in / Create account. Figma "Desktop / Sign in" and "Create account — Validation error".
+// Default method is a one-time code sent to the email address; password sign-in stays available for existing accounts.
+export default function LoginPage({ initialRegistering = false }) {
+  const router = useRouter();
+  const [registering, setRegistering] = useState(initialRegistering);
+  const [method, setMethod] = useState("code"); // code | password
+  const [step, setStep] = useState("form"); // form | code
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [terms, setTerms] = useState(false);
+  const [code, setCode] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const codeInput = useRef(null);
+
+  useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const timer = setTimeout(() => setCooldown((value) => value - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+  useEffect(() => { if (step === "code") codeInput.current?.focus(); }, [step]);
+
+  function switchMode(next) {
+    router.replace(`${next ? "/register" : "/login"}${window.location.search}`);
+    setRegistering(next); setStep("form"); setFieldErrors({}); setError(""); setNotice(""); setCode("");
+  }
+
+  function validate() {
+    const errors = {};
+    if (registering && name.trim().length < 2) errors.name = "Enter your full name.";
+    if (!emailPattern.test(email.trim())) errors.email = "Enter a valid email address, like name@example.com.";
+    if (method === "password" && password.length < 8) errors.password = "Password must be at least 8 characters.";
+    if (registering && !terms) errors.terms = "Please agree to the Terms and Privacy Policy.";
+    setFieldErrors(errors);
+    const count = Object.keys(errors).length;
+    setError(count ? `Please fix ${count} field${count > 1 ? "s" : ""} below before continuing.` : "");
+    return count === 0;
+  }
+
+  function finish(data) {
+    localStorage.setItem("directflow_access_token", data.accessToken);
+    localStorage.setItem("directflow_refresh_token", data.refreshToken);
+    window.dispatchEvent(new Event("storage"));
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.push(["admin", "super_admin"].includes(data.user.role) ? "/admin" : next && next.startsWith("/") && !next.startsWith("//") ? next : "/business-owner");
+  }
+
+  async function sendCode() {
+    const result = await call("/auth/otp/request", { email: email.trim().toLowerCase(), ...(registering && name.trim() ? { name: name.trim() } : {}) });
+    const devCode = result.data?.devCode;
+    setStep("code"); setCode(devCode || ""); setCooldown(30);
+    setNotice(devCode ? `Test mode: email isn’t set up yet, so your code is ${devCode}. It is filled in for you.` : result.message || "We sent a 6-digit code to your email.");
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    setNotice("");
+    if (!validate()) return;
+    setBusy(true);
+    try {
+      if (method === "code") await sendCode();
+      else {
+        const body = await call(`/auth/${registering ? "register" : "login"}`, { ...(registering ? { name: name.trim() } : {}), email: email.trim().toLowerCase(), password });
+        finish(body.data);
+      }
+    } catch (reason) { setError(reason.message); }
+    finally { setBusy(false); }
+  }
+
+  async function verify(event) {
+    event.preventDefault();
+    if (code.length !== 6) { setError("Enter the 6-digit code from your email."); return; }
+    setBusy(true); setError("");
+    try { const body = await call("/auth/otp/verify", { email: email.trim().toLowerCase(), code }); finish(body.data); }
+    catch (reason) { setError(reason.message); }
+    finally { setBusy(false); }
+  }
+
+  async function resend() {
+    setBusy(true); setError("");
+    try { await sendCode(); } catch (reason) { setError(reason.message); }
+    finally { setBusy(false); }
+  }
+
+  const title = step === "code" ? "Check your email" : registering ? "Create your account" : "Sign in to Lokal Lens";
+
+  return (
+    <main className="min-h-screen bg-[#f1f1ee] text-[#101115] grid grid-cols-[minmax(0,1fr)] lg:h-screen lg:grid-cols-[440px_minmax(0,1fr)] xl:grid-cols-[560px_minmax(0,1fr)]">
+      {/* Editorial panel */}
+      <aside className="flex flex-col gap-6 bg-[#002fa7] px-5 py-6 text-white sm:px-8 lg:h-screen lg:min-h-0 lg:px-10 lg:py-8 xl:px-12 xl:py-10">
+        <Link href="/" aria-label="Lokal Lens home" className="w-fit"><Logo theme="blue" /></Link>
+        <div className="relative hidden min-h-[120px] flex-1 overflow-hidden rounded-[20px] lg:block">
+          <Image src="/figma/auth-spice.jpg" alt="" fill priority sizes="504px" className="object-cover" />
+        </div>
+        <div className="flex max-w-[480px] flex-col gap-3">
+          <p className="font-serif text-[22px] leading-8 tracking-[-0.0115em] text-white lg:text-[26px] lg:leading-[34px]">Keep your shortlist, write reviews, and manage your business profile.</p>
+          <p className="font-eyebrow text-[#f4b8c8]">Browsing and contacting businesses never requires an account</p>
+        </div>
+      </aside>
+
+      {/* Form area */}
+      <section className="flex items-center justify-center px-5 py-10 sm:px-12 lg:h-screen lg:overflow-y-auto lg:py-6">
+        <div className="m-auto flex w-full max-w-[420px] flex-col gap-4 xl:gap-5">
+          <h1 className="text-[28px] font-semibold leading-9 tracking-[-0.0294em] xl:text-[34px] xl:leading-[42px]">{title}</h1>
+
+          {step === "form" && (
+            <div className="flex gap-1 rounded-[12px] border border-[#dcdbd5] bg-white p-1" role="tablist" aria-label="Account">
+              {[["Sign in", false], ["Create account", true]].map(([label, value]) => (
+                <button key={label} type="button" role="tab" aria-selected={registering === value} onClick={() => switchMode(value)} className={cx("h-10 flex-1 rounded-[8px] font-display text-[13px] font-medium transition-colors", registering === value ? "bg-[#002fa7] text-white" : "text-[#101115] hover:bg-[#f1f1ee]")}>{label}</button>
+              ))}
+            </div>
+          )}
+
+          {error && <p role="alert" className="flex items-start gap-2.5 rounded-[10px] bg-[#fce9e7] px-3.5 py-3 text-[14px] leading-5 text-[#b42318]"><AlertCircle size={18} className="mt-px shrink-0" aria-hidden="true" />{error}</p>}
+          {notice && !error && <p role="status" className="rounded-[10px] bg-[#e7f4e5] px-3.5 py-3 text-[14px] leading-5 text-[#2b7a26]">{notice}</p>}
+
+          {step === "form" ? (
+            <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+              {registering && (
+                <Field label="Full name" error={fieldErrors.name}>
+                  <input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="Your name" maxLength={120} aria-invalid={Boolean(fieldErrors.name)} className={cx(fieldClass, fieldErrors.name && "!border-2 !border-[#b42318]")} />
+                </Field>
+              )}
+              <Field label="Email address" error={fieldErrors.email} helper={registering ? "Email is not shown publicly." : undefined}>
+                <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="name@example.com" aria-invalid={Boolean(fieldErrors.email)} className={cx(fieldClass, fieldErrors.email && "!border-2 !border-[#b42318]")} />
+              </Field>
+              {method === "password" && (
+                <Field label="Password" error={fieldErrors.password}>
+                  <span className="relative block">
+                    <input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? "text" : "password"} autoComplete={registering ? "new-password" : "current-password"} placeholder={registering ? "At least 8 characters" : "Your password"} aria-invalid={Boolean(fieldErrors.password)} className={cx(fieldClass, "pr-12", fieldErrors.password && "!border-2 !border-[#b42318]")} />
+                    <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4a4c55] hover:text-[#101115]">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                  </span>
+                </Field>
+              )}
+              {registering && (
+                <div>
+                  <label className="flex min-h-11 items-center gap-3 text-[16px] leading-6"><input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} className="h-[18px] w-[18px] shrink-0 accent-[#002fa7]" />
+                    <span>I agree to the <Link href="/privacy" className="text-[#002fa7] underline">Terms and Privacy Policy</Link></span></label>
+                  {fieldErrors.terms && <p role="alert" className="text-[14px] leading-5 text-[#b42318]">{fieldErrors.terms}</p>}
+                </div>
+              )}
+              <Button type="primary" htmlType="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : method === "code" ? (registering ? "Create account & send code" : "Send code") : (registering ? "Create account" : "Sign in")}</Button>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[14px] leading-5 text-[#4a4c55]">
+                <p>{registering ? "Already have an account?" : "New here?"} <button type="button" onClick={() => switchMode(!registering)} className="font-medium text-[#002fa7] hover:underline">{registering ? "Sign in" : "Create an account."}</button></p>
+                <button type="button" onClick={() => { setMethod(method === "code" ? "password" : "code"); setError(""); setFieldErrors({}); }} className="font-medium text-[#002fa7] hover:underline">{method === "code" ? "Use password instead" : "Email me a code instead"}</button>
+              </div>
+              {method === "password" && !registering && <p className="-mt-2 text-[14px]"><Link href="/forgot-password" className="font-medium text-[#002fa7] hover:underline">Forgot password?</Link></p>}
+            </form>
+          ) : (
+            <form onSubmit={verify} className="flex flex-col gap-5">
+              <p className="text-[16px] leading-6 text-[#4a4c55]">Enter the 6-digit code we sent to <strong className="text-[#101115]">{email}</strong>. It expires in 10 minutes.</p>
+              <Field label="6-digit code">
+                <input ref={codeInput} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" maxLength={6} className={cx(fieldClass, "text-center font-mono text-[24px] tracking-[0.4em]")} />
+              </Field>
+              <Button type="primary" htmlType="submit" className="w-full" disabled={busy || code.length !== 6}>{busy ? "Checking…" : "Verify & continue"}</Button>
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[14px] leading-5">
+                <button type="button" onClick={() => { setStep("form"); setError(""); setNotice(""); }} className="font-medium text-[#002fa7] hover:underline">Change email</button>
+                <button type="button" onClick={resend} disabled={cooldown > 0 || busy} className="font-medium text-[#002fa7] hover:underline disabled:text-[#9a9ba1] disabled:no-underline">{cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}</button>
+              </div>
+            </form>
+          )}
+
+          {process.env.NODE_ENV !== "production" && step === "form" && (
+            <div className="rounded-[12px] border border-dashed border-[#bdbcb5] bg-[#f7f7f4] p-3.5 text-[13px] leading-5">
+              <p className="font-eyebrow text-[#6e7079]">Test accounts (local only)</p>
+              <div className="mt-2 flex flex-col gap-1.5">
+                {[["Owner", "owner@lokallens.test"], ["Customer", "customer@lokallens.test"], ["Admin", "admin@lokallens.test"]].map(([label, address]) => (
+                  <button key={address} type="button" onClick={() => { setRegistering(false); setMethod("password"); setEmail(address); setPassword("Test@12345"); setError(""); setFieldErrors({}); setNotice(""); }} className="flex items-center justify-between gap-2 rounded-[8px] bg-white px-3 py-2 text-left hover:bg-[#e6ebf7]"><span><strong>{label}</strong> · {address}</span><span className="font-medium text-[#002fa7]">Use</span></button>
+                ))}
+              </div>
+              <p className="mt-2 text-[#6e7079]">Password for all: Test@12345 · Email codes show on screen in test mode.</p>
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
