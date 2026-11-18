@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CategoryIcon } from "@/lib/category-icons";
 import { Search } from "lucide-react";
 import { getCategories, getBusinessCities } from "@/lib/api";
 import SiteHeader from "@/components/ds/SiteHeader";
@@ -7,19 +8,6 @@ import { Eyebrow, cx, fieldClass, labelClass } from "@/components/ds";
 
 export const metadata = { title: "All categories | Lokal Lens", description: "Browse every kind of local business by category." };
 
-const ICON_RULES = [
-  [/restaurant|cafe|café|food|bakery|dining/i, "restaurant"],
-  [/health|clinic|medical|hospital|dent|doctor/i, "medical_services"],
-  [/beauty|salon|spa|wellness|fitness|gym/i, "spa"],
-  [/educat|school|coach|tutor|class/i, "school"],
-  [/automotive|vehicle|garage|bike|\bcars?\b/i, "directions_car"],
-  [/home|repair|electric|plumb|clean|construct/i, "home_repair_service"],
-  [/shop|retail|store|fashion|cloth/i, "shopping_bag"],
-  [/professional|legal|law|consult|finance|account|business/i, "business_center"],
-  [/hotel|travel|stay|resort/i, "hotel"],
-  [/real estate|property|realty/i, "apartment"],
-];
-const iconFor = (name) => ICON_RULES.find(([pattern]) => pattern.test(name || ""))?.[1] || "storefront";
 const idOf = (value) => String(typeof value === "object" ? value?._id || value?.id || "" : value || "");
 
 export default async function CategoriesPage({ searchParams }) {
@@ -56,7 +44,7 @@ export default async function CategoriesPage({ searchParams }) {
           {groups.map((category) => (
             <article key={idOf(category)} className="mb-6 flex break-inside-avoid flex-col gap-4 rounded-[16px] border border-[#dcdbd5] bg-white p-6">
               <Link href={link(category)} className="flex items-center gap-3 hover:text-[#002fa7]">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-[#f1f1ee] text-[#002fa7]"><span className="material-symbols-outlined text-[22px]" aria-hidden="true">{iconFor(category.name)}</span></span>
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-[#f1f1ee] text-[#002fa7]"><CategoryIcon icon={category.icon} name={category.name} size={22} /></span>
                 <span className="font-display text-[18px] font-semibold leading-[26px] tracking-[-0.0111em]">{category.name}</span>
               </Link>
               <div className="flex flex-wrap gap-2">

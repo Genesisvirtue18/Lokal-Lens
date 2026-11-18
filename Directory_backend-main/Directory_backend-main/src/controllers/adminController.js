@@ -358,8 +358,36 @@ export const clearGooglePlaceMismatch = () => async (req, res, next) => { try {
   sendSuccess(res, 'Mismatched Google Place ID cleared; the Google listing is now unlinked', { item });
 } catch (error) { next(error); } };
 
-export const categoryTree = () => async (_req, res, next) => { try { const items = await Category.find({ isActive: true }).sort('displayOrder name').lean(); const map = new Map(items.map(item => [String(item._id), { ...item, children: [] }])); const roots = []; for (const item of map.values()) item.parentCategory && map.has(String(item.parentCategory)) ? map.get(String(item.parentCategory)).children.push(item) : roots.push(item); sendSuccess(res, 'Category tree retrieved successfully', { items: roots }); } catch (error) { next(error); } };
-export const createCategory = () => async (req, res, next) => { try { const { name, parentCategory } = req.validated.body; if (parentCategory && !await Category.exists({ _id: parentCategory, isActive: true, parentCategory: null })) throw new AppError('Parent category not found', 422); const { created } = await createCategories([{ name }], parentCategory || null); if (!created.length) throw new AppError('This category already exists at this level', 409); sendSuccess(res, 'Category created successfully', { item: created[0] }, 201); } catch (error) { next(error); } };
+export const categoryTree = () => async (_req, res, next) => { try { const items = await Category.find({}).sort('displayOrder name').lean(); const map = new Map(items.map(item => [String(item._id), { ...item, children: [] }])); const roots = []; for (const item of map.values()) item.parentCategory && map.has(String(item.parentCategory)) ? map.get(String(item.parentCategory)).children.push(item) : roots.push(item); sendSuccess(res, 'Category tree retrieved successfully', { items: roots }); } catch (error) { next(error); } };
+export const createCategory = () => async (req, res, next) => { try { const { name, parentCategory, icon } = req.validated.body; if (parentCategory && !await Category.exists({ _id: parentCategory, isActive: true, parentCategory: null })) throw new AppError('Parent category not found', 422); const { created } = await createCategories([{ name }], parentCategory || null); if (!created.length) throw new AppError('This category already exists at this level', 409); if (icon) { created[0].icon = icon; await created[0].save(); } sendSuccess(res, 'Category created successfully', { item: created[0] }, 201); } catch (error) { next(error); } };
 export const importCategories = parentFromPath => async (req, res, next) => { try { const parentCategory = parentFromPath ? req.params.id : null; if (parentCategory && !await Category.exists({ _id: parentCategory, isActive: true, parentCategory: null })) throw new AppError('Parent category not found', 422); if (!req.file?.buffer) throw new AppError('Upload a CSV file', 422); const result = await createCategories(csvRows(req.file.buffer.toString('utf8')), parentCategory); sendSuccess(res, 'Categories imported successfully', { created: result.created, createdCount: result.created.length, skipped: result.skipped }); } catch (error) { next(error); } };
+// Rename, change the icon, reorder, hide, or replace the service list of a category / subcategory.
+export const updateCategory = () => async (req, res, next) => { try {
+  const item = await Category.findById(req.params.id);
+  if (!item) throw new AppError('Category not found', 404);
+  const { name, icon, isActive, displayOrder, services } = req.validated.body;
+  if (name !== undefined && name !== item.name) {
+    const clash = await Category.findOne({ _id: { $ne: item._id }, parentCategory: item.parentCategory, name: new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') });
+    if (clash) throw new AppError('Another category at this level already has this name', 409);
+    item.name = name;
+  }
+  if (icon !== undefined) item.icon = icon || undefined;
+  if (isActive !== undefined) item.isActive = isActive;
+  if (displayOrder !== undefined) item.displayOrder = displayOrder;
+  if (services !== undefined) item.services = [...new Set(services)];
+  await item.save();
+  sendSuccess(res, 'Category updated successfully', { item });
+} catch (error) { next(error); } };
+
+// A category that is still used by listings, or that has subcategories, can only be hidden, not deleted.
+export const removeCategory = () => async (req, res, next) => { try {
+  const item = await Category.findById(req.params.id);
+  if (!item) throw new AppError('Category not found', 404);
+  if (await Category.exists({ parentCategory: item._id })) throw new AppError('Delete or move its subcategories first', 409);
+  if (await Business.exists({ deletedAt: null, $or: [{ category: item._id }, { subcategories: item._id }, { secondaryCategories: item._id }] })) throw new AppError('Listings still use this category. Hide it instead of deleting it.', 409);
+  await item.deleteOne();
+  res.status(204).end();
+} catch (error) { next(error); } };
+
 export const addServices = () => async (req, res, next) => { try { const item = await Category.findOne({ _id: req.params.id, isActive: true }); if (!item) throw new AppError('Category or subcategory not found', 404); const services = [...new Set(req.validated.body.services.map(value => value.trim()).filter(Boolean))]; item.services = [...new Set([...item.services, ...services])]; await item.save(); sendSuccess(res, 'Services added successfully', { item, addedCount: services.length }); } catch (error) { next(error); } };
 export const importServices = () => async (req, res, next) => { try { const item = await Category.findOne({ _id: req.params.id, isActive: true }); if (!item) throw new AppError('Category or subcategory not found', 404); if (!req.file?.buffer) throw new AppError('Upload a CSV file', 422); const services = csvRows(req.file.buffer.toString('utf8')).map(entry => entry.name); item.services = [...new Set([...item.services, ...services])]; await item.save(); sendSuccess(res, 'Services imported successfully', { item, addedCount: services.length }); } catch (error) { next(error); } };

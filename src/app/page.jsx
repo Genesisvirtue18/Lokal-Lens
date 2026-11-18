@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CategoryIcon } from "@/lib/category-icons";
 import Image from "next/image";
 import { cookies } from "next/headers";
 import { ArrowRight, Check, Eye, Phone, Search, Sparkles, Tag } from "lucide-react";
@@ -12,19 +13,6 @@ import BusinessCard from "@/components/ds/BusinessCard";
 import { Button, Eyebrow, cx } from "@/components/ds";
 import { buildSiteJsonLd, jsonLdString } from "@/lib/business-schema";
 
-const ICON_RULES = [
-  [/restaurant|cafe|café|food|bakery|dining/i, "restaurant"],
-  [/health|clinic|medical|hospital|dent|doctor/i, "medical_services"],
-  [/beauty|salon|spa|wellness|fitness|gym/i, "spa"],
-  [/educat|school|coach|tutor|class/i, "school"],
-  [/automotive|vehicle|garage|bike|\bcars?\b/i, "directions_car"],
-  [/home|repair|electric|plumb|clean|construct/i, "home_repair_service"],
-  [/shop|retail|store|fashion|cloth/i, "shopping_bag"],
-  [/professional|legal|law|consult|finance|account|business/i, "business_center"],
-  [/hotel|travel|stay|resort/i, "hotel"],
-  [/real estate|property|realty/i, "apartment"],
-];
-const iconFor = (name) => ICON_RULES.find(([pattern]) => pattern.test(name || ""))?.[1] || "storefront";
 
 // Figma lists the categories in this order; anything else follows alphabetically.
 const CATEGORY_ORDER = ["restaurants", "home services", "beauty", "shopping", "automotive", "professional", "education", "health"];
@@ -60,7 +48,7 @@ function CategoryCard({ category }) {
   return (
     <Link href={`/directory?category=${encodeURIComponent(category.slug || category.name)}`} className="group flex flex-col gap-5 rounded-[16px] border border-[#dcdbd5] bg-white p-6 transition-colors hover:border-[#002fa7]">
       <div className="flex items-center justify-between">
-        <span className="grid h-12 w-12 place-items-center rounded-[12px] bg-[#f1f1ee] text-[#002fa7]"><span className="material-symbols-outlined text-[24px]" aria-hidden="true">{iconFor(category.name)}</span></span>
+        <span className="grid h-12 w-12 place-items-center rounded-[12px] bg-[#f1f1ee] text-[#002fa7]"><CategoryIcon icon={category.icon} name={category.name} size={24} /></span>
         <ArrowRight size={20} className="text-[#4a4c55] transition group-hover:translate-x-1 group-hover:text-[#002fa7]" aria-hidden="true" />
       </div>
       <div className="flex flex-col gap-1">

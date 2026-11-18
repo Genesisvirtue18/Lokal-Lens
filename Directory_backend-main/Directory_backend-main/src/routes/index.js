@@ -239,9 +239,12 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.delete('/owner/businesses/:id', ...ownerOnly, validate(idParam), owner.removeBusiness());
   router.post('/owner/businesses/:id/submit', ...ownerOnly, validate(idParam), owner.submitBusiness());
   const adminOnly = [authenticate(config), authorizeRoles('admin', 'super_admin')];
-  const categoryBody = z.object({ name: z.string().trim().min(2).max(120), parentCategory: objectId.optional() }).strict();
+  const categoryBody = z.object({ name: z.string().trim().min(2).max(120), parentCategory: objectId.optional(), icon: z.string().regex(/^[a-z0-9-]{2,40}$/, 'Choose an icon from the list').optional() }).strict();
+  const categoryUpdateBody = z.object({ name: z.string().trim().min(2).max(120).optional(), icon: z.union([z.string().regex(/^[a-z0-9-]{2,40}$/, 'Choose an icon from the list'), z.literal('')]).optional(), isActive: z.boolean().optional(), displayOrder: z.number().int().min(0).max(100000).optional(), services: z.array(z.string().trim().min(1).max(150)).max(500).optional() }).strict();
   const servicesBody = z.object({ services: z.array(z.string().trim().min(1).max(150)).min(1).max(500) }).strict();
   router.get('/admin/categories', ...adminOnly, admin.categoryTree());
+  router.patch('/admin/categories/:id', ...adminOnly, validate(idParam.extend({ body: categoryUpdateBody })), admin.updateCategory());
+  router.delete('/admin/categories/:id', ...adminOnly, validate(idParam), admin.removeCategory());
   router.post('/admin/categories', ...adminOnly, validate(z.object({ body: categoryBody })), admin.createCategory());
   router.post('/admin/categories/import', ...adminOnly, csvUpload.single('file'), admin.importCategories(false));
   router.post('/admin/categories/:id/subcategories/import', ...adminOnly, validate(idParam), csvUpload.single('file'), admin.importCategories(true));
