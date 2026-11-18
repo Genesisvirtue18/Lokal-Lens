@@ -50,7 +50,7 @@ export default function TrackedButton({ businessId, event, href, businessName = 
   const [open, setOpen] = useState(false);
   const go = () => {
     setOpen(false);
-    if (businessId) { try { fetch(`${apiUrl}/businesses/${businessId}/events`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: event }), keepalive: true }).catch(() => {}); } catch { /* counting is best effort */ } }
+    if (businessId) { try { fetch(`${apiUrl}/businesses/${businessId}/events`, { method: "POST", headers: { "Content-Type": "application/json", ...(typeof localStorage !== "undefined" && localStorage.getItem("directflow_access_token") ? { Authorization: `Bearer ${localStorage.getItem("directflow_access_token")}` } : {}) }, body: JSON.stringify({ type: event }), keepalive: true }).catch(() => {}); } catch { /* counting is best effort */ } }
     if (event === "call") window.location.href = href; else window.open(href, "_blank", "noopener,noreferrer");
   };
   return (

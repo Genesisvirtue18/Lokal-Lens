@@ -13,3 +13,5 @@ export const authenticate = config => async (req, res, next) => {
 };
 export const optionalAuthenticate = config => (req, res, next) => req.get('authorization') ? authenticate(config)(req, res, next) : next();
 export const authorizeRoles = (...roles) => (req, res, next) => roles.includes(req.user?.role) ? next() : next(new AppError('You are not authorized for this action', 403));
+// Reads the signed-in user when a valid token is sent, and carries on as a visitor when it is missing or expired.
+export const softAuthenticate = config => (req, res, next) => req.get('authorization') ? authenticate(config)(req, res, () => next()) : next();

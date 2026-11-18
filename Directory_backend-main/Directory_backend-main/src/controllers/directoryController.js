@@ -189,22 +189,22 @@ export const businessList = () => async (req,res,next) => { try {
 export const businessBySlug = () => async (req,res,next) => { try { const identifier=req.params.slug; const identityFilter=mongoose.isValidObjectId(identifier)?{_id:identifier}:{slug:identifier}; const item=await Business.findOne({...identityFilter,listingStatus:'published',deletedAt:null}).select('-owner -rejectionReason -kycDocuments -msmeNumber').populate('category','name slug').populate('subcategories','name slug').populate('secondaryCategories','name slug').lean(); if(!item) throw new AppError('Business not found',404); item.leadCount=await Lead.countDocuments({business:item._id}); sendSuccess(res,'Business retrieved successfully',{item:publicListing(item)}); }catch(e){next(e);} };
 export const recordBusinessView = () => async (req, res, next) => {
   try {
-    const item = await Business.findOneAndUpdate(
-      { _id: req.params.id, listingStatus: 'published', deletedAt: null },
-      { $inc: { viewCount: 1 } },
-      { new: true, projection: { viewCount: 1 } },
-    ).lean();
+    const item = await Business.findOne({ _id: req.params.id, listingStatus: 'published', deletedAt: null }).select('owner viewCount').lean();
     if (!item) throw new AppError('Business not found', 404);
+    // The owner looking at their own page is not a customer view.
+    if (req.user && String(item.owner) === String(req.user.id)) return sendSuccess(res, 'Owner views are not counted', { viewCount: item.viewCount });
+    const updated = await Business.findOneAndUpdate({ _id: item._id }, { $inc: { viewCount: 1 } }, { new: true, projection: { viewCount: 1 } }).lean();
     await bump(item._id, 'views').catch(() => {});
-    sendSuccess(res, 'Business view recorded', { viewCount: item.viewCount });
+    sendSuccess(res, 'Business view recorded', { viewCount: updated?.viewCount ?? item.viewCount });
   } catch (error) { next(error); }
 };
 // Counts a click on Call / WhatsApp / Directions / Website. Nothing about the visitor is stored.
 export const recordBusinessEvent = () => async (req, res, next) => {
   try {
     const field = EVENT_FIELDS[req.validated.body.type];
-    const exists = await Business.exists({ _id: req.params.id, listingStatus: 'published', deletedAt: null });
-    if (!exists) throw new AppError('Business not found', 404);
+    const business = await Business.findOne({ _id: req.params.id, listingStatus: 'published', deletedAt: null }).select('owner').lean();
+    if (!business) throw new AppError('Business not found', 404);
+    if (req.user && String(business.owner) === String(req.user.id)) return sendSuccess(res, 'Owner clicks are not counted');
     await bump(req.params.id, field);
     sendSuccess(res, 'Recorded');
   } catch (error) { next(error); }

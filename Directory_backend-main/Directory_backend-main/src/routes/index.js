@@ -6,7 +6,7 @@ import { cloudinary, configureCloudinary } from '../config/cloudinary.js';
 import { healthController } from '../controllers/healthController.js';
 import { z } from 'zod';
 import { validate } from '../middleware/validate.js';
-import { authenticate, authorizeRoles } from '../middleware/auth.js';
+import { authenticate, authorizeRoles, softAuthenticate } from '../middleware/auth.js';
 import * as auth from '../controllers/authController.js';
 import * as users from '../controllers/userController.js';
 import * as directory from '../controllers/directoryController.js';
@@ -274,9 +274,9 @@ router.get('/businesses/facets', validate(z.object({ query: z.object({ city: z.s
 router.get('/businesses', validate(z.object({query:publicQuery})), directory.businessList());
 router.get('/search', validate(z.object({query:publicQuery})), directory.businessList());
 router.get('/businesses/:slug', directory.businessBySlug());
-router.post('/businesses/:id/views', businessViewLimit, validate(idParam), directory.recordBusinessView());
+router.post('/businesses/:id/views', softAuthenticate(config), businessViewLimit, validate(idParam), directory.recordBusinessView());
 router.post('/businesses/:id/leads', businessLeadLimit, validate(idParam.extend({ body: businessLeadBody })), directory.createBusinessLead(config, mailer));
-router.post('/businesses/:id/events', businessEventLimit, validate(idParam.extend({ body: z.object({ type: z.enum(['call', 'whatsapp', 'directions', 'website']) }).strict() })), directory.recordBusinessEvent());
+router.post('/businesses/:id/events', softAuthenticate(config), businessEventLimit, validate(idParam.extend({ body: z.object({ type: z.enum(['call', 'whatsapp', 'directions', 'website']) }).strict() })), directory.recordBusinessEvent());
 router.get('/businesses/:id/google-reviews', googleReviewsLimit, createGoogleReviewsController(places, googleBusinessProfile));
   return router;
 }

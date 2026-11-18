@@ -24,8 +24,18 @@ export async function getGoogleReviews(id, signal, ratingOnly = false) {
   if (!response.ok) throw new Error(body.message || "Unable to load Google review information");
   return body.data?.google;
 }
+const VIEW_WINDOW_MS = 30 * 60 * 1000;
 export async function recordBusinessView(id) {
-  const response = await fetch(`${baseUrl}/businesses/${encodeURIComponent(id)}/views`, { method: "POST", cache: "no-store", signal: AbortSignal.timeout(8000) });
+  // One view per browser per business every 30 minutes, so refreshing the page does not inflate the count.
+  try {
+    const key = `ll_viewed_${id}`;
+    const last = Number(sessionStorage.getItem(key) || 0);
+    if (last && Date.now() - last < VIEW_WINDOW_MS) return null;
+    sessionStorage.setItem(key, String(Date.now()));
+  } catch { /* private mode: count normally */ }
+  let token = "";
+  try { token = localStorage.getItem("directflow_access_token") || ""; } catch { /* no token */ }
+  const response = await fetch(`${baseUrl}/businesses/${encodeURIComponent(id)}/views`, { method: "POST", cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(8000) });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.message || "Unable to record this profile view");
   return body.data;
