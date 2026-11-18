@@ -122,6 +122,7 @@ const businessSchema = new Schema({
   msmeNumber: { type: String, trim: true, uppercase: true, maxlength: 30 },
   kycDocuments: { type: [kycDocumentSchema], default: [] },
   kycStatus: { type: String, enum: ['not_submitted', 'submitted', 'verified', 'rejected'], default: 'not_submitted' },
+  kycRejectionReason: { type: String, maxlength: 500 },
   paymentModes: [{ type: String, enum: ['cash', 'upi', 'debit_card', 'credit_card', 'net_banking', 'cheque', 'emi', 'wallet'] }],
   serviceAreas: [{ type: String, trim: true, maxlength: 120 }],
   languages: [{ type: String, trim: true, maxlength: 40 }],
@@ -177,7 +178,7 @@ businessSchema.index({ owner: 1, deletedAt: 1 });
 businessSchema.index({ name: 'text', description: 'text', keywords: 'text', services: 'text' });
 businessSchema.pre('validate', function standardizeEmbeddedData() {
   // Owners submitting documents (or changing a verified GST number) puts the KYC back in the admin queue.
-  if (this.kycDocuments?.length && ['not_submitted', 'rejected'].includes(this.kycStatus)) this.kycStatus = 'submitted';
+  if (this.kycDocuments?.length && ['not_submitted', 'rejected'].includes(this.kycStatus) && (this.kycStatus === 'not_submitted' || this.isModified('kycDocuments') || this.isModified('gstNumber'))) { this.kycStatus = 'submitted'; this.kycRejectionReason = undefined; }
   if (this.kycStatus === 'verified' && !this.isNew && this.isModified('gstNumber')) this.kycStatus = 'submitted';
   if (this.isModified('reviews')) {
     const ratings = this.reviews.map(review => Number(review.rating)).filter(rating => Number.isFinite(rating) && rating >= 1 && rating <= 5);

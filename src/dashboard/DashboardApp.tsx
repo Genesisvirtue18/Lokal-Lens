@@ -229,7 +229,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
           onAddBusiness={handleAddBusiness}
         />
 
-        {role === 'owner' && <OwnerTopBar user={ownerUser} tab={ownerTab} leads={ownerLeads} onOpenLead={(lead) => setSelectedLead(lead)} onGoLeads={() => setOwnerTab('leads')} onAccount={() => setOwnerTab('settings')} onLogout={doLogout} />}
+        {role === 'owner' && <OwnerTopBar user={ownerUser} tab={ownerTab} leads={ownerLeads} reviews={reviews} onGoReviews={() => setOwnerTab('reviews')} onOpenLead={(lead) => setSelectedLead(lead)} onGoLeads={() => setOwnerTab('leads')} onAccount={() => setOwnerTab('settings')} onLogout={doLogout} />}
         {role === 'owner' && !loading && !loadError && <OwnerTabs active={ownerTab} onSelect={setOwnerTab} newLeads={ownerLeads.filter((lead) => lead.status === 'New').length} reviewCount={reviews.length} />}
         {/* Dashboard Content per Role and Sub-Tab */}
         <div className="flex-1">

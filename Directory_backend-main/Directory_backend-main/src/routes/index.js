@@ -119,7 +119,7 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.post('/auth/reset-password', resetLimit, validate(z.object({ body: z.object({ token: z.string().min(20).max(200), password: z.string().min(8).max(128) }).strict() })), auth.resetPassword());
   router.get('/search/suggest', validate(z.object({ query: z.object({ q: z.string().trim().min(1).max(60), city: z.string().trim().max(120).optional() }) })), directory.suggest());
   router.get('/businesses/:id/reviews', validate(idParam), reviews.listReviews());
-  router.post('/businesses/:id/reviews', reviewLimit, authenticate(config), validate(idParam.extend({ body: z.object({ rating: z.coerce.number().int().min(1).max(5), comment: z.string().trim().max(3000).optional() }).strict() })), reviews.upsertReview());
+  router.post('/businesses/:id/reviews', reviewLimit, authenticate(config), validate(idParam.extend({ body: z.object({ rating: z.coerce.number().int().min(1).max(5), comment: z.string().trim().max(3000).optional() }).strict() })), reviews.upsertReview(config, mailer));
   const otpLimit = strictLimit(20, 'Too many code requests. Please try again in a few minutes.');
   router.post('/auth/otp/request', otpLimit, validate(z.object({ body: z.object({ email: z.string().email().transform(value => value.trim().toLowerCase()), name: z.string().trim().min(2).max(120).optional() }).strict() })), auth.requestOtp(config, mailer));
   router.post('/auth/otp/verify', otpLimit, validate(z.object({ body: z.object({ email: z.string().email().transform(value => value.trim().toLowerCase()), code: z.string().regex(/^\d{6}$/) }).strict() })), auth.verifyOtp(config));
@@ -253,7 +253,7 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.patch('/admin/businesses/:id/owner', ...adminOnly, validate(idParam.extend({ body: z.object({ ownerId: objectId }).strict() })), admin.assignBusinessOwner());
   router.post('/admin/businesses', ...adminOnly, validate(z.object({ body: ownerBusinessBody.extend({ email: z.union([z.string().email(), z.literal('')]).optional(), ownerId: objectId.optional(), publish: z.boolean().optional() }) })), admin.createBusiness());
   router.delete('/admin/businesses/:id/reviews/:reviewId', ...adminOnly, validate(z.object({ params: z.object({ id: objectId, reviewId: objectId }) })), reviews.deleteReview());
-  router.patch('/admin/businesses/:id/kyc', ...adminOnly, validate(idParam.extend({ body: z.object({ decision: z.enum(['approve', 'reject']) }).strict() })), admin.reviewKyc());
+  router.patch('/admin/businesses/:id/kyc', ...adminOnly, validate(idParam.extend({ body: z.object({ decision: z.enum(['approve', 'reject']), reason: z.string().trim().max(500).optional() }).strict() })), admin.reviewKyc());
   router.patch('/admin/businesses/:id/plan', ...adminOnly, validate(idParam.extend({ body: z.object({ plan: z.enum(['free', 'premium']), planExpiresAt: z.coerce.date().optional() }).strict() })), admin.setPlan());
   router.patch('/admin/businesses/:id/review', ...adminOnly, validate(idParam.extend({ body: z.object({ decision: z.enum(['approve', 'reject']), rejectionReason: z.string().trim().max(2000).optional() }).strict() })), admin.reviewBusiness());
   router.patch('/admin/businesses/:id/google-place', ...adminOnly, validate(idParam), admin.clearGooglePlaceMismatch());

@@ -21,11 +21,12 @@ type ApiLead = {
   createdAt?: string;
   message?: string;
   notes?: string[];
-  business?: { name?: string };
+  business?: { _id?: string; name?: string };
 };
 
 type ApiBusiness = {
   rejectionReason?: string;
+  kycRejectionReason?: string;
   _id?: string;
   id?: string;
   name?: string;
@@ -100,7 +101,7 @@ export async function request(path: string, options: RequestInit = {}) {
 export async function logout() { const refreshToken = typeof window === 'undefined' ? '' : localStorage.getItem('directflow_refresh_token') || ''; try { if (refreshToken) await request('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }); } finally { if (typeof window !== 'undefined') { localStorage.removeItem('directflow_access_token'); localStorage.removeItem('directflow_refresh_token'); } } }
 const ago = (value?: string) => value ? new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(Math.round((new Date(value).getTime() - Date.now()) / 86400000), 'day') : 'Recently';
 const reviewStats = (item: ApiBusiness) => { const ratings = (item.reviews || []).map((review) => Number(review.rating)).filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5); return ratings.length ? { average: Number((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(2)), count: ratings.length } : { average: Number(item.averageRating || 0), count: Number(item.reviewCount || 0) }; };
-export const toDashboardBusiness = (item: ApiBusiness): BusinessListing => { const stats = reviewStats(item); return ({ id: item._id || item.id || '', name: item.name || 'Business', owner: item.owner?.name || 'Unassigned', ownerId: item.owner?._id, category: (item.category?.name || 'Services') as BusinessListing['category'], location: [item.address?.locality, item.address?.city, item.address?.state].filter(Boolean).join(', ') || 'Location not added', phone: item.phone || 'Not added', alternatePhone: item.alternatePhone, whatsapp: item.whatsapp, email: item.email, website: item.website, logo: item.logo, images: item.images || [], services: item.services || [], address: item.address || {}, workingHours: item.workingHours || [], status: item.listingStatus === 'published' ? 'Active' : item.listingStatus === 'rejected' ? 'Rejected' : item.listingStatus === 'pending_review' ? 'Pending' : item.listingStatus === 'suspended' ? 'Suspended' : item.listingStatus === 'paused' ? 'Paused' : 'Draft', slug: item.slug, rejectionReason: item.rejectionReason, offers: (item.offers || []).map((offer) => ({ id: offer._id || '', title: offer.title || '', description: offer.description || '', code: offer.code || '', occasion: offer.occasion || '', validUntil: offer.validUntil || '', isActive: offer.isActive !== false })), timeAgo: ago(item.createdAt), rating: stats.average, averageRating: stats.average, reviewsCount: stats.count, views: Number(item.viewCount || 0), enquiries: Number(item.leadCount || 0), verified: item.verificationStatus === 'verified', googlePlaceVerificationStatus: item.googlePlaceVerificationStatus || 'unverified', description: item.description || '', kycStatus: item.kycStatus || 'not_submitted', gstNumber: item.gstNumber, msmeNumber: item.msmeNumber, kycDocuments: item.kycDocuments || [], plan: item.plan || 'free', planExpiresAt: item.planExpiresAt }); };
+export const toDashboardBusiness = (item: ApiBusiness): BusinessListing => { const stats = reviewStats(item); return ({ id: item._id || item.id || '', name: item.name || 'Business', owner: item.owner?.name || 'Unassigned', ownerId: item.owner?._id, category: (item.category?.name || 'Services') as BusinessListing['category'], location: [item.address?.locality, item.address?.city, item.address?.state].filter(Boolean).join(', ') || 'Location not added', phone: item.phone || 'Not added', alternatePhone: item.alternatePhone, whatsapp: item.whatsapp, email: item.email, website: item.website, logo: item.logo, images: item.images || [], services: item.services || [], address: item.address || {}, workingHours: item.workingHours || [], status: item.listingStatus === 'published' ? 'Active' : item.listingStatus === 'rejected' ? 'Rejected' : item.listingStatus === 'pending_review' ? 'Pending' : item.listingStatus === 'suspended' ? 'Suspended' : item.listingStatus === 'paused' ? 'Paused' : 'Draft', slug: item.slug, rejectionReason: item.rejectionReason, kycRejectionReason: item.kycRejectionReason, offers: (item.offers || []).map((offer) => ({ id: offer._id || '', title: offer.title || '', description: offer.description || '', code: offer.code || '', occasion: offer.occasion || '', validUntil: offer.validUntil || '', isActive: offer.isActive !== false })), timeAgo: ago(item.createdAt), rating: stats.average, averageRating: stats.average, reviewsCount: stats.count, views: Number(item.viewCount || 0), enquiries: Number(item.leadCount || 0), verified: item.verificationStatus === 'verified', googlePlaceVerificationStatus: item.googlePlaceVerificationStatus || 'unverified', description: item.description || '', kycStatus: item.kycStatus || 'not_submitted', gstNumber: item.gstNumber, msmeNumber: item.msmeNumber, kycDocuments: item.kycDocuments || [], plan: item.plan || 'free', planExpiresAt: item.planExpiresAt }); };
 export async function loadOwnerDashboard(): Promise<{ businesses: BusinessListing[]; reviews: Review[]; leads: Lead[] }> {
   const [{ items: businesses = [] }, { items: leads = [] }] = await Promise.all([
     request('/owner/businesses?limit=100'),
@@ -120,6 +121,8 @@ export async function loadOwnerDashboard(): Promise<{ businesses: BusinessListin
       message: lead.message || '',
       notes: lead.notes || [],
       targetBusiness: lead.business?.name || 'Business',
+      businessId: lead.business?._id,
+      createdAt: lead.createdAt,
     })),
   };
 }
@@ -134,7 +137,7 @@ export async function loadAdminDashboard(): Promise<BusinessListing[]> { const {
 export async function loadAdminOwners(): Promise<{ id: string; name: string; email: string }[]> { const { items = [] } = await request('/admin/owners'); return items.map((item: { _id: string; name: string; email: string }) => ({ id: item._id, name: item.name, email: item.email })); }
 export async function assignBusinessOwner(id: string, ownerId: string) { const { item } = await request(`/admin/businesses/${id}/owner`, { method: 'PATCH', body: JSON.stringify({ ownerId }) }); return toDashboardBusiness(item); }
 export async function reviewBusiness(id: string, decision: 'approve' | 'reject', rejectionReason?: string) { const { item } = await request(`/admin/businesses/${id}/review`, { method: 'PATCH', body: JSON.stringify({ decision, ...(rejectionReason ? { rejectionReason } : {}) }) }); return toDashboardBusiness(item); }
-export async function reviewKyc(id: string, decision: 'approve' | 'reject') { const { item } = await request(`/admin/businesses/${id}/kyc`, { method: 'PATCH', body: JSON.stringify({ decision }) }); return toDashboardBusiness(item); }
+export async function reviewKyc(id: string, decision: 'approve' | 'reject', reason?: string) { const { item } = await request(`/admin/businesses/${id}/kyc`, { method: 'PATCH', body: JSON.stringify({ decision, ...(reason ? { reason } : {}) }) }); return toDashboardBusiness(item); }
 export async function setBusinessPlan(id: string, plan: 'free' | 'premium', planExpiresAt?: string) { const { item } = await request(`/admin/businesses/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ plan, ...(planExpiresAt ? { planExpiresAt } : {}) }) }); return toDashboardBusiness(item); }
 export async function clearGooglePlaceMismatch(id: string) { const { item } = await request(`/admin/businesses/${id}/google-place`, { method: 'PATCH' }); return toDashboardBusiness(item); }
 export async function loadBusinessFormData() { const { items = [] } = await request('/categories/tree'); return { categories: items }; }

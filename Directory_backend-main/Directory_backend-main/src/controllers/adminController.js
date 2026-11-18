@@ -283,6 +283,7 @@ export const reviewKyc = () => async (req, res, next) => { try {
   const { decision } = req.validated.body;
   if (decision === 'approve' && !item.gstNumber && !item.kycDocuments?.length) throw new AppError('Add a GST number or a document before approving verification', 422);
   item.kycStatus = decision === 'approve' ? 'verified' : 'rejected';
+  item.kycRejectionReason = decision === 'reject' ? (req.validated.body.reason || undefined) : undefined;
   item.verificationStatus = decision === 'approve' ? 'verified' : 'pending';
   item.kycDocuments.forEach(doc => { doc.status = decision === 'approve' ? 'approved' : 'rejected'; });
   await item.save(); await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email' }]);

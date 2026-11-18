@@ -2,19 +2,21 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Bell, ChevronDown, ExternalLink, LogOut, Settings } from 'lucide-react';
 import { cx } from '@/components/ds';
-import { Lead, OwnerTab } from '../types';
+import { Lead, OwnerTab, Review } from '../types';
 import { OwnerUser } from './OwnerAccountTab';
 
 const titles: Record<OwnerTab, string> = { business: 'Overview', leads: 'Inquiries', reviews: 'Reviews', analytics: 'Analytics', offers: 'Offers', settings: 'Account settings', form: 'Your listing' };
 const initials = (name = '') => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || '?';
 
-interface Props { user: OwnerUser | null; tab: OwnerTab; leads: Lead[]; onOpenLead: (lead: Lead) => void; onGoLeads: () => void; onAccount: () => void; onLogout: () => void }
+interface Props { user: OwnerUser | null; tab: OwnerTab; leads: Lead[]; reviews?: Review[]; onGoReviews?: () => void; onOpenLead: (lead: Lead) => void; onGoLeads: () => void; onAccount: () => void; onLogout: () => void }
 
 // Desktop top bar: where you are, new inquiries (bell), and who is signed in (account menu).
-export const OwnerTopBar: React.FC<Props> = ({ user, tab, leads, onOpenLead, onGoLeads, onAccount, onLogout }) => {
+export const OwnerTopBar: React.FC<Props> = ({ user, tab, leads, reviews = [], onGoReviews, onOpenLead, onGoLeads, onAccount, onLogout }) => {
   const [open, setOpen] = useState<'' | 'bell' | 'user'>('');
   const box = useRef<HTMLDivElement>(null);
   const fresh = leads.filter((lead) => lead.status === 'New');
+  const needReply = reviews.filter((review) => !review.reply);
+  const total = fresh.length + needReply.length;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -32,11 +34,18 @@ export const OwnerTopBar: React.FC<Props> = ({ user, tab, leads, onOpenLead, onG
         <Link href="/" target="_blank" className="hidden h-10 items-center gap-1.5 rounded-[10px] px-3 font-display text-[14px] font-medium text-[#4a4c55] hover:bg-[#f1f1ee] xl:flex">View site<ExternalLink size={15} aria-hidden="true" /></Link>
 
         <div className="relative">
-          <button type="button" onClick={() => setOpen(open === 'bell' ? '' : 'bell')} aria-label={`Notifications${fresh.length ? `, ${fresh.length} new` : ''}`} aria-expanded={open === 'bell'} className="relative grid h-10 w-10 place-items-center rounded-full hover:bg-[#f1f1ee]"><Bell size={20} aria-hidden="true" />{fresh.length > 0 && <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#b42318] px-1 text-[10px] font-semibold text-white">{fresh.length}</span>}</button>
+          <button type="button" onClick={() => setOpen(open === 'bell' ? '' : 'bell')} aria-label={`Notifications${total ? `, ${total} new` : ''}`} aria-expanded={open === 'bell'} className="relative grid h-10 w-10 place-items-center rounded-full hover:bg-[#f1f1ee]"><Bell size={20} aria-hidden="true" />{total > 0 && <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[#b42318] px-1 text-[10px] font-semibold text-white">{total}</span>}</button>
           {open === 'bell' && (
             <div className="absolute right-0 top-12 w-[340px] overflow-hidden rounded-[16px] border border-[#dcdbd5] bg-white shadow-[0_8px_24px_rgba(16,17,21,.12)]">
-              <p className="border-b border-[#ecebe7] px-4 py-3 font-display text-[15px] font-semibold">New inquiries</p>
-              {fresh.length ? fresh.slice(0, 5).map((lead) => <button key={lead.id} type="button" onClick={() => { setOpen(''); onOpenLead(lead); }} className="flex w-full flex-col gap-0.5 border-b border-[#ecebe7] px-4 py-3 text-left last:border-0 hover:bg-[#f7f7f4]"><span className="text-[14px] font-semibold">{lead.name} <span className="font-normal text-[#6e7079]">· {lead.timestamp}</span></span><span className="line-clamp-1 text-[13px] text-[#4a4c55]">{lead.message}</span></button>) : <p className="px-4 py-6 text-center text-[14px] text-[#6e7079]">You’re all caught up.</p>}
+              <p className="border-b border-[#ecebe7] px-4 py-3 font-display text-[15px] font-semibold">Notifications</p>
+              {fresh.length ? <p className="px-4 pt-3 font-eyebrow text-[#6e7079]">New inquiries</p> : null}
+              {fresh.length ? fresh.slice(0, 5).map((lead) => <button key={lead.id} type="button" onClick={() => { setOpen(''); onOpenLead(lead); }} className="flex w-full flex-col gap-0.5 border-b border-[#ecebe7] px-4 py-3 text-left last:border-0 hover:bg-[#f7f7f4]"><span className="text-[14px] font-semibold">{lead.name} <span className="font-normal text-[#6e7079]">· {lead.timestamp}</span></span><span className="line-clamp-1 text-[13px] text-[#4a4c55]">{lead.message}</span></button>) : needReply.length ? null : <p className="px-4 py-6 text-center text-[14px] text-[#6e7079]">You’re all caught up.</p>}
+              {needReply.length > 0 && (
+                <div className="border-t border-[#ecebe7]">
+                  <p className="px-4 pt-3 font-eyebrow text-[#6e7079]">Reviews waiting for your reply</p>
+                  {needReply.slice(0, 3).map((review) => <button key={review.id} type="button" onClick={() => { setOpen(''); onGoReviews?.(); }} className="flex w-full flex-col gap-0.5 px-4 py-2.5 text-left hover:bg-[#f7f7f4]"><span className="text-[14px] font-semibold">{'★'.repeat(Math.max(0, Math.min(5, review.rating)))} <span className="font-normal text-[#6e7079]">{review.author}{review.businessName ? ` · ${review.businessName}` : ''}</span></span>{review.comment && <span className="line-clamp-1 text-[13px] text-[#4a4c55]">{review.comment}</span>}</button>)}
+                </div>
+              )}
               <button type="button" onClick={() => { setOpen(''); onGoLeads(); }} className="w-full border-t border-[#ecebe7] px-4 py-3 text-center font-display text-[14px] font-medium text-[#002fa7] hover:bg-[#f7f7f4]">View all inquiries</button>
             </div>
           )}

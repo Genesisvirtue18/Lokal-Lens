@@ -8,7 +8,7 @@ const publicReview = review => {
 };
 
 // Signed-in customers can leave one review per business; posting again edits their earlier review.
-export const upsertReview = () => async (req, res, next) => { try {
+export const upsertReview = (config, mailer) => async (req, res, next) => { try {
   const business = await Business.findOne({ _id: req.params.id, listingStatus: 'published', deletedAt: null });
   if (!business) throw new AppError('Business not found', 404);
   if (business.owner && String(business.owner) === String(req.user.id)) throw new AppError('You cannot review your own business', 403);
@@ -18,6 +18,15 @@ export const upsertReview = () => async (req, res, next) => { try {
   else business.reviews.push({ user: req.user.id, reviewerName: req.user.name, rating, comment: comment || undefined });
   await business.save();
   const saved = business.reviews.find(review => review.user && String(review.user) === String(req.user.id));
+  // Tell the owner about a brand-new review by email (unless they turned emails off). A mail problem never blocks the review.
+  if (!existing && mailer && business.owner) {
+    Business.findById(business._id).select('name owner').populate('owner', 'email notificationPreferences').lean().then((full) => {
+      const owner = full?.owner;
+      if (!owner?.email || owner.notificationPreferences?.email === false) return null;
+      const lines = [`${req.user.name} left a ${rating}-star review for ${business.name}.`, ...(comment ? ['', comment] : []), '', `Open your dashboard to reply: ${config?.CLIENT_URL || ''}/business-owner`];
+      return mailer.send({ to: owner.email, subject: `New ${rating}-star review for ${business.name}`, text: lines.join('\n') });
+    }).catch(() => console.error('Review email could not be sent'));
+  }
   sendSuccess(res, existing ? 'Your review was updated' : 'Thanks for your review', { item: publicReview(saved), averageRating: business.averageRating, reviewCount: business.reviewCount }, existing ? 200 : 201);
 } catch (e) { next(e); } };
 

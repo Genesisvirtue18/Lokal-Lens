@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { whatsappLink } from '../contact';
-import { Mail, MessageCircle, Phone, Search } from 'lucide-react';
+import { Download, Mail, MessageCircle, Phone, Search } from 'lucide-react';
 import { cx } from '@/components/ds';
 import { Lead } from '../types';
 
@@ -17,9 +17,21 @@ const tone: Record<Lead['status'], string> = { New: 'bg-[#e6ebf7] text-[#002fa7]
 export const OwnerLeadsTab: React.FC<OwnerLeadsTabProps> = ({ leads, onSelectLead, onStatusChange }) => {
   const [filter, setFilter] = useState<'All' | Lead['status']>('All');
   const [search, setSearch] = useState('');
+  const [business, setBusiness] = useState('all');
+  const businesses = useMemo(() => { const seen = new Map<string, string>(); leads.forEach((lead) => { const key = lead.businessId || lead.targetBusiness; if (!seen.has(key)) seen.set(key, lead.targetBusiness); }); return [...seen.entries()]; }, [leads]);
   const counts = useMemo(() => ({ All: leads.length, New: leads.filter((l) => l.status === 'New').length, Contacted: leads.filter((l) => l.status === 'Contacted').length, Converted: leads.filter((l) => l.status === 'Converted').length }), [leads]);
   const term = search.trim().toLowerCase();
-  const filtered = leads.filter((lead) => (filter === 'All' || lead.status === filter) && (!term || [lead.name, lead.message, lead.phone, lead.email || '', lead.service || '', lead.targetBusiness].some((value) => value.toLowerCase().includes(term))));
+  const filtered = leads.filter((lead) => (filter === 'All' || lead.status === filter) && (business === 'all' || (lead.businessId || lead.targetBusiness) === business) && (!term || [lead.name, lead.message, lead.phone, lead.email || '', lead.service || '', lead.targetBusiness].some((value) => value.toLowerCase().includes(term))));
+
+  // Opens in Excel. Cells that start with = + - @ are prefixed so a customer can't plant a formula.
+  const exportCsv = () => {
+    const cell = (value: unknown) => { let text = String(value ?? '').replace(/\r?\n/g, ' '); if (/^[=+\-@\t]/.test(text)) text = `'${text}`; return `"${text.replace(/"/g, '""')}"`; };
+    const header = ['Date', 'Business', 'Name', 'Phone', 'Email', 'Service', 'Message', 'Status', 'Notes'];
+    const rows = filtered.map((lead) => [lead.createdAt ? new Date(lead.createdAt).toLocaleString('en-IN') : lead.timestamp, lead.targetBusiness, lead.name, lead.phone, lead.email || '', lead.service || '', lead.message, lead.status, (lead.notes || []).join(' | ')]);
+    const csv = '\uFEFF' + [header, ...rows].map((row) => row.map(cell).join(',')).join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = `inquiries-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
+  };
 
   return (
     <main className="mx-auto flex w-full max-w-[1000px] flex-col gap-6 px-4 pb-24 pt-8 md:px-8 lg:pt-10">
@@ -27,6 +39,8 @@ export const OwnerLeadsTab: React.FC<OwnerLeadsTabProps> = ({ leads, onSelectLea
 
       <div className="flex flex-wrap items-center gap-3">
         {(['All', 'New', 'Contacted', 'Converted'] as const).map((status) => <button key={status} type="button" onClick={() => setFilter(status)} aria-pressed={filter === status} className={cx('inline-flex h-10 items-center rounded-full border px-4 font-display text-[14px] font-medium', filter === status ? 'border-[#002fa7] bg-[#e6ebf7] text-[#002fa7]' : 'border-[#dcdbd5] bg-white hover:border-[#101115]')}>{status} ({counts[status]})</button>)}
+        {businesses.length > 1 && <select aria-label="Business" value={business} onChange={(event) => setBusiness(event.target.value)} className="h-10 max-w-[220px] rounded-[10px] border border-[#bdbcb5] bg-white px-3 text-[14px]"><option value="all">All listings</option>{businesses.map(([key, name]) => <option key={key} value={key}>{name}</option>)}</select>}
+        <button type="button" onClick={exportCsv} disabled={!filtered.length} className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[#bdbcb5] bg-white px-3.5 font-display text-[14px] font-medium hover:border-[#101115] disabled:cursor-not-allowed disabled:opacity-50"><Download size={16} aria-hidden="true" />Export CSV</button>
         <label className="ml-auto flex h-10 w-full items-center gap-2 rounded-[10px] border border-[#bdbcb5] bg-white px-3 sm:w-72"><Search size={16} className="shrink-0 text-[#6e7079]" aria-hidden="true" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, phone, message" aria-label="Search inquiries" className="w-full bg-transparent text-[14px] outline-none placeholder:text-[#6e7079]" /></label>
       </div>
 

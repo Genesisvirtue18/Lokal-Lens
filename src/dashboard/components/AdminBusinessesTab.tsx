@@ -251,7 +251,7 @@ export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({
                 {(biz.kycDocuments?.length ?? 0) > 0 && <p className="flex flex-wrap gap-x-3">{biz.kycDocuments?.map((doc, index) => <a key={doc.url} href={doc.url} target="_blank" rel="noreferrer" className="text-[#002fa7] underline">{doc.type.replace('_', ' ')} {index + 1}</a>)}</p>}
                 {(biz.gstNumber || (biz.kycDocuments?.length ?? 0) > 0) && <div className="flex gap-2">
                   <button disabled={busy === biz.id || biz.kycStatus === 'verified'} onClick={() => void runAction(biz.id, () => reviewKyc(biz.id, 'approve'))} className="rounded-xl bg-emerald-600 px-3 py-1.5 font-semibold text-white disabled:opacity-50">Verify</button>
-                  <button disabled={busy === biz.id || biz.kycStatus === 'rejected'} onClick={() => void runAction(biz.id, () => reviewKyc(biz.id, 'reject'))} className="rounded-xl border border-[#dcdbd5] px-3 py-1.5 font-semibold text-[#ba1a1a] disabled:opacity-50">Reject</button>
+                  <button disabled={busy === biz.id || biz.kycStatus === 'rejected'} onClick={() => { const reason = window.prompt('Why is the verification being rejected? The owner will see this.', 'The document is unclear. Please upload a clear photo.'); if (reason === null) return; void runAction(biz.id, () => reviewKyc(biz.id, 'reject', reason.trim())); }} className="rounded-xl border border-[#dcdbd5] px-3 py-1.5 font-semibold text-[#ba1a1a] disabled:opacity-50">Reject</button>
                 </div>}
               </div>
               <div className="space-y-1.5">

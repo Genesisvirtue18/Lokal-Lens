@@ -14,6 +14,7 @@ export interface BusinessListing {
   status: 'Active' | 'Pending' | 'Rejected' | 'Draft' | 'Suspended' | 'Paused';
   slug?: string;
   rejectionReason?: string;
+  kycRejectionReason?: string;
   offers?: { id: string; title: string; description: string; code: string; occasion: string; validUntil: string; isActive: boolean }[];
   timeAgo: string;
   rating?: number;
@@ -51,6 +52,8 @@ export interface Lead {
   timestamp: string;
   message: string;
   targetBusiness: string;
+  businessId?: string;
+  createdAt?: string;
   notes?: string[];
 }
 

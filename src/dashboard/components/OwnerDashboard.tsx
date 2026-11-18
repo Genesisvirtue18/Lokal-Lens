@@ -114,6 +114,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
   const sections = featured ? completenessSections(inputFromListing(featured)) : [];
   const percent = completenessPercent(sections);
   const doneCount = sections.filter((section) => section.done).length;
+  const kycRejected = Boolean(featured) && featured.kycStatus === 'rejected' && !featured.verified;
   const todo = sections.filter((section) => !section.done && section.id !== 'verified');
   const liveCount = businesses.filter((business) => business.status === 'Active').length;
   const pendingCount = businesses.filter((business) => business.status === 'Pending').length;
@@ -223,9 +224,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
             )}
             <div className="flex flex-col gap-4">
               <EmailVerification />
-              <Step done={Boolean(featured.verified) || (featured.kycDocuments?.length || 0) > 0 || Boolean(featured.gstNumber)} label="Add your GST number or upload address proof">
-                {!featured.verified && !(featured.kycDocuments?.length) && !featured.gstNumber && <div><Button type="secondary" size="s" onClick={() => (onEditAtStep ? onEditAtStep(featured, 3) : onOpenCompleteProfile(featured))}>Add proof</Button></div>}
-                {!featured.verified && ((featured.kycDocuments?.length || 0) > 0 || Boolean(featured.gstNumber)) && <p className="text-[14px] leading-5 text-[#8a5a00]">Submitted — our team is checking it.</p>}
+              <Step done={Boolean(featured.verified) || (!kycRejected && ((featured.kycDocuments?.length || 0) > 0 || Boolean(featured.gstNumber)))} label="Add your GST number or upload address proof">
+                {kycRejected && <div className="flex flex-col gap-2"><p role="status" className="rounded-[10px] bg-[#fdecea] px-3 py-2 text-[14px] leading-5 text-[#8c1d13]"><span className="font-semibold">Verification wasn’t approved.</span>{featured.kycRejectionReason ? ` ${featured.kycRejectionReason}` : ''} Upload a clear document or correct your GST number and we’ll check it again.</p><div><Button type="primary" size="s" onClick={() => (onEditAtStep ? onEditAtStep(featured, 3) : onOpenCompleteProfile(featured))}>Upload again</Button></div></div>}
+                {!kycRejected && !featured.verified && !(featured.kycDocuments?.length) && !featured.gstNumber && <div><Button type="secondary" size="s" onClick={() => (onEditAtStep ? onEditAtStep(featured, 3) : onOpenCompleteProfile(featured))}>Add proof</Button></div>}
+                {!kycRejected && !featured.verified && ((featured.kycDocuments?.length || 0) > 0 || Boolean(featured.gstNumber)) && <p className="text-[14px] leading-5 text-[#8a5a00]">Submitted — our team is checking it.</p>}
               </Step>
             </div>
           </article>

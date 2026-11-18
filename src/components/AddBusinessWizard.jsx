@@ -505,7 +505,7 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
               </div>
 
               <div className="flex flex-col gap-1 border-t border-[#ecebe7] pt-5">
-                <h2 id="field-hours" tabIndex={-1} className="font-display text-[16px] font-semibold leading-6 outline-none">Opening hours<span className="ml-0.5 text-[#b42318]" aria-hidden="true">*</span></h2>
+                <div className="flex flex-wrap items-center justify-between gap-2"><h2 id="field-hours" tabIndex={-1} className="font-display text-[16px] font-semibold leading-6 outline-none">Opening hours<span className="ml-0.5 text-[#b42318]" aria-hidden="true">*</span></h2><button type="button" onClick={() => { const first = data.hours[DAYS[0]]; update({ hours: Object.fromEntries(DAYS.map((d) => [d, data.hours[d].open ? { ...data.hours[d], opens: first.opens, closes: first.closes } : data.hours[d]])) }); }} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] px-2.5 text-[14px] font-medium text-[#002fa7] hover:bg-[#eef2fb]"><Copy size={15} aria-hidden="true" />Copy Monday’s hours to all open days</button></div>
                 {errors.hours && <p role="alert" className="text-[14px] leading-5 text-[#b42318]">{errors.hours}</p>}
                 {DAYS.map((day) => {
                   const entry = data.hours[day];
@@ -520,10 +520,9 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
                           <TimeSelect label={`${day} opens`} value={entry.opens} invalid={wrongOrder} onChange={(opens) => set({ opens })} />
                           <span className="text-[14px] text-[#6e7079]">to</span>
                           <TimeSelect label={`${day} closes`} value={entry.closes} invalid={wrongOrder} onChange={(closes) => set({ closes })} />
-                          {wrongOrder && <span role="alert" className="text-[13px] text-[#b42318]">Closing must be after opening</span>}
-                          {day === DAYS[0] && <button type="button" onClick={() => update({ hours: Object.fromEntries(DAYS.map((d) => [d, data.hours[d].open ? { ...data.hours[d], opens: entry.opens, closes: entry.closes } : data.hours[d]])) })} className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-[8px] px-2.5 text-[14px] font-medium text-[#002fa7] hover:bg-[#eef2fb]"><Copy size={15} aria-hidden="true" />Apply to all open days</button>}
-                        </span>
+                          </span>
                       ) : <span className="text-[16px] text-[#6e7079]">Closed</span>}
+                      {wrongOrder && <p role="alert" className="basis-full text-[13px] leading-[18px] text-[#b42318] sm:pl-[164px]">Closing time must be after the opening time.</p>}
                     </div>
                   );
                 })}
