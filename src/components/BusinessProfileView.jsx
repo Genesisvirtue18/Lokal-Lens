@@ -18,6 +18,7 @@ import SiteFooter from "@/components/ds/SiteFooter";
 import BusinessCard from "@/components/ds/BusinessCard";
 import { Badge, Button, cx } from "@/components/ds";
 import TrackedButton from "@/components/TrackedButton";
+import ClaimBusiness from "@/components/ClaimBusiness";
 
 
 function Section({ id, eyebrow, title, children }) {
@@ -291,6 +292,7 @@ export default function BusinessProfileView({ business, related = [], preview = 
             <div className="flex flex-col gap-2 border-t border-[#dcdbd5] pt-4">{openBadge && <div><Badge tone={openBadge.tone}>{openBadge.text}</Badge></div>}<p className="text-[14px] leading-5 text-[#4a4c55]">{[business.address?.addressLine1, business.address?.locality].filter(Boolean).join(", ") || business.address?.city || ""}</p></div>
           </section>
           <BusinessContactForm businessId={businessId} businessName={business.name} services={(business.services || []).map((item) => (typeof item === "string" ? item : item?.name)).filter(Boolean)} />
+          {!preview && businessId && <ClaimBusiness businessId={businessId} businessName={business.name} />}
           {!preview && <BusinessActivityStats key={businessId} businessId={businessId} />}
         </aside>
       </div>

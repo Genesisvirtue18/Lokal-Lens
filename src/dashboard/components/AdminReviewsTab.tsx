@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Search, Star, Trash2 } from 'lucide-react';
 import { Button, cx } from '@/components/ds';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { AdminReview, deleteAdminReview, loadAdminReviews, Paged } from '../api';
 
 const field = 'h-10 rounded-[10px] border border-[#bdbcb5] bg-white px-3 text-[14px] outline-none focus:border-2 focus:border-[#002fa7]';
@@ -13,6 +14,7 @@ export const AdminReviewsTab: React.FC<{ onOpenBusiness: (id: string) => void; o
   const [term, setTerm] = useState('');
   const [page, setPage] = useState(1);
   const [version, setVersion] = useState(0);
+  const confirm = useConfirm();
   const [result, setResult] = useState<{ key: string; data?: Paged<AdminReview>; error?: string }>({ key: '' });
 
   useEffect(() => { const timer = setTimeout(() => { setTerm(search.trim()); setPage(1); }, 300); return () => clearTimeout(timer); }, [search]);
@@ -27,7 +29,7 @@ export const AdminReviewsTab: React.FC<{ onOpenBusiness: (id: string) => void; o
   const total = result.data?.pagination.totalItems || 0;
 
   const remove = async (review: AdminReview) => {
-    if (!window.confirm(`Delete this ${review.rating}-star review by ${review.reviewerName}? The business’s rating is recalculated. This can’t be undone.`)) return;
+    if (!(await confirm({ title: `Delete this ${review.rating}-star review?`, message: `By ${review.reviewerName} on ${review.businessName}. The business’s rating is recalculated. This can’t be undone.`, confirmLabel: 'Delete review', tone: 'danger' }))) return;
     try { await deleteAdminReview(review.businessId, review.id); setVersion((value) => value + 1); showToast('Review deleted.'); }
     catch (reason) { showToast(reason instanceof Error ? reason.message : 'Unable to delete the review'); }
   };

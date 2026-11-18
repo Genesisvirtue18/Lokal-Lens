@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { Button } from "@/components/ds";
 import { authedFetch } from "@/dashboard/api";
+import ReportReviewButton from "@/components/ReportReviewButton";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "https://directory-backend-ai6r.onrender.com/api/v1").replace(/\/$/, "");
 
@@ -103,6 +104,7 @@ export default function CustomerReviews({ businessId, businessName, initialRevie
             </div>
             {review.comment && <p className="whitespace-pre-line text-[16px] leading-6">{review.comment}</p>}
             {review.reply?.text && <div className="rounded-[12px] bg-[#f1f1ee] p-4"><p className="font-display text-[13px] font-semibold text-[#002fa7]">Response from the owner · {dateText(review.reply.createdAt)}</p><p className="mt-1 whitespace-pre-line text-[15px] leading-6">{review.reply.text}</p></div>}
+            {review._id && <div className="flex justify-end"><ReportReviewButton businessId={businessId} reviewId={review._id} /></div>}
           </li>
         ))}</ul>
         <div className="flex flex-wrap items-center justify-between gap-3">

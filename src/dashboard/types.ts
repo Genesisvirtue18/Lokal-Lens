@@ -1,7 +1,7 @@
 export type UserRole = 'owner' | 'admin';
 
 export type OwnerTab = 'business' | 'leads' | 'reviews' | 'analytics' | 'offers' | 'settings' | 'form';
-export type AdminTab = 'overview' | 'businesses' | 'people' | 'reviews' | 'leads' | 'categories';
+export type AdminTab = 'overview' | 'businesses' | 'people' | 'reports' | 'reviews' | 'leads' | 'categories' | 'activity';
 
 export interface BusinessListing {
   id: string;

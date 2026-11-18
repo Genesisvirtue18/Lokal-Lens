@@ -8,6 +8,7 @@ import { FacebookIcon, InstagramIcon, YoutubeIcon } from "@/components/BrandIcon
 import { Button, Chip, Field, Logo, cx, fieldClass, labelClass } from "@/components/ds";
 import BusinessCard from "@/components/ds/BusinessCard";
 import PinPicker from "@/components/PinPicker";
+import { useConfirm } from "@/components/ConfirmProvider";
 import { AMENITY_SUGGESTIONS, BUSINESS_TYPES, DAYS, DOC_TYPES, INDIAN_STATES, LANGUAGES, PAYMENT_MODES, PRICE_RANGES, STEP_FIELDS, check, checkFaq, checkOffer, checkService, checkSpecialHours, clean } from "@/lib/business-validation";
 import { createAdminBusiness, createOwnerBusiness, geocodeBusinessAddress, loadAdminBusiness, loadAdminOwners, loadBusinessFormData, loadOwnerBusiness, request, updateAdminBusiness, updateOwnerBusiness, uploadBusinessDocuments, uploadBusinessImages } from "@/dashboard/api";
 
@@ -158,6 +159,7 @@ function TagInput({ id, values, onChange, placeholder, suggestions = [], max = 3
  */
 export default function AddBusinessWizard({ embedded = false, admin = false, editId: editIdProp = "", initialStep = 0, onExit, onSaved } = {}) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [adminOwners, setAdminOwners] = useState([]);
   const [adminOwnerId, setAdminOwnerId] = useState("");
   const [publishNow, setPublishNow] = useState(true);
@@ -194,9 +196,9 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
   const fileInput = useRef(null);
   const docInput = useRef(null);
   const editing = Boolean(editId);
-  const exit = () => {
+  const exit = async () => {
     // Leaving with unsaved typing asks first, so a stray click never throws the form away.
-    if (dirty && (phase === "form" || phase === "failed") && !window.confirm("Leave without saving? Your changes will be lost.")) return;
+    if (dirty && (phase === "form" || phase === "failed") && !(await confirm({ title: "Leave without saving?", message: "The details you typed will be lost.", confirmLabel: "Leave", cancelLabel: "Keep editing", tone: "warning" }))) return;
     if (embedded) onExit?.(); else router.push("/business-owner");
   };
 

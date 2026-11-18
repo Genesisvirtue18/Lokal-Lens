@@ -13,6 +13,7 @@ export function ShareListing({ business }: { business: BusinessListing }) {
   const url = `${siteOrigin()}${businessDetailPath({ address: business.address, slug: business.slug, name: business.name, id: business.id })}`;
   const [qr, setQr] = useState('');
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     if (!live) return undefined;
@@ -23,7 +24,7 @@ export function ShareListing({ business }: { business: BusinessListing }) {
 
   async function copy() {
     try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); }
-    catch { window.prompt('Copy this link', url); }
+    catch { setFailed(true); }
   }
   const message = `Find ${business.name} on Lokal Lens: ${url}`;
   const fileName = `${(business.slug || business.name || 'listing').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'listing'}-qr.png`;
@@ -37,7 +38,7 @@ export function ShareListing({ business }: { business: BusinessListing }) {
         </div>
         {live && (
           <>
-            <div className="flex items-center gap-2 rounded-[10px] border border-[#dcdbd5] bg-[#f7f7f4] px-3 py-2.5"><span className="min-w-0 flex-1 truncate font-mono text-[13px] text-[#4a4c55]" title={url}>{url}</span></div>
+            <div className="flex flex-col gap-1"><div className="flex items-center gap-2 rounded-[10px] border border-[#dcdbd5] bg-[#f7f7f4] px-3 py-2.5"><span className="min-w-0 flex-1 select-all truncate font-mono text-[13px] text-[#4a4c55]" title={url}>{url}</span></div>{failed && <p role="status" className="text-[13px] text-[#8a5a00]">Couldn’t copy automatically. Select the link above and copy it.</p>}</div>
             <div className="flex flex-wrap gap-2">
               <Button type="primary" size="s" onClick={copy} icon={copied ? <Check size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}>{copied ? 'Link copied' : 'Copy link'}</Button>
               <Button type="secondary" size="s" href={`https://wa.me/?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">Share on WhatsApp</Button>

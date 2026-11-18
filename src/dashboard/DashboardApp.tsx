@@ -24,9 +24,12 @@ import { OwnerLeadsTab } from './components/OwnerLeadsTab';
 import { OwnerReviewsTab } from './components/OwnerReviewsTab';
 import { AdminBusinessesTab } from './components/AdminBusinessesTab';
 import { AdminSidebar } from './components/AdminSidebar';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { AdminPeopleTab } from './components/AdminPeopleTab';
 import { AdminReviewsTab } from './components/AdminReviewsTab';
 import { AdminLeadsTab } from './components/AdminLeadsTab';
+import { AdminReportsTab } from './components/AdminReportsTab';
+import { AdminActivityTab } from './components/AdminActivityTab';
 import { BusinessProfileForm } from './components/BusinessProfileForm';
 import { CategoryManager } from './components/CategoryManager';
 
@@ -84,9 +87,10 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
     try { const data = await loadOwnerDashboard(); setActiveBusinesses(data.businesses); setReviews(data.reviews); setOwnerLeads(data.leads); } catch { /* keep what is on screen */ }
   };
   const onReviewChange = (reviewId: string, reply: { text: string; createdAt: string } | null) => setReviews((current) => current.map((review) => (review.id === reviewId ? { ...review, reply: reply?.text, replyDate: reply?.createdAt } : review)));
+  const confirm = useConfirm();
   const toggleVisibility = async (business: BusinessListing) => {
     const pause = business.status === 'Active';
-    if (!window.confirm(pause ? `Pause “${business.name}”? It will be hidden from search and customers until you resume it.` : `Make “${business.name}” live again?`)) return;
+    if (!(await confirm(pause ? { title: `Pause “${business.name}”?`, message: 'It is hidden from search and from customers until you resume it. Your inquiries and reviews are kept.', confirmLabel: 'Pause listing', tone: 'warning' } : { title: `Make “${business.name}” live again?`, message: 'Customers can find it in search again.', confirmLabel: 'Go live', tone: 'primary' }))) return;
     try { await setListingVisibility(business.id, !pause); await reloadOwner(); showToast(pause ? 'Listing paused.' : 'Your listing is live again.'); }
     catch (error) { showToast(error instanceof Error ? error.message : 'Unable to change the listing.'); }
   };
@@ -221,7 +225,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
       {/* Main Responsive App Frame Container */}
       <div className="flex min-h-screen w-full">
         {role === 'owner' && <OwnerSidebar active={ownerTab === 'form' && formEditId ? 'business' : ownerTab} onSelect={setOwnerTab} newLeads={ownerLeads.filter((lead) => lead.status === 'New').length} reviewCount={reviews.filter((review) => !review.reply).length} onAddBusiness={handleAddBusiness} onLogout={doLogout} />}
-        {role === 'admin' && <AdminSidebar active={adminTab} onSelect={(tab) => { setAdminForm(null); setAdminTab(tab); }} waiting={pendingBusinesses.length} onLogout={doLogout} />}
+        {role === 'admin' && <AdminSidebar active={adminTab} onSelect={(tab) => { setAdminForm(null); setAdminTab(tab); }} waiting={pendingBusinesses.length} reports={(adminStats?.openReports || 0) + (adminStats?.pendingClaims || 0)} onLogout={doLogout} />}
       <div className="min-w-0 flex-1 bg-[#f1f1ee]">
         {/* Top App Bar Component */}
         <Header
@@ -346,6 +350,10 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
               />
             ) : adminTab === 'people' ? (
               <AdminPeopleTab openId={adminPersonId} onCloseOpen={() => setAdminPersonId('')} onOpenBusiness={openBusiness} onListingsChanged={() => void reloadAdminList()} showToast={showToast} />
+            ) : adminTab === 'reports' ? (
+              <AdminReportsTab openReports={adminStats?.openReports || 0} pendingClaims={adminStats?.pendingClaims || 0} onChanged={() => void loadAdminStats().then(setAdminStats).catch(() => {})} onOpenBusiness={openBusiness} onOpenPerson={openPerson} showToast={showToast} />
+            ) : adminTab === 'activity' ? (
+              <AdminActivityTab onOpenBusiness={openBusiness} onOpenPerson={openPerson} />
             ) : adminTab === 'reviews' ? (
               <AdminReviewsTab onOpenBusiness={openBusiness} onOpenPerson={openPerson} showToast={showToast} />
             ) : adminTab === 'leads' ? (

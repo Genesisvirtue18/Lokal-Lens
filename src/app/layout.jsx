@@ -1,6 +1,7 @@
 import { DM_Mono, DM_Sans, Newsreader, Poppins } from "next/font/google";
 import "./globals.css";
 import LocationPermissionOnEntry from "@/components/LocationPermissionOnEntry";
+import { ConfirmProvider } from "@/components/ConfirmProvider";
 
 // Fonts from the Lokal Lens Figma foundations: Poppins (headings/UI), DM Sans (body), DM Mono (labels), Newsreader Italic (editorial).
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-poppins", display: "swap" });
@@ -28,8 +29,10 @@ export default function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <LocationPermissionOnEntry />
-        {children}
+        <ConfirmProvider>
+          <LocationPermissionOnEntry />
+          {children}
+        </ConfirmProvider>
       </body>
     </html>
   );

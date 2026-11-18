@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { ClipboardList, LayoutDashboard, LogOut, MessageSquare, Search, Shapes, Star, Store, Users } from 'lucide-react';
+import { ClipboardList, Flag, History, LayoutDashboard, LogOut, MessageSquare, Search, Shapes, Star, Store, Users } from 'lucide-react';
 import { Logo, cx } from '@/components/ds';
 import { AdminTab } from '../types';
 
@@ -8,15 +8,17 @@ export const adminNavItems: { id: AdminTab; label: string; icon: React.Component
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'businesses', label: 'Businesses', icon: Store },
   { id: 'people', label: 'People', icon: Users },
+  { id: 'reports', label: 'Reports & claims', icon: Flag },
   { id: 'reviews', label: 'Reviews', icon: Star },
   { id: 'leads', label: 'Inquiries', icon: MessageSquare },
   { id: 'categories', label: 'Categories', icon: Shapes },
+  { id: 'activity', label: 'Activity', icon: History },
 ];
 
-interface Props { active: AdminTab; onSelect: (tab: AdminTab) => void; waiting: number; onLogout: () => void }
+interface Props { active: AdminTab; onSelect: (tab: AdminTab) => void; waiting: number; reports?: number; onLogout: () => void }
 
 // Left navigation of the admin workspace (desktop). Phones use the bottom bar.
-export const AdminSidebar: React.FC<Props> = ({ active, onSelect, waiting, onLogout }) => (
+export const AdminSidebar: React.FC<Props> = ({ active, onSelect, waiting, reports = 0, onLogout }) => (
   <aside className="sticky top-0 hidden h-dvh w-[248px] shrink-0 flex-col border-r border-[#dcdbd5] bg-white md:flex" aria-label="Admin navigation">
     <div className="flex h-16 shrink-0 flex-col justify-center border-b border-[#dcdbd5] px-5"><Link href="/" aria-label="Lokal Lens home"><Logo /></Link></div>
     <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-2">
@@ -26,6 +28,7 @@ export const AdminSidebar: React.FC<Props> = ({ active, onSelect, waiting, onLog
           <Icon size={20} />
           <span className="flex-1">{label}</span>
           {id === 'businesses' && waiting > 0 ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#002fa7] px-1.5 text-[12px] font-semibold text-white" title="Waiting for approval">{waiting}</span> : null}
+          {id === 'reports' && reports > 0 ? <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#b42318] px-1.5 text-[12px] font-semibold text-white" title="Reports and claims waiting">{reports}</span> : null}
         </button>
       ))}
       <p className="px-3 pb-1 pt-5 font-eyebrow text-[#6e7079]">Shortcuts</p>

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { BadgeCheck, Check, ChevronRight, ExternalLink, Eye, MessageSquare, Pencil, Plus, Star, Store, Trash2 } from 'lucide-react';
 import { Badge, Button, cx } from '@/components/ds';
-import { request } from '../api';
+import { loadMyClaims, MyClaim, request } from '../api';
 import { completenessPercent, completenessSections, CompletenessInput } from '../completeness';
 import { BusinessListing, Lead, Review } from '../types';
 import { ShareListing } from './ShareListing';
@@ -106,6 +106,8 @@ function EmailVerification() {
 const leadTone: Record<Lead['status'], string> = { New: 'bg-[#e6ebf7] text-[#002fa7]', Contacted: 'bg-[#fbf0d9] text-[#8a5a00]', Converted: 'bg-[#e7f4e5] text-[#2b7a26]' };
 
 export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, leads, reviews, onOpenPublicProfile, onOpenCompleteProfile, onEditAtStep, onToggleVisibility, onDeleteBusiness, onAddBusiness, onSelectLead, onViewAllLeads }) => {
+  const [claims, setClaims] = useState<MyClaim[]>([]);
+  useEffect(() => { let live = true; loadMyClaims().then((items) => { if (live) setClaims(items); }).catch(() => {}); return () => { live = false; }; }, []);
   const [toDelete, setToDelete] = useState<BusinessListing | null>(null);
   const [typed, setTyped] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -232,6 +234,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
             </div>
           </article>
         </div>
+        </section>
+      )}
+
+      {claims.length > 0 && (
+        <section aria-label="Your claim requests" className="flex flex-col gap-3 rounded-[20px] border border-[#dcdbd5] bg-white p-6">
+          <div><h2 className="text-[18px] font-semibold leading-[26px]">Your claim requests</h2><p className="text-[14px] leading-5 text-[#4a4c55]">Listings you asked to manage. We email you when our team decides.</p></div>
+          <ul className="flex flex-col divide-y divide-[#ecebe7]">{claims.slice(0, 6).map((claim) => <li key={claim._id} className="flex flex-wrap items-center gap-3 py-3"><span className="min-w-0 flex-1"><span className="block truncate font-display text-[15px] font-semibold">{claim.business?.name || 'A listing'}</span><span className="block text-[13px] text-[#6e7079]">Sent {new Date(claim.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}{claim.decisionNote ? ` · ${claim.decisionNote}` : ''}</span></span><Badge tone={claim.status === 'approved' ? 'live' : claim.status === 'pending' ? 'pending' : 'closed'}>{claim.status === 'approved' ? 'Approved' : claim.status === 'pending' ? 'Waiting for review' : 'Not approved'}</Badge></li>)}</ul>
         </section>
       )}
 

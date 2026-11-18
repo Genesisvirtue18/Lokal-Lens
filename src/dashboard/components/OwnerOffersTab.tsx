@@ -1,3 +1,4 @@
+import { useConfirm } from '@/components/ConfirmProvider';
 import React, { useState } from 'react';
 import { Plus, Tag, Trash2 } from 'lucide-react';
 import { Badge, Button, Field, cx, fieldClass } from '@/components/ds';
@@ -15,6 +16,7 @@ const payload = (offers: Offer[]) => offers.map((offer) => ({ title: offer.title
 
 // Offers across all listings. Live offers appear on the profile and on the public Offers page.
 export const OwnerOffersTab: React.FC<Props> = ({ businesses, onChanged, showToast }) => {
+  const confirm = useConfirm();
   const [adding, setAdding] = useState(false);
   const [target, setTarget] = useState(businesses[0]?.id || '');
   const [draft, setDraft] = useState({ title: '', occasion: '', validUntil: '', code: '', description: '' });
@@ -40,7 +42,7 @@ export const OwnerOffersTab: React.FC<Props> = ({ businesses, onChanged, showToa
     if (await save(business, [...existing, next], business.status === 'Active' ? 'Offer added — it’s live now.' : 'Offer added. It goes live when your listing is approved.')) { setAdding(false); setDraft({ title: '', occasion: '', validUntil: '', code: '', description: '' }); }
   }
   const toggle = (business: BusinessListing, offer: Offer) => save(business, (business.offers || []).map((item) => (item.id === offer.id ? { ...item, isActive: !item.isActive } : item)), offer.isActive ? 'Offer paused.' : 'Offer is live again.');
-  const remove = (business: BusinessListing, offer: Offer) => { if (window.confirm(`Delete “${offer.title}”?`)) save(business, (business.offers || []).filter((item) => item.id !== offer.id), 'Offer deleted.'); };
+  const remove = async (business: BusinessListing, offer: Offer) => { if (await confirm({ title: `Delete “${offer.title}”?`, message: 'Customers will no longer see this offer.', confirmLabel: 'Delete offer', tone: 'danger' })) save(business, (business.offers || []).filter((item) => item.id !== offer.id), 'Offer deleted.'); };
 
   return (
     <main className="mx-auto flex w-full max-w-[1000px] flex-col gap-6 px-4 pb-24 pt-8 md:px-8 lg:pt-10">

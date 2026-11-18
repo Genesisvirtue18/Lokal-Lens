@@ -196,7 +196,7 @@ export type AdminUser = { _id: string; name: string; email?: string; phone?: str
 export type AdminUserDetail = { item: AdminUser; listings: { _id: string; name: string; listingStatus: string; kycStatus?: string; verificationStatus?: string; averageRating?: number; reviewCount?: number; viewCount?: number; leadCount?: number; address?: { city?: string; locality?: string }; category?: { name?: string }; createdAt?: string }[]; reviews: { id: string; businessId: string; businessName: string; rating: number; comment: string; createdAt?: string; reply?: string }[] };
 export type AdminReview = { id: string; businessId: string; businessName: string; rating: number; comment: string; createdAt?: string; reviewerName: string; reviewerId: string | null; reviewerEmail: string; source: 'member' | 'imported'; reply: string };
 export type AdminLead = { _id: string; name: string; phone: string; email?: string; service?: string; message: string; status: 'new' | 'contacted' | 'converted'; createdAt?: string; business?: { _id: string; name: string; owner?: { _id: string; name: string; email?: string } } };
-export type AdminStats = { customers: number; owners: number; admins: number; reviews: number; leads: number; leadsLast7Days: number };
+export type AdminStats = { customers: number; owners: number; admins: number; reviews: number; leads: number; leadsLast7Days: number; openReports?: number; pendingClaims?: number };
 const qs = (params: Record<string, string | number | undefined>) => { const search = new URLSearchParams(); Object.entries(params).forEach(([key, value]) => { if (value !== undefined && value !== '' && value !== 'all') search.set(key, String(value)); }); return search.toString(); };
 export const loadAdminStats = async (): Promise<AdminStats> => request('/admin/stats');
 export const loadAdminUsers = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminUser>> => request(`/admin/users?${qs(params)}`);
@@ -206,5 +206,28 @@ export const loadAdminReviews = async (params: Record<string, string | number | 
 export const deleteAdminReview = async (businessId: string, reviewId: string) => { await request(`/admin/businesses/${businessId}/reviews/${reviewId}`, { method: 'DELETE' }); };
 export const loadAdminLeads = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminLead>> => request(`/admin/leads?${qs(params)}`);
 export type ListingAction = 'suspend' | 'restore' | 'delete';
-export const bulkListingsAction = async (ids: string[], action: ListingAction): Promise<{ count: number }> => request('/admin/businesses/bulk', { method: 'POST', body: JSON.stringify({ ids, action }) });
+export const bulkListingsAction = async (ids: string[], action: ListingAction | 'assign', ownerId?: string): Promise<{ count: number }> => request('/admin/businesses/bulk', { method: 'POST', body: JSON.stringify({ ids, action, ...(ownerId ? { ownerId } : {}) }) });
 export const ownerListingsAction = async (userId: string, action: ListingAction): Promise<{ count: number }> => request(`/admin/users/${userId}/listings`, { method: 'POST', body: JSON.stringify({ action }) });
+
+// ---- Admin: activity, roles, reports, claims, exports ----
+export type AdminActivity = { _id: string; actorName?: string; actorEmail?: string; label: string; targetType: string; targetId?: string; targetName?: string; details?: string; createdAt: string };
+export type AdminReport = { _id: string; status: 'open' | 'dismissed' | 'removed'; reason: string; note?: string; reporterRole?: string; createdAt: string; resolutionNote?: string; business?: { _id: string; name: string }; reporter?: { _id: string; name: string; email?: string; role?: string }; snapshot?: { reviewerName?: string; rating?: number; comment?: string }; currentReview: { reviewerName?: string; rating?: number; comment?: string } | null };
+export type AdminClaim = { _id: string; status: 'pending' | 'approved' | 'rejected'; relationship: string; phone?: string; message: string; documentUrl?: string; decisionNote?: string; createdAt: string; business?: { _id: string; name: string; phone?: string; email?: string; website?: string; address?: { city?: string; state?: string }; owner?: { _id: string; name: string; email?: string } | null }; claimant?: { _id: string; name: string; email?: string; phone?: string; emailVerified?: boolean }; previousOwner?: { name: string; email?: string } | null };
+export const loadAdminActivity = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminActivity>> => request(`/admin/activity?${qs(params)}`);
+export const loadAdminReports = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminReport>> => request(`/admin/reports?${qs(params)}`);
+export const resolveAdminReport = async (id: string, action: 'dismiss' | 'remove', note?: string) => request(`/admin/reports/${id}`, { method: 'PATCH', body: JSON.stringify({ action, ...(note ? { note } : {}) }) });
+export const loadAdminClaims = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminClaim>> => request(`/admin/claims?${qs(params)}`);
+export const decideAdminClaim = async (id: string, decision: 'approve' | 'reject', note?: string) => request(`/admin/claims/${id}`, { method: 'PATCH', body: JSON.stringify({ decision, ...(note ? { note } : {}) }) });
+export const createAdminUser = async (payload: { name: string; email: string; role: 'customer' | 'business_owner' | 'admin' }) => request('/admin/users', { method: 'POST', body: JSON.stringify(payload) });
+export const changeAdminUserRole = async (id: string, role: 'customer' | 'business_owner' | 'admin') => request(`/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
+export const reportReview = async (businessId: string, reviewId: string, reason: string, note?: string) => request(`/businesses/${businessId}/reviews/${reviewId}/report`, { method: 'POST', body: JSON.stringify({ reason, ...(note ? { note } : {}) }) });
+export type MyClaim = { _id: string; status: 'pending' | 'approved' | 'rejected'; createdAt: string; decisionNote?: string; business?: { name?: string; address?: { city?: string } } };
+export const loadMyClaims = async (): Promise<MyClaim[]> => { const { items = [] } = await request('/owner/claims'); return items; };
+// Downloads a CSV the server builds (businesses or people).
+export async function downloadAdminExport(kind: 'businesses' | 'users') {
+  const response = await authedFetch(`${baseUrl}/admin/export/${kind}`);
+  if (!response.ok) throw new Error('Unable to export right now');
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a'); link.href = url; link.download = `${kind === 'users' ? 'people' : kind}-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
+}

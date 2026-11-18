@@ -1,7 +1,9 @@
+import { useConfirm } from '@/components/ConfirmProvider';
 import React, { useMemo, useState } from 'react';
 import { MessageSquareReply, Star, Trash2 } from 'lucide-react';
 import { Button, cx } from '@/components/ds';
 import { removeReviewReply, replyToReview } from '../api';
+import ReportReviewButton from '@/components/ReportReviewButton';
 import { BusinessListing, Review } from '../types';
 
 interface Props {
@@ -15,6 +17,7 @@ const Stars = ({ value }: { value: number }) => <span className="inline-flex gap
 const date = (value?: string) => { try { return new Date(value || '').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return ''; } };
 
 export const OwnerReviewsTab: React.FC<Props> = ({ reviews, businesses, onReviewChange, showToast }) => {
+  const confirm = useConfirm();
   const [filter, setFilter] = useState<'all' | 'open' | 'replied'>('all');
   const [business, setBusiness] = useState('');
   const [editing, setEditing] = useState('');
@@ -37,7 +40,7 @@ export const OwnerReviewsTab: React.FC<Props> = ({ reviews, businesses, onReview
     finally { setBusy(false); }
   }
   async function remove(review: Review) {
-    if (!window.confirm('Remove your reply? Customers will no longer see it.')) return;
+    if (!(await confirm({ title: 'Remove your reply?', message: 'Customers will no longer see it. You can write a new one later.', confirmLabel: 'Remove reply', tone: 'warning' }))) return;
     try { await removeReviewReply(review.businessId || '', review.id); onReviewChange(review.id, null); showToast('Reply removed.'); }
     catch (reason) { showToast(reason instanceof Error ? reason.message : 'Unable to remove the reply.'); }
   }
@@ -84,6 +87,7 @@ export const OwnerReviewsTab: React.FC<Props> = ({ reviews, businesses, onReview
               ) : (
                 <div><Button type="secondary" size="s" onClick={() => startReply(review)} icon={<MessageSquareReply size={18} aria-hidden="true" />}>Reply</Button></div>
               )}
+              <div className="flex justify-end border-t border-[#ecebe7] pt-2"><ReportReviewButton businessId={review.businessId || ''} reviewId={review.id} /></div>
             </li>
           ))}
         </ul>

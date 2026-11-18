@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, Eye, EyeOff, FolderPlus, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { Button, cx } from '@/components/ds';
 import { CATEGORY_ICONS, CategoryIcon, guessIconKey, hasValidIcon } from '@/lib/category-icons';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { addCategoryServices, createCategory, deleteCategory, importCategoriesCsv, importServicesCsv, loadAdminCategories, ManagedCategory, updateCategory } from '../api';
 
 const input = 'h-10 rounded-[10px] border border-[#bdbcb5] bg-white px-3 text-[14px] outline-none focus:border-2 focus:border-[#002fa7]';
@@ -45,6 +46,7 @@ export const CategoryManager = ({ onMessage }: { onMessage: (message: string) =>
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState('');
   const suggested = guessIconKey(newName);
@@ -99,7 +101,7 @@ export const CategoryManager = ({ onMessage }: { onMessage: (message: string) =>
               <Button type="secondary" size="s" onClick={() => { setOpen(expanded ? '' : category._id); setSubName(''); setServiceText(''); }}>{expanded ? 'Close' : top ? 'Subcategories & services' : 'Services'}</Button>
               <button type="button" aria-label={`Rename or change icon of ${category.name}`} title="Edit" onClick={() => setEditing({ id: category._id, name: category.name, icon: category.icon || '' })} className="grid h-9 w-9 place-items-center rounded-[8px] text-[#4a4c55] hover:bg-[#f1f1ee]"><Pencil size={16} aria-hidden="true" /></button>
               <button type="button" aria-label={hidden ? `Show ${category.name}` : `Hide ${category.name}`} title={hidden ? 'Show to customers' : 'Hide from customers'} onClick={() => void run(() => updateCategory(category._id, { isActive: hidden }), hidden ? 'Category is visible again.' : 'Category hidden.')} className="grid h-9 w-9 place-items-center rounded-[8px] text-[#4a4c55] hover:bg-[#f1f1ee]">{hidden ? <Eye size={16} aria-hidden="true" /> : <EyeOff size={16} aria-hidden="true" />}</button>
-              <button type="button" aria-label={`Delete ${category.name}`} title="Delete" onClick={() => { if (window.confirm(`Delete “${category.name}”? This can’t be undone.`)) void run(() => deleteCategory(category._id), 'Category deleted.'); }} className="grid h-9 w-9 place-items-center rounded-[8px] text-[#6e7079] hover:bg-[#fdecea] hover:text-[#b42318]"><Trash2 size={16} aria-hidden="true" /></button>
+              <button type="button" aria-label={`Delete ${category.name}`} title="Delete" onClick={async () => { if (await confirm({ title: `Delete “${category.name}”?`, message: 'This can’t be undone. A category that listings still use can only be hidden, not deleted.', confirmLabel: 'Delete category', tone: 'danger' })) void run(() => deleteCategory(category._id), 'Category deleted.'); }} className="grid h-9 w-9 place-items-center rounded-[8px] text-[#6e7079] hover:bg-[#fdecea] hover:text-[#b42318]"><Trash2 size={16} aria-hidden="true" /></button>
             </div>
           )}
         </div>

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, Mail, Search, Star, UserCheck, UserX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, ExternalLink, Mail, Plus, Search, Star, UserCheck, UserX, X } from 'lucide-react';
 import { Badge, Button, cx } from '@/components/ds';
-import { AdminUser, AdminUserDetail, ListingAction, loadAdminUser, loadAdminUsers, ownerListingsAction, Paged, setAdminUserStatus } from '../api';
+import { useConfirm } from '@/components/ConfirmProvider';
+import { AdminUser, AdminUserDetail, changeAdminUserRole, createAdminUser, downloadAdminExport, ListingAction, loadAdminUser, loadAdminUsers, ownerListingsAction, Paged, setAdminUserStatus } from '../api';
 
 const field = 'h-10 rounded-[10px] border border-[#bdbcb5] bg-white px-3 text-[14px] outline-none focus:border-2 focus:border-[#002fa7]';
 const ROLE: Record<AdminUser['role'], string> = { customer: 'Customer', business_owner: 'Business owner', admin: 'Admin', super_admin: 'Admin' };
@@ -20,6 +21,7 @@ export const AdminPeopleTab: React.FC<{ openId?: string; onCloseOpen?: () => voi
   const [term, setTerm] = useState('');
   const [page, setPage] = useState(1);
   const [version, setVersion] = useState(0);
+  const [adding, setAdding] = useState(false);
   const [pickedId, setSelectedId] = useState('');
   const selectedId = pickedId || openId || '';
   const [result, setResult] = useState<{ key: string; data?: Paged<AdminUser>; error?: string }>({ key: '' });
@@ -38,7 +40,7 @@ export const AdminPeopleTab: React.FC<{ openId?: string; onCloseOpen?: () => voi
 
   return (
     <main className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-4 pb-24 pt-8 md:px-8 lg:pt-10">
-      <div className="flex flex-col gap-2"><p className="font-eyebrow text-[#002fa7]">Admin</p><h1 className="text-[28px] font-semibold leading-9 tracking-[-0.0294em] md:text-[34px] md:leading-[42px]">People</h1><p className="text-[16px] leading-6 text-[#4a4c55]">Every customer and business owner: which listings they own, which reviews they wrote, and whether their account is active.</p></div>
+      <div className="flex flex-wrap items-end justify-between gap-4"><div className="flex flex-col gap-2"><p className="font-eyebrow text-[#002fa7]">Admin</p><h1 className="text-[28px] font-semibold leading-9 tracking-[-0.0294em] md:text-[34px] md:leading-[42px]">People</h1><p className="text-[16px] leading-6 text-[#4a4c55]">Every customer and business owner: which listings they own, which reviews they wrote, and whether their account is active.</p></div><div className="flex flex-wrap gap-2"><Button type="secondary" onClick={() => void downloadAdminExport('users').catch((reason) => showToast(reason instanceof Error ? reason.message : 'Export failed'))} icon={<Download size={18} aria-hidden="true" />}>Export CSV</Button><Button type="primary" onClick={() => setAdding(true)} icon={<Plus size={18} aria-hidden="true" />}>Add person</Button></div></div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Account type" className="flex rounded-[10px] border border-[#bdbcb5] bg-white p-1">
@@ -75,6 +77,7 @@ export const AdminPeopleTab: React.FC<{ openId?: string; onCloseOpen?: () => voi
         )}
       </div>
 
+      {adding && <AddPersonDialog onClose={() => setAdding(false)} onCreated={() => { setAdding(false); setVersion((value) => value + 1); showToast('Account created. They sign in with an emailed code.'); }} />}
       {selectedId && <PersonPanel key={selectedId} id={selectedId} onClose={() => { setSelectedId(''); onCloseOpen?.(); }} onChanged={() => setVersion((value) => value + 1)} onOpenBusiness={(id) => { setSelectedId(''); onCloseOpen?.(); onOpenBusiness(id); }} onListingsChanged={onListingsChanged} showToast={showToast} />}
     </main>
   );
@@ -84,6 +87,7 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, onListingsChanged
   const [detail, setDetail] = useState<AdminUserDetail | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
 
   useEffect(() => { let live = true; loadAdminUser(id).then((data) => { if (live) setDetail(data); }).catch((reason) => { if (live) setError(reason instanceof Error ? reason.message : 'Unable to load this person'); }); return () => { live = false; }; }, [id]);
   useEffect(() => {
@@ -95,10 +99,21 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, onListingsChanged
 
   const bulk = async (action: ListingAction) => {
     const total = detail?.listings.length || 0;
-    if (action === 'delete') { const typed = window.prompt(`Delete all ${total} listing${total === 1 ? '' : 's'} of this owner? They disappear from the site. Type DELETE to confirm.`); if (typed?.trim() !== 'DELETE') return; }
-    else if (!window.confirm(action === 'suspend' ? `Suspend all live and paused listings of this owner? They are hidden from search until you restore them.` : 'Restore all suspended listings of this owner?')) return;
+    const ok = action === 'delete' ? await confirm({ title: `Delete all ${total} listing${total === 1 ? '' : 's'} of ${detail?.item.name}?`, message: 'They disappear from the site and from this owner’s dashboard. There is no undo in the app.', confirmLabel: `Delete ${total} listing${total === 1 ? '' : 's'}`, tone: 'danger', requireText: 'DELETE' })
+      : action === 'suspend' ? await confirm({ title: `Suspend all listings of ${detail?.item.name}?`, message: 'Their live and paused listings are hidden from search until you restore them.', confirmLabel: 'Suspend all', tone: 'warning' })
+        : await confirm({ title: `Restore all listings of ${detail?.item.name}?`, message: 'Suspended listings go live again.', confirmLabel: 'Restore all', tone: 'primary' });
+    if (!ok) return;
     setBusy(true); setError('');
     try { const done = await ownerListingsAction(id, action); showToast(`${done.count} listing${done.count === 1 ? '' : 's'} ${action === 'suspend' ? 'suspended' : action === 'restore' ? 'restored' : 'deleted'}.`); setDetail(await loadAdminUser(id)); onChanged(); onListingsChanged?.(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'That didn’t work'); }
+    finally { setBusy(false); }
+  };
+  const changeRole = async (role: 'customer' | 'business_owner' | 'admin') => {
+    if (!detail || role === detail.item.role) return;
+    const ok = role === 'admin' ? await confirm({ title: `Make ${detail.item.name} an admin?`, message: 'They will be able to manage every listing, account and review. Only do this for someone you fully trust.', confirmLabel: 'Make admin', tone: 'danger', requireText: 'ADMIN' }) : await confirm({ title: `Change ${detail.item.name} to ${role === 'customer' ? 'a customer' : 'a business owner'}?`, message: role === 'customer' ? 'They lose access to the owner dashboard. Their listings stay where they are.' : 'They get the owner dashboard and can add listings.', confirmLabel: 'Change', tone: 'warning' });
+    if (!ok) return;
+    setBusy(true); setError('');
+    try { await changeAdminUserRole(detail.item._id, role); setDetail(await loadAdminUser(id)); onChanged(); showToast('Account type updated.'); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'That didn’t work'); }
     finally { setBusy(false); }
   };
@@ -107,7 +122,7 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, onListingsChanged
   const toggle = async () => {
     if (!user) return;
     const next = user.status === 'active' ? 'suspended' : 'active';
-    if (next === 'suspended' && !window.confirm(`Suspend ${user.name}? They will be signed out and can’t sign in until you reactivate the account.`)) return;
+    if (next === 'suspended' && !(await confirm({ title: `Suspend ${user.name}?`, message: 'They are signed out everywhere and can’t sign in until you reactivate the account. Their listings stay live.', confirmLabel: 'Suspend account', tone: 'warning' }))) return;
     setBusy(true); setError('');
     try { await setAdminUserStatus(user._id, next); setDetail((current) => (current ? { ...current, item: { ...current.item, status: next } } : current)); onChanged(); showToast(next === 'suspended' ? 'Account suspended.' : 'Account reactivated.'); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'That didn’t work'); }
@@ -137,6 +152,14 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, onListingsChanged
               </div>
             </section>
 
+            <section className="flex flex-col gap-2 border-t border-[#ecebe7] px-6 py-5">
+              <h3 className="font-eyebrow text-[#6e7079]">Account type</h3>
+              {user.role === 'super_admin' || user.role === 'admin' ? <p className="text-[14px] text-[#4a4c55]">{user.role === 'super_admin' ? 'Super admin. This can’t be changed here.' : 'Admin. Only a super admin can change this.'}</p> : (
+                <select aria-label="Account type" value={user.role} disabled={busy} onChange={(event) => void changeRole(event.target.value as 'customer' | 'business_owner' | 'admin')} className="h-10 max-w-[280px] rounded-[10px] border border-[#bdbcb5] bg-white px-3 text-[14px]"><option value="customer">Customer</option><option value="business_owner">Business owner</option><option value="admin">Admin (super admin only)</option></select>
+              )}
+              {user.role === 'business_owner' && detail.listings.length > 0 && <p className="text-[13px] text-[#6e7079]">Changing this person to a customer doesn’t move their {detail.listings.length} listings. Reassign or suspend them first.</p>}
+            </section>
+
             {user.role === 'business_owner' && (
               <section className="flex flex-col gap-3 border-t border-[#ecebe7] px-6 py-5">
                 <h3 className="font-eyebrow text-[#6e7079]">Listings ({detail.listings.length})</h3>
@@ -159,6 +182,32 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, onListingsChanged
           </>
         )}
       </aside>
+    </div>
+  );
+}
+
+function AddPersonDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<'customer' | 'business_owner' | 'admin'>('business_owner');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const valid = name.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+  const submit = async () => {
+    setBusy(true); setError('');
+    try { await createAdminUser({ name: name.trim(), email: email.trim(), role }); onCreated(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create the account'); setBusy(false); }
+  };
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Add a person" className="fixed inset-0 z-50 grid place-items-center bg-[#101115]/50 p-4" onClick={() => !busy && onClose()}>
+      <div className="flex w-full max-w-[460px] flex-col gap-4 rounded-[20px] bg-white p-6 shadow-xl" onClick={(event) => event.stopPropagation()}>
+        <div><h2 className="text-[20px] font-semibold leading-7">Add a person</h2><p className="mt-1 text-[14px] leading-5 text-[#4a4c55]">They sign in with their email and a one-time code we send. No password is created or shared.</p></div>
+        <label className="flex flex-col gap-1.5 text-[14px] font-medium">Full name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} maxLength={120} className={field + ' font-normal'} /></label>
+        <label className="flex flex-col gap-1.5 text-[14px] font-medium">Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} maxLength={254} className={field + ' font-normal'} /></label>
+        <label className="flex flex-col gap-1.5 text-[14px] font-medium">Account type<select value={role} onChange={(event) => setRole(event.target.value as 'customer' | 'business_owner' | 'admin')} className={field + ' font-normal'}><option value="business_owner">Business owner</option><option value="customer">Customer</option><option value="admin">Admin (super admin only)</option></select></label>
+        {error && <p role="alert" className="rounded-[10px] bg-[#fdecea] px-3 py-2 text-[14px] text-[#8c1d13]">{error}</p>}
+        <div className="flex justify-end gap-2"><Button type="ghost" size="s" onClick={onClose} disabled={busy}>Cancel</Button><Button type="primary" size="s" onClick={() => void submit()} disabled={busy || !valid}>{busy ? 'Creating…' : 'Create account'}</Button></div>
+      </div>
     </div>
   );
 }

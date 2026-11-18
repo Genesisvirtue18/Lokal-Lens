@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { BadgeCheck, ChevronLeft, ChevronRight, ExternalLink, Pencil, Plus, Search, ShieldCheck, Store, Trash2, Upload, X } from 'lucide-react';
+import { BadgeCheck, ChevronLeft, ChevronRight, Download, ExternalLink, Pencil, Plus, Search, ShieldCheck, Store, Trash2, Upload, X } from 'lucide-react';
 import { Badge, Button, cx } from '@/components/ds';
 import { businessDetailPath } from '@/lib/directory-data';
-import { assignBusinessOwner, bulkListingsAction, deleteAdminBusiness, importBusinessesCsv, loadAdminOwners, reviewKyc, setAdminBusinessStatus, setBusinessPlan } from '../api';
+import { assignBusinessOwner, bulkListingsAction, deleteAdminBusiness, downloadAdminExport, importBusinessesCsv, loadAdminOwners, reviewKyc, setAdminBusinessStatus, setBusinessPlan } from '../api';
 import { BusinessListing } from '../types';
+import { useConfirm } from '@/components/ConfirmProvider';
 import { AdminListingDetails } from './AdminListingDetails';
 
 interface AdminBusinessesTabProps {
@@ -56,10 +57,24 @@ export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({ activeBu
   const [showImport, setShowImport] = useState(false);
   const [checked, setChecked] = useState<string[]>([]);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const confirm = useConfirm();
+  const [ownerChoices, setOwnerChoices] = useState<{ id: string; name: string; email: string }[]>([]);
+  useEffect(() => { if (checked.length > 0 && ownerChoices.length === 0) void loadAdminOwners().then(setOwnerChoices).catch(() => {}); }, [checked.length, ownerChoices.length]);
+  const assignChecked = async (ownerId: string) => {
+    const owner = ownerChoices.find((item) => item.id === ownerId);
+    if (!owner || !(await confirm({ title: `Give ${checked.length} listing${checked.length === 1 ? '' : 's'} to ${owner.name}?`, message: 'They replace the current owner of each listing. The new owner can edit them straight away.', confirmLabel: 'Assign', tone: 'warning' }))) return;
+    setBulkBusy(true);
+    try { const done = await bulkListingsAction(checked, 'assign', ownerId); onToast?.(`${done.count} listing${done.count === 1 ? '' : 's'} assigned to ${owner.name}.`); setChecked([]); onReload?.(); }
+    catch (reason) { onToast?.(reason instanceof Error ? reason.message : 'That didn’t work'); }
+    finally { setBulkBusy(false); }
+  };
   const runBulk = async (action: 'suspend' | 'restore' | 'delete') => {
     const n = checked.length;
-    if (action === 'delete') { const typed = window.prompt(`Delete ${n} listing${n === 1 ? '' : 's'}? They disappear from the site. Type DELETE to confirm.`); if (typed?.trim() !== 'DELETE') return; }
-    else if (!window.confirm(action === 'suspend' ? `Suspend ${n} listing${n === 1 ? '' : 's'}? Live and paused ones are hidden from search until you restore them.` : `Restore ${n} suspended listing${n === 1 ? '' : 's'}?`)) return;
+    const label = `${n} listing${n === 1 ? '' : 's'}`;
+    const ok = action === 'delete' ? await confirm({ title: `Delete ${label}?`, message: 'They disappear from the site and from their owners’ dashboards. There is no undo in the app.', confirmLabel: `Delete ${label}`, tone: 'danger', requireText: 'DELETE' })
+      : action === 'suspend' ? await confirm({ title: `Suspend ${label}?`, message: 'Live and paused listings are hidden from search until you restore them. Their owners are not emailed.', confirmLabel: 'Suspend', tone: 'warning' })
+        : await confirm({ title: `Restore ${label}?`, message: 'Suspended listings go live again.', confirmLabel: 'Restore', tone: 'primary' });
+    if (!ok) return;
     setBulkBusy(true);
     try { const done = await bulkListingsAction(checked, action); onToast?.(`${done.count} listing${done.count === 1 ? '' : 's'} ${action === 'suspend' ? 'suspended' : action === 'restore' ? 'restored' : 'deleted'}.`); setChecked([]); onReload?.(); }
     catch (reason) { onToast?.(reason instanceof Error ? reason.message : 'That didn’t work'); }
@@ -97,6 +112,7 @@ export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({ activeBu
           <p className="text-[16px] leading-6 text-[#4a4c55]">{all.length} listings · {counts.live} live · {counts.review} waiting for review</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button type="secondary" onClick={() => void downloadAdminExport('businesses').catch((reason) => onToast?.(reason instanceof Error ? reason.message : 'Export failed'))} icon={<Download size={18} aria-hidden="true" />}>Export CSV</Button>
           <Button type="secondary" onClick={() => setShowImport((value) => !value)} icon={<Upload size={18} aria-hidden="true" />}>Bulk upload</Button>
           <Button type="primary" onClick={onCreate} icon={<Plus size={18} aria-hidden="true" />}>Add business</Button>
         </div>
@@ -118,6 +134,7 @@ export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({ activeBu
           <Button type="secondary" size="s" onClick={() => void runBulk('suspend')} disabled={bulkBusy}>Suspend</Button>
           <Button type="secondary" size="s" onClick={() => void runBulk('restore')} disabled={bulkBusy}>Restore</Button>
           <button type="button" onClick={() => void runBulk('delete')} disabled={bulkBusy} className="inline-flex h-10 items-center gap-1.5 rounded-[10px] border border-[#f1c9c4] bg-white px-3.5 font-display text-[14px] font-medium text-[#b42318] hover:bg-[#fdecea] disabled:opacity-50"><Trash2 size={16} aria-hidden="true" />Delete</button>
+          <select aria-label="Assign to an owner" value="" disabled={bulkBusy || ownerChoices.length === 0} onChange={(event) => { if (event.target.value) void assignChecked(event.target.value); }} className={fieldBase}><option value="">Assign to owner…</option>{ownerChoices.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select>
           <Button type="ghost" size="s" onClick={() => setChecked([])}>Clear selection</Button>
           {filtered.length > rows.length && checked.length < filtered.length && <button type="button" onClick={() => setChecked(filtered.map((row) => row.id))} className="ml-auto text-[14px] font-medium text-[#002fa7] hover:underline">Select all {filtered.length} matching</button>}
         </div>
@@ -201,6 +218,7 @@ function ManagePanel({ business, onClose, onApprove, onReject, onClearMismatch, 
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState('');
+  const confirm = useConfirm();
 
   useEffect(() => { void loadAdminOwners().then(setOwners).catch(() => setOwners([])); }, []);
   useEffect(() => {
@@ -275,7 +293,7 @@ function ManagePanel({ business, onClose, onApprove, onReject, onClearMismatch, 
 
         <Section title="Visibility and removal">
           <div className="flex flex-wrap gap-2">
-            {(live || business.status === 'Paused') && <Button type="secondary" size="s" disabled={busy === 'status'} onClick={() => { if (window.confirm(`Suspend “${business.name}”? It will disappear from search until you restore it.`)) void run('status', () => setAdminBusinessStatus(business.id, 'suspended')); }}>Suspend listing</Button>}
+            {(live || business.status === 'Paused') && <Button type="secondary" size="s" disabled={busy === 'status'} onClick={async () => { if (await confirm({ title: `Suspend “${business.name}”?`, message: 'It disappears from search and its public page stops working until you restore it. The owner is told by email.', confirmLabel: 'Suspend listing', tone: 'warning' })) void run('status', () => setAdminBusinessStatus(business.id, 'suspended')); }}>Suspend listing</Button>}
             {business.status === 'Suspended' && <Button type="primary" size="s" disabled={busy === 'status'} onClick={() => void run('status', () => setAdminBusinessStatus(business.id, 'published'))}>Restore listing</Button>}
           </div>
           <div className="flex flex-col gap-2 rounded-[10px] border border-[#f1c9c4] bg-[#fff8f7] p-3">

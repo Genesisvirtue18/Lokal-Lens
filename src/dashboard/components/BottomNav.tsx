@@ -47,13 +47,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   // Admin Role Bottom Navigation
   return (
-    <nav aria-label="Admin sections" className="fixed bottom-0 left-0 z-50 grid w-full grid-cols-6 border-t border-[#dcdbd5] bg-white px-1 pb-[max(4px,env(safe-area-inset-bottom))] pt-1 shadow-md md:hidden">
+    <nav aria-label="Admin sections" className="fixed bottom-0 left-0 z-50 flex w-full overflow-x-auto border-t border-[#dcdbd5] bg-white px-1 pb-[max(4px,env(safe-area-inset-bottom))] pt-1 shadow-md md:hidden">
       {adminNavItems.map(({ id, label, icon: Icon }) => {
         const active = adminTab === id;
         return (
-          <button key={id} type="button" onClick={() => onSelectAdminTab(id)} aria-current={active ? 'page' : undefined} className={`flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[10px] text-[11px] font-medium leading-4 transition-colors ${active ? 'bg-[#e8edfb] text-[#002fa7]' : 'text-[#4a4c55]'}`}>
+          <button key={id} type="button" onClick={() => onSelectAdminTab(id)} aria-current={active ? 'page' : undefined} className={`flex min-h-[52px] min-w-[76px] shrink-0 flex-col items-center justify-center gap-0.5 rounded-[10px] px-1 text-[11px] font-medium leading-4 transition-colors ${active ? 'bg-[#e8edfb] text-[#002fa7]' : 'text-[#4a4c55]'}`}>
             <Icon size={20} strokeWidth={active ? 2.4 : 2} />
-            {label}
+            <span className="whitespace-nowrap">{label}</span>
           </button>
         );
       })}
