@@ -30,16 +30,20 @@ const priceText = (service) => (service.priceFrom ? `${service.priceTo ? "" : "F
 const idOf = (value) => String(value?._id || value || "");
 
 // Opening hours: 30-minute steps shown as 9:00 AM, stored as 24-hour "09:00".
-const timeLabel = (value) => { const [h, m] = String(value).split(":").map(Number); if (Number.isNaN(h)) return value; return `${h % 12 || 12}:${String(m || 0).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
-const TIME_STEPS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
+const two = (n) => String(n).padStart(2, "0");
+const selectPart = "h-9 cursor-pointer appearance-none rounded-[6px] bg-transparent px-1.5 text-center font-body text-[15px] text-[#101115] outline-none hover:bg-[#f0efe9] focus:bg-[#e8edf8]";
 function TimeSelect({ value, onChange, label, invalid }) {
-  const options = TIME_STEPS.includes(value) ? TIME_STEPS : [...TIME_STEPS, value].sort();
+  const [h24, m] = String(value).split(":").map(Number);
+  const hour = h24 % 12 || 12;
+  const pm = h24 >= 12;
+  const emit = (nextHour, nextMinute, nextPm) => onChange(`${two((nextHour % 12) + (nextPm ? 12 : 0))}:${two(nextMinute)}`);
   return (
-    <span className="relative inline-flex">
-      <Clock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#6e7079]" aria-hidden="true" />
-      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className={cx("h-11 w-[132px] cursor-pointer rounded-[10px] border bg-white pl-9 pr-2 font-body text-[15px] text-[#101115] outline-none transition-[border-color] hover:border-[#101115] focus:border-[#002fa7] focus:ring-2 focus:ring-[#002fa7]/20", invalid ? "border-2 border-[#b42318]" : "border-[#bdbcb5]")}>
-        {options.map((time) => <option key={time} value={time}>{timeLabel(time)}</option>)}
-      </select>
+    <span role="group" aria-label={label} className={cx("inline-flex h-11 items-center gap-0.5 rounded-[10px] border bg-white pl-2.5 pr-1 transition-[border-color] focus-within:border-[#002fa7] focus-within:ring-2 focus-within:ring-[#002fa7]/20 hover:border-[#101115]", invalid ? "border-2 border-[#b42318]" : "border-[#bdbcb5]")}>
+      <Clock size={16} className="mr-1 shrink-0 text-[#6e7079]" aria-hidden="true" />
+      <select aria-label={`${label}: hour`} value={hour} onChange={(event) => emit(Number(event.target.value), m, pm)} className={cx(selectPart, "w-10")}>{Array.from({ length: 12 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}</select>
+      <span className="text-[#6e7079]" aria-hidden="true">:</span>
+      <select aria-label={`${label}: minute`} value={m} onChange={(event) => emit(hour, Number(event.target.value), pm)} className={cx(selectPart, "w-10")}>{Array.from({ length: 60 }, (_, i) => i).map((n) => <option key={n} value={n}>{two(n)}</option>)}</select>
+      <select aria-label={`${label}: AM or PM`} value={pm ? "PM" : "AM"} onChange={(event) => emit(hour, m, event.target.value === "PM")} className={cx(selectPart, "w-12 font-medium")}><option>AM</option><option>PM</option></select>
     </span>
   );
 }
