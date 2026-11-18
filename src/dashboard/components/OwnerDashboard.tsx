@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { BadgeCheck, Check, ChevronRight, ExternalLink, Eye, MessageSquare, Pencil, Plus, ShieldCheck, Star, Store } from 'lucide-react';
+import { BadgeCheck, Check, ChevronRight, ExternalLink, Eye, MessageSquare, Pencil, Plus, Star, Store } from 'lucide-react';
 import { Badge, Button, cx } from '@/components/ds';
 import { request } from '../api';
 import { completenessPercent, completenessSections, CompletenessInput } from '../completeness';
@@ -100,11 +100,14 @@ function EmailVerification() {
 const leadTone: Record<Lead['status'], string> = { New: 'bg-[#e6ebf7] text-[#002fa7]', Contacted: 'bg-[#fbf0d9] text-[#8a5a00]', Converted: 'bg-[#e7f4e5] text-[#2b7a26]' };
 
 export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, leads, reviews, onOpenPublicProfile, onOpenCompleteProfile, onEditAtStep, onToggleVisibility, onAddBusiness, onSelectLead, onViewAllLeads }) => {
-  const featured = businesses[0];
+  const [selectedId, setSelectedId] = useState('');
+  const featured = businesses.find((business) => business.id === selectedId) || businesses[0];
   const sections = featured ? completenessSections(inputFromListing(featured)) : [];
   const percent = completenessPercent(sections);
   const doneCount = sections.filter((section) => section.done).length;
   const todo = sections.filter((section) => !section.done && section.id !== 'verified');
+  const liveCount = businesses.filter((business) => business.status === 'Active').length;
+  const pendingCount = businesses.filter((business) => business.status === 'Pending').length;
   const newLeads = leads.filter((lead) => lead.status === 'New').length;
   const totalViews = businesses.reduce((sum, business) => sum + (business.views || 0), 0);
   const ratings = reviews.map((review) => review.rating).filter(Boolean);
@@ -125,48 +128,66 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
           <Stat icon={Eye} label="Profile views" value={totalViews.toLocaleString('en-IN')} />
           <Stat icon={MessageSquare} label="Inquiries" value={leads.length} note={newLeads ? `${newLeads} new` : 'none new'} />
           <Stat icon={Star} label="Average rating" value={average ? average.toFixed(1) : '–'} note={ratings.length ? `${ratings.length} reviews` : 'no reviews yet'} />
-          <Stat icon={ShieldCheck} label="Profile strength" value={`${percent}%`} note={`${doneCount} of ${sections.length} done`} />
+          <Stat icon={Store} label={businesses.length === 1 ? 'Listing' : 'Listings'} value={businesses.length} note={[liveCount && `${liveCount} live`, pendingCount && `${pendingCount} in review`].filter(Boolean).join(' · ') || undefined} />
         </section>
       )}
 
       <section className="flex flex-col gap-5" aria-label="Your business listings">
-        {businesses.length ? businesses.map((business) => {
-          const image = businessImage(business);
-          const pending = business.status === 'Pending';
-          const live = business.status === 'Active';
-          const paused = business.status === 'Paused';
-          const strength = completenessPercent(completenessSections(inputFromListing(business)));
-          return (
-            <article key={business.id} className="flex flex-col gap-5 rounded-[20px] border border-[#dcdbd5] bg-white p-5 md:flex-row md:items-center md:p-6">
-              <div className="relative h-[120px] w-full shrink-0 overflow-hidden rounded-[12px] bg-[#f1f1ee] md:w-[160px]">
-                {image ? <Image src={image} alt={business.name} unoptimized fill sizes="160px" className="object-cover" /> : <div className="grid h-full place-items-center text-[#6e7079]"><Store size={28} aria-hidden="true" /></div>}
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <h2 className="truncate text-[24px] font-semibold leading-8 tracking-[-0.0208em]">{business.name}</h2>
-                <div className="flex flex-wrap items-center gap-2">
-                  {live ? <Badge tone="live">Live</Badge> : paused ? <Badge tone="pending">Paused</Badge> : pending ? <Badge tone="pending">Pending review</Badge> : <Badge tone="closed">{business.status}</Badge>}
-                  {business.verified ? <Badge tone="verified">Verified business</Badge> : <span className="text-[13px] text-[#6e7079]">Not verified yet</span>}
-                  <span className="text-[13px] text-[#6e7079]">· {business.category} · {business.location}</span>
-                </div>
-                <p className="max-w-[640px] text-[14px] leading-5 text-[#4a4c55]">{pending ? `Submitted ${business.timeAgo || 'recently'}. Not visible to customers yet. You can update details while it awaits review.` : live ? 'Visible to customers. Changes you save appear on your public profile.' : paused ? 'Paused — hidden from search and your profile page. Resume any time.' : 'This listing isn’t visible to customers right now.'}</p>
-                <div className="flex items-center gap-3 pt-1"><div className="h-2 w-40 overflow-hidden rounded-full bg-[#e4e3de]"><div className="h-full rounded-full bg-[#002fa7]" style={{ width: `${strength}%` }} /></div><span className="text-[13px] font-medium">{strength}% complete</span></div>
-              </div>
-              <div className="flex shrink-0 flex-wrap gap-2">
-                <Button type="primary" size="s" onClick={() => onOpenCompleteProfile(business)} icon={<Pencil size={18} aria-hidden="true" />}>Edit profile</Button>
-                <Button type="secondary" size="s" onClick={() => onOpenPublicProfile(business)} icon={<ExternalLink size={18} aria-hidden="true" />}>{live ? 'View as customer' : 'Preview'}</Button>
-                {(live || paused) && onToggleVisibility && <Button type="ghost" size="s" onClick={() => onToggleVisibility(business)}>{live ? 'Pause listing' : 'Resume listing'}</Button>}
-              </div>
-            </article>
-          );
-        }) : (
+        {businesses.length ? (
+          <ul className="flex flex-col overflow-hidden rounded-[20px] border border-[#dcdbd5] bg-white">
+            {businesses.map((business) => {
+              const image = businessImage(business);
+              const pending = business.status === 'Pending';
+              const live = business.status === 'Active';
+              const paused = business.status === 'Paused';
+              const strength = completenessPercent(completenessSections(inputFromListing(business)));
+              return (
+                <li key={business.id} className="flex flex-col gap-4 border-b border-[#ecebe7] p-4 last:border-0 md:flex-row md:items-center md:px-5">
+                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[12px] bg-[#f1f1ee]">
+                      {image ? <Image src={image} alt="" unoptimized fill sizes="64px" className="object-cover" /> : <div className="grid h-full place-items-center text-[#6e7079]"><Store size={24} aria-hidden="true" /></div>}
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="truncate text-[18px] font-semibold leading-6 tracking-[-0.01em]">{business.name}</h2>
+                        {live ? <Badge tone="live">Live</Badge> : paused ? <Badge tone="pending">Paused</Badge> : pending ? <Badge tone="pending">In review</Badge> : <Badge tone="closed">{business.status}</Badge>}
+                        {business.verified && <Badge tone="verified">Verified</Badge>}
+                      </div>
+                      <p className="truncate text-[14px] leading-5 text-[#6e7079]">{[business.category, business.location].filter(Boolean).join(' · ')}</p>
+                      <p className="text-[13px] leading-[18px] text-[#4a4c55]">{pending ? 'Not visible to customers until our team approves it.' : live ? 'Visible to customers.' : paused ? 'Hidden from search until you resume.' : 'Not visible to customers right now.'}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-1 md:w-[150px]">
+                    <span className="text-[13px] font-medium leading-[18px]">Profile {strength}% complete</span>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-[#e4e3de]"><div className={cx('h-full rounded-full', strength === 100 ? 'bg-[#2b7a26]' : 'bg-[#002fa7]')} style={{ width: `${strength}%` }} /></div>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <Button type="primary" size="s" onClick={() => onOpenCompleteProfile(business)} icon={<Pencil size={18} aria-hidden="true" />}>Edit</Button>
+                    <Button type="secondary" size="s" onClick={() => onOpenPublicProfile(business)} icon={<ExternalLink size={18} aria-hidden="true" />}>{live ? 'View as customer' : 'Preview'}</Button>
+                    {(live || paused) && onToggleVisibility && <Button type="ghost" size="s" onClick={() => onToggleVisibility(business)}>{live ? 'Pause' : 'Resume'}</Button>}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
           <div className="flex flex-col items-center gap-3 rounded-[20px] border border-dashed border-[#bdbcb5] bg-white p-10 text-center"><p className="text-[16px] text-[#4a4c55]">No business listings yet. Add a business to get started.</p><Button type="primary" onClick={onAddBusiness}>Add your business</Button></div>
         )}
       </section>
 
       {featured && (
-        <section className="grid gap-6 lg:grid-cols-2">
+        <section className="flex flex-col gap-4" aria-label="Profile setup">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 className="text-[20px] font-semibold leading-7 tracking-[-0.01em]">Profile setup</h2><p className="text-[14px] leading-5 text-[#4a4c55]">{businesses.length > 1 ? 'Choose a business to see what is left to finish.' : 'What is left to finish on your listing.'}</p></div>
+            {businesses.length > 1 && (
+              <div role="tablist" aria-label="Business" className="flex max-w-full flex-wrap gap-2">
+                {businesses.map((business) => <button key={business.id} type="button" role="tab" aria-selected={business.id === featured.id} onClick={() => setSelectedId(business.id)} className={cx('h-10 max-w-[240px] truncate rounded-full border px-4 text-[14px] font-medium transition-colors', business.id === featured.id ? 'border-[#002fa7] bg-[#002fa7] text-white' : 'border-[#bdbcb5] bg-white text-[#101115] hover:border-[#101115]')}>{business.name}{business.category ? ` · ${business.category}` : ''}</button>)}
+              </div>
+            )}
+          </div>
+        <div className="grid gap-6 lg:grid-cols-2">
           <article className="flex flex-col gap-4 rounded-[20px] border border-[#dcdbd5] bg-white p-6">
-            <div className="flex items-start justify-between gap-3"><div><h2 className="text-[18px] font-semibold leading-[26px] tracking-[-0.0111em]">Complete your profile</h2><p className="text-[14px] leading-5 text-[#4a4c55]">{featured.name} · {doneCount} of {sections.length} done</p></div><span className="text-[28px] font-semibold leading-8">{percent}%</span></div>
+            <div className="flex items-start justify-between gap-3"><div><h2 className="text-[18px] font-semibold leading-[26px] tracking-[-0.0111em]">Complete your profile</h2><p className="text-[14px] leading-5 text-[#4a4c55]">{featured.name} · {doneCount} of {sections.length} steps done</p></div><span className="text-[28px] font-semibold leading-8">{percent}%</span></div>
             <div className="h-2 overflow-hidden rounded-full bg-[#e4e3de]"><div className="h-full rounded-full bg-[#002fa7] transition-[width]" style={{ width: `${percent}%` }} /></div>
             <ul className="flex flex-col">
               {sections.map((section) => (
@@ -197,6 +218,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
               </Step>
             </div>
           </article>
+        </div>
         </section>
       )}
 
