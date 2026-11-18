@@ -73,6 +73,7 @@ export const ownerBusinessBody = businessBody.omit({ reviews: true, slug: true, 
   workingHours: z.array(z.object({ day: z.enum(['monday','tuesday','wednesday','thursday','friday','saturday','sunday']), isClosed: z.boolean().optional(), is24Hours: z.boolean().optional(), opens: z.string().optional(), closes: z.string().optional(), breakStart: z.string().optional(), breakEnd: z.string().optional() })).max(7).optional(),
   socialLinks: z.object({ facebook: emptyableUrl.optional(), instagram: emptyableUrl.optional(), linkedin: emptyableUrl.optional(), youtube: emptyableUrl.optional(), x: emptyableUrl.optional() }).optional(),
   location: z.object({ type: z.literal('Point').default('Point'), coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]) }).nullable().optional(),
+  locationApproximate: z.boolean().optional(),
 });
 const ownerBusinessUpdateBody = ownerBusinessBody.partial().extend({
   phone: z.union([z.string().regex(/^[1-9]\d{9}$/), z.literal('')]).optional(),

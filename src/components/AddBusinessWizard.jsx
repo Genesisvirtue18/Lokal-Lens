@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AlertCircle, CheckCircle2, ImagePlus, Plus, Trash2, X } from "lucide-react";
 import { Button, Chip, Field, Logo, cx, fieldClass, labelClass } from "@/components/ds";
 import BusinessCard from "@/components/ds/BusinessCard";
+import PinPicker from "@/components/PinPicker";
 import { AMENITY_SUGGESTIONS, BUSINESS_TYPES, DAYS, DOC_TYPES, INDIAN_STATES, LANGUAGES, PAYMENT_MODES, PRICE_RANGES, STEP_FIELDS, check, checkFaq, checkOffer, checkService, checkSpecialHours, clean } from "@/lib/business-validation";
 import { createOwnerBusiness, geocodeBusinessAddress, loadBusinessFormData, loadOwnerBusiness, request, updateOwnerBusiness, uploadBusinessDocuments, uploadBusinessImages } from "@/dashboard/api";
 
@@ -129,6 +130,12 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
   const [savedNote, setSavedNote] = useState("");
   const [dirty, setDirty] = useState(false);
   const [coords, setCoords] = useState(null);
+  const [pinSource, setPinSource] = useState(""); // "user" = owner placed or confirmed the pin, "address" = guessed from the address
+  async function findPinFromAddress() {
+    const found = await geocodeBusinessAddress({ addressLine1: data.addressLine1, locality: data.locality, city: data.city, state: data.state, postalCode: data.postalCode, country: "IN" });
+    if (found && Number.isFinite(found.lat) && Number.isFinite(found.lng)) { const point = { lat: found.lat, lng: found.lng }; setCoords(point); setPinSource("address"); return point; }
+    return null;
+  }
   const fileInput = useRef(null);
   const docInput = useRef(null);
   const editing = Boolean(editId);
@@ -153,7 +160,7 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
       if (edit && item) {
         setEditId(edit); setData(fromApi(item));
         setUploads([...(item.images || [])].map((url, index) => ({ id: `saved-${index}`, name: `Photo ${index + 1}`, url, preview: url, progress: 100 })));
-        if (item.location?.coordinates) setCoords({ lat: item.location.coordinates[1], lng: item.location.coordinates[0] });
+        if (item.location?.coordinates) { setCoords({ lat: item.location.coordinates[1], lng: item.location.coordinates[0] }); setPinSource("user"); }
         const wanted = embedded ? initialStep + 1 : Number(query.get("step")); if (wanted >= 1 && wanted <= 5) setStep(wanted - 1);
       } else {
         setData((current) => ({ ...current, ...(draft?.data || {}), email: draft?.data?.email || me.user?.email || "" }));
@@ -197,8 +204,8 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
 
   async function next() {
     if (!validateStep(step)) return;
-    if (step === 1) {
-      try { setCoords(await geocodeBusinessAddress({ addressLine1: data.addressLine1, locality: data.locality, city: data.city, state: data.state, postalCode: data.postalCode, country: "IN" })); }
+    if (step === 1 && pinSource !== "user") {
+      try { const found = await findPinFromAddress(); if (found) setPinSource("address"); }
       catch { /* the listing still saves without a map pin */ }
     }
     setStep((value) => Math.min(4, value + 1)); window.scrollTo({ top: 0 });
@@ -284,7 +291,7 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
         tagline: data.tagline.trim(), description: data.description.trim(), ...(data.businessType ? { businessType: data.businessType } : {}), ...(data.establishedYear ? { establishedYear: Number(data.establishedYear) } : {}),
         serviceMode: data.mode, serviceAreas: data.mode === "visit" ? [] : data.serviceAreas,
         address: { addressLine1: data.addressLine1.trim(), ...(data.locality ? { locality: data.locality.trim() } : {}), city: data.city.trim(), state: data.state.trim(), postalCode: data.postalCode, ...(data.landmark ? { landmark: data.landmark.trim() } : {}), country: "IN" },
-        ...(coords ? { location: { type: "Point", coordinates: [coords.lng, coords.lat] } } : {}),
+        ...(coords ? { location: { type: "Point", coordinates: [coords.lng, coords.lat] }, locationApproximate: pinSource !== "user" } : {}),
         services: data.services.map((service) => service.name), serviceItems: data.services,
         workingHours: DAYS.map((day) => ({ day, isClosed: !data.hours[day].open, ...(data.hours[day].open ? { opens: data.hours[day].opens, closes: data.hours[day].closes } : {}) })),
         specialHours: data.special, paymentModes: data.paymentModes, languages: data.languages, ...(data.priceRange ? { priceRange: data.priceRange } : {}), amenities: data.amenities, homeDelivery: data.homeDelivery,
@@ -413,12 +420,10 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
                   {errors.serviceAreas && <p role="alert" className="text-[14px] text-[#b42318]">{errors.serviceAreas}</p>}
                 </div>
               )}
-              {mapQuery && (
-                <div className="overflow-hidden rounded-[16px] border border-[#dcdbd5] bg-[#e8e7e1]">
-                  <iframe title="Map preview" loading="lazy" className="block h-[240px] w-full border-0" src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&output=embed`} />
-                </div>
-              )}
-              <p className="text-[14px] leading-5 text-[#6e7079]">We place your pin from this address. Customers use it for directions, so check it matches your entrance.</p>
+              <div className="flex flex-col gap-2">
+                <span className={labelClass}>Exact location on map</span>
+                <PinPicker value={coords} source={pinSource} canFind={Boolean(mapQuery)} onFindFromAddress={findPinFromAddress} onChange={(point, source) => { setCoords(point); setPinSource(source); }} />
+              </div>
             </>}
 
             {step === 2 && <>
