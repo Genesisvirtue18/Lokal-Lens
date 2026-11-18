@@ -16,7 +16,8 @@ export const getBusinesses = (query) => request("/businesses", query);
 export const getCategories = (query) => request("/categories", query);
 export const getCities = (query) => request("/locations/cities", query);
 export const getBusinessCities = () => request("/locations/business-cities");
-export async function getBusiness(slug) { const { item } = await request(`/businesses/${encodeURIComponent(slug)}`, {}, { cache: "no-store" }); return item; }
+export const getCityCategories = () => request("/locations/city-categories", {}, { next: { revalidate: 600 } });
+export async function getBusiness(slug) { const { item } = await request(`/businesses/${encodeURIComponent(slug)}`, {}, { next: { revalidate: 120 } }); return item; }
 export async function getGoogleReviews(id, signal, ratingOnly = false) {
   const mode = ratingOnly ? "?mode=rating" : "";
   const response = await fetch(`${baseUrl}/businesses/${encodeURIComponent(id)}/google-reviews${mode}`, { cache: "no-store", signal: signal || AbortSignal.timeout(10000) });

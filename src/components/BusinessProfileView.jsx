@@ -19,6 +19,7 @@ import BusinessCard from "@/components/ds/BusinessCard";
 import { Badge, Button, cx } from "@/components/ds";
 import TrackedButton from "@/components/TrackedButton";
 import ClaimBusiness from "@/components/ClaimBusiness";
+import { optimizedImage } from "@/lib/images";
 
 
 function Section({ id, eyebrow, title, children }) {
@@ -151,7 +152,7 @@ export default function BusinessProfileView({ business, related = [], preview = 
         {photos.length ? (
           <div className="grid gap-3 lg:h-[460px] lg:grid-cols-[minmax(0,1fr)_480px]">
             <a href={photos[0]} target="_blank" rel="noreferrer" className="relative block h-[260px] overflow-hidden rounded-[16px] bg-[#e4e3de] sm:h-[360px] lg:h-full" aria-label="Open main photo">
-              <Image src={photos[0]} alt={`${business.name} main photo`} fill priority unoptimized sizes="(max-width: 1024px) 100vw, 800px" className="object-cover" />
+              <Image src={optimizedImage(photos[0], 1200)} alt={`${business.name} main photo`} fill priority fetchPriority="high" unoptimized sizes="(max-width: 1024px) 100vw, 800px" className="object-cover" />
             </a>
             {thumbs.length > 0 && (
               <div className="hidden grid-cols-2 grid-rows-2 gap-3 lg:grid">
@@ -160,7 +161,7 @@ export default function BusinessProfileView({ business, related = [], preview = 
                   const last = index === 3;
                   return photo ? (
                     <a key={photo} href={photo} target="_blank" rel="noreferrer" className="relative block overflow-hidden rounded-[16px] bg-[#e4e3de]" aria-label={`Open photo ${index + 2}`}>
-                      <Image src={photo} alt={`${business.name} photo ${index + 2}`} fill unoptimized sizes="240px" className="object-cover transition duration-500 hover:scale-[1.03]" />
+                      <Image src={optimizedImage(photo, 600)} alt={`${business.name} photo ${index + 2}`} fill unoptimized loading="lazy" sizes="240px" className="object-cover transition duration-500 hover:scale-[1.03]" />
                       {last && photoCount > 5 && <span className="absolute bottom-3 right-3 inline-flex h-11 items-center gap-2 rounded-[12px] border border-[#bdbcb5] bg-white px-4 font-display text-[14px] font-medium"><ImageIcon size={18} aria-hidden="true" />All {photoCount} photos</span>}
                     </a>
                   ) : <div key={index} className="rounded-[16px] bg-[#e4e3de]" aria-hidden="true" />;

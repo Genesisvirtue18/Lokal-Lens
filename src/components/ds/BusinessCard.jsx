@@ -5,6 +5,7 @@ import BusinessProfileActions from "@/components/BusinessProfileActions";
 import { Badge, Button, Rating, cx } from "@/components/ds";
 import { businessDetailPath } from "@/lib/directory-data";
 import { openStatus } from "@/lib/open-status";
+import { optimizedImage } from "@/lib/images";
 
 // Business card: Figma "Components / Business card" (Layout = Grid | List | Compact).
 //  Grid     photo 208px tall, 20px body padding, 16px radius, 1px #dcdbd5 border
@@ -58,8 +59,8 @@ function PhotoArea({ data, className, sizes, children, fit = "contain" }) {
     <div className={cx("relative overflow-hidden bg-[#f7f7f4]", className)}>
       {data.image ? (
         <Link href={data.href} aria-label={`View ${data.name}`} tabIndex={-1} className="absolute inset-0 block">
-          {fit === "contain" && <Image src={data.image} alt="" fill unoptimized sizes="64px" aria-hidden="true" className="scale-125 object-cover opacity-70 blur-xl" />}
-          <Image src={data.image} alt="" fill unoptimized sizes={sizes} className={fit === "contain" ? "object-contain" : "object-cover"} />
+          {fit === "contain" && <Image src={optimizedImage(data.image, 48)} alt="" fill unoptimized sizes="64px" aria-hidden="true" className="scale-125 object-cover opacity-70 blur-xl" />}
+          <Image src={optimizedImage(data.image, 640)} alt="" fill unoptimized sizes={sizes} className={fit === "contain" ? "object-contain" : "object-cover"} />
         </Link>
       ) : (
         <Link href={data.href} aria-label={`View ${data.name}`} tabIndex={-1} className="absolute inset-0 flex flex-col items-center justify-center gap-[6px] text-[#6e7079]">

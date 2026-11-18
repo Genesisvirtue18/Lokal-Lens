@@ -8,7 +8,7 @@ import SiteHeader from "@/components/ds/SiteHeader";
 import SiteFooter from "@/components/ds/SiteFooter";
 import { Button, Eyebrow, cx } from "@/components/ds";
 
-export const metadata = { title: "Offers near you | Lokal Lens", description: "Live offers from local businesses near you." };
+export const metadata = { title: "Offers near you | Lokal Lens", description: "Live offers from local businesses near you.", alternates: { canonical: "/offers" } };
 
 function endsIn(value) {
   if (!value) return "";

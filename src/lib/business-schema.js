@@ -26,7 +26,9 @@ export function absoluteSiteUrl(path = "/") {
 
 export function buildBusinessJsonLd(business, canonicalPath) {
   const category = String(business.category?.name || "").trim().toLowerCase();
-  const specificType = businessTypes.find(([pattern]) => pattern.test(`${category} `))?.[1];
+  // The category is often broad ("Healthcare"), so the business name and keywords help pick a precise type (Dentist, Restaurant…).
+  const probe = `${category} ${String(business.name || "").toLowerCase()} ${(business.keywords || []).join(" ").toLowerCase()} `;
+  const specificType = businessTypes.find(([pattern]) => pattern.test(probe))?.[1];
   const address = business.address || {};
   const schema = {
     "@context": "https://schema.org",

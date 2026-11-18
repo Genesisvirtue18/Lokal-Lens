@@ -4,7 +4,7 @@ import Image from "next/image";
 import { cookies } from "next/headers";
 import { ArrowRight, Check, Eye, Phone, Search, Sparkles, Tag } from "lucide-react";
 import { getBusinesses, getCategories, getBusinessCities, getOffers } from "@/lib/api";
-import { toHomeBusiness } from "@/lib/directory-data";
+import { toHomeBusiness, toSeoSlug } from "@/lib/directory-data";
 import SearchBox from "@/components/SearchBox";
 import UseMyLocationButton from "@/components/UseMyLocationButton";
 import SiteHeader from "@/components/ds/SiteHeader";
@@ -60,6 +60,8 @@ function CategoryCard({ category }) {
 }
 
 const readCookie = (store, name) => { try { return decodeURIComponent(store.get(name)?.value || ""); } catch { return ""; } };
+
+export const metadata = { alternates: { canonical: "/" } };
 
 export default async function Home({ searchParams }) {
   const params = (await searchParams) || {};
@@ -184,7 +186,7 @@ export default async function Home({ searchParams }) {
               const image = AREA_PHOTOS[key] || cityBusiness?.image || null;
               const count = cityItems.find((item) => typeof item !== "string" && item.name === city)?.count;
               const tile = (
-                <Link key={city} href={`/directory?city=${encodeURIComponent(city)}`} className="group relative block min-h-[220px] overflow-hidden rounded-[16px] bg-[#1c2a52] lg:h-full">
+                <Link key={city} href={`/${toSeoSlug(city)}`} className="group relative block min-h-[220px] overflow-hidden rounded-[16px] bg-[#1c2a52] lg:h-full">
                   {image && <Image src={image} alt="" fill unoptimized sizes="(max-width: 768px) 100vw, 40vw" className="object-cover transition duration-500 group-hover:scale-[1.03]" />}
                   <span className="absolute inset-x-4 bottom-4 flex items-center justify-between gap-3 rounded-[12px] bg-white px-4 py-3">
                     <span className="min-w-0">

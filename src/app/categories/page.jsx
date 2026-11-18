@@ -2,11 +2,12 @@ import Link from "next/link";
 import { CategoryIcon } from "@/lib/category-icons";
 import { Search } from "lucide-react";
 import { getCategories, getBusinessCities } from "@/lib/api";
+import { toSeoSlug } from "@/lib/directory-data";
 import SiteHeader from "@/components/ds/SiteHeader";
 import SiteFooter from "@/components/ds/SiteFooter";
 import { Eyebrow, cx, fieldClass, labelClass } from "@/components/ds";
 
-export const metadata = { title: "All categories | Lokal Lens", description: "Browse every kind of local business by category." };
+export const metadata = { title: "All Business Categories | Lokal Lens", description: "Browse every kind of local business by category: doctors, salons, restaurants, repair services, schools and more.", alternates: { canonical: "/categories" } };
 
 const idOf = (value) => String(typeof value === "object" ? value?._id || value?.id || "" : value || "");
 
@@ -58,6 +59,12 @@ export default async function CategoriesPage({ searchParams }) {
           <div className="rounded-[16px] border border-[#dcdbd5] bg-white px-5 py-14 text-center"><p className="text-[16px] font-semibold">No categories match “{search}”</p><Link href="/categories" className="mt-3 inline-block text-[14px] font-medium text-[#002fa7]">Clear search</Link></div>
         )}
       </section>
+      {cityNames.length > 0 && (
+        <section aria-labelledby="by-city" className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 pb-16 md:px-8 lg:px-[72px]">
+          <h2 id="by-city" className="text-[24px] font-semibold leading-8 tracking-[-0.0208em]">Browse by city</h2>
+          <ul className="flex flex-wrap gap-2">{cityNames.map((name) => <li key={name}><Link href={`/${toSeoSlug(name)}`} className="inline-flex h-10 items-center rounded-full border border-[#dcdbd5] bg-white px-4 font-display text-[14px] font-medium hover:border-[#002fa7] hover:text-[#002fa7]">Businesses in {name}</Link></li>)}</ul>
+        </section>
+      )}
       <SiteFooter />
     </main>
   );

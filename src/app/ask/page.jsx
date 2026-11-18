@@ -3,7 +3,7 @@ import { getBusinessCities } from "@/lib/api";
 import SiteHeader from "@/components/ds/SiteHeader";
 import AskLokal from "@/components/AskLokal";
 
-export const metadata = { title: "Ask Lokal | Lokal Lens", description: "Ask for a local business in plain words and get matching listings." };
+export const metadata = { title: "Ask Lokal | Lokal Lens", description: "Ask for a local business in plain words and get matching listings.", alternates: { canonical: "/ask" }, robots: { index: false, follow: true } };
 
 export default async function AskPage({ searchParams }) {
   const params = (await searchParams) || {};

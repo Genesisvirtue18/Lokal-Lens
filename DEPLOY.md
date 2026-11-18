@@ -66,3 +66,12 @@ Sign in at `/login` → "Use password instead". Admin page: `/admin`.
 - **No test accounts on the live site.** Never run `seed-test-users.js` against the live database. Addresses ending in `@lokallens.test` are refused in production.
 - **Create the first admin with a long password** (12+ characters): `scripts/create-admin.js`.
 - After deploying this version everyone is signed out once (the sign-in storage changed).
+
+## Search engines (SEO), after you go live
+1. Set `NEXT_PUBLIC_SITE_URL` on Vercel to the **final public address** (for example `https://lokallens.in`, no slash at the end). Canonical links, the sitemap and share previews are built from it. Redeploy after changing it.
+2. Pick one address (with or without `www`) and make the other forward to it in Vercel → Domains. Two live copies of the site split your ranking.
+3. In **Google Search Console**: add the property, verify it (the HTML file in `public/` already does this for the current site, or set `GOOGLE_SITE_VERIFICATION` on Vercel), then submit `https://<your site>/sitemap.xml`.
+4. In **Bing Webmaster Tools**: import the site from Search Console and submit the same sitemap.
+5. The sitemap lists every business, every city page (`/<city>`) and every city + category page. If the site grows past 50,000 URLs, split it with `generateSitemaps` (see the Next.js docs).
+6. Check a few pages with Google's **Rich Results Test** (a business page should show a local-business result) and **PageSpeed Insights**.
+7. Photos on Cloudinary are served resized and in WebP/AVIF automatically. Keep new uploads on Cloudinary.
