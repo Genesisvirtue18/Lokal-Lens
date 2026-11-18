@@ -30,11 +30,15 @@ export const inputFromListing = (business: BusinessListing): CompletenessInput =
   website: business.website, verified: Boolean(business.verified) || (business.kycDocuments?.length || 0) > 0 || Boolean(business.gstNumber),
 });
 
-function Stat({ icon: Icon, label, value, note }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: React.ReactNode; note?: string }) {
+function Stat({ icon: Icon, label, value, note, tone }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: React.ReactNode; note?: string; tone?: 'alert' }) {
   return (
-    <div className="flex items-center gap-4 rounded-[16px] border border-[#dcdbd5] bg-white p-5">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-[#e6ebf7] text-[#002fa7]"><Icon size={20} /></span>
-      <div className="min-w-0"><p className="text-[28px] font-semibold leading-8 tracking-[-0.02em]">{value}</p><p className="text-[14px] leading-5 text-[#4a4c55]">{label}{note ? <span className="text-[#6e7079]"> · {note}</span> : null}</p></div>
+    <div className="flex flex-col gap-3 rounded-[16px] border border-[#dcdbd5] bg-white p-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="font-display text-[14px] font-medium leading-5 text-[#4a4c55]">{label}</p>
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#e6ebf7] text-[#002fa7]"><Icon size={18} /></span>
+      </div>
+      <p className="text-[32px] font-semibold leading-9 tracking-[-0.02em] tabular-nums">{value}</p>
+      {note ? <p className={cx('text-[13px] leading-[18px]', tone === 'alert' ? 'font-medium text-[#002fa7]' : 'text-[#6e7079]')}>{note}</p> : null}
     </div>
   );
 }
@@ -125,10 +129,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
 
       {businesses.length > 0 && (
         <section aria-label="Summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat icon={Eye} label="Profile views" value={totalViews.toLocaleString('en-IN')} />
-          <Stat icon={MessageSquare} label="Inquiries" value={leads.length} note={newLeads ? `${newLeads} new` : 'none new'} />
-          <Stat icon={Star} label="Average rating" value={average ? average.toFixed(1) : '–'} note={ratings.length ? `${ratings.length} reviews` : 'no reviews yet'} />
-          <Stat icon={Store} label={businesses.length === 1 ? 'Listing' : 'Listings'} value={businesses.length} note={[liveCount && `${liveCount} live`, pendingCount && `${pendingCount} in review`].filter(Boolean).join(' · ') || undefined} />
+          <Stat icon={Eye} label="Profile views" value={totalViews.toLocaleString('en-IN')} note="Across all listings" />
+          <Stat icon={MessageSquare} label="Inquiries" value={leads.length} note={newLeads ? `${newLeads} new to reply to` : 'No new inquiries'} tone={newLeads ? 'alert' : undefined} />
+          <Stat icon={Star} label="Average rating" value={average ? average.toFixed(1) : '–'} note={ratings.length ? `From ${ratings.length} review${ratings.length === 1 ? '' : 's'}` : 'No reviews yet'} />
+          <Stat icon={Store} label={businesses.length === 1 ? 'Listing' : 'Listings'} value={businesses.length} note={[liveCount && `${liveCount} live`, pendingCount && `${pendingCount} in review`].filter(Boolean).join(' · ') || 'None live yet'} />
         </section>
       )}
 
