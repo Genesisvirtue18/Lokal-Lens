@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { whatsappLink } from '../contact';
 import { Mail, MessageCircle, Phone, Search } from 'lucide-react';
 import { cx } from '@/components/ds';
 import { Lead } from '../types';
@@ -11,7 +12,6 @@ interface OwnerLeadsTabProps {
 }
 
 const tone: Record<Lead['status'], string> = { New: 'bg-[#e6ebf7] text-[#002fa7]', Contacted: 'bg-[#fbf0d9] text-[#8a5a00]', Converted: 'bg-[#e7f4e5] text-[#2b7a26]' };
-const digits = (value: string) => value.replace(/\D/g, '');
 
 // The inbox of customer inquiries: filter, search, call / WhatsApp / email in one tap, and move each one along.
 export const OwnerLeadsTab: React.FC<OwnerLeadsTabProps> = ({ leads, onSelectLead, onStatusChange }) => {
@@ -44,7 +44,7 @@ export const OwnerLeadsTab: React.FC<OwnerLeadsTabProps> = ({ leads, onSelectLea
               <p className="whitespace-pre-line rounded-[12px] bg-[#f1f1ee] px-4 py-3 text-[15px] leading-6">{lead.message}</p>
               <div className="flex flex-wrap items-center gap-2">
                 {lead.phone && <a href={`tel:${lead.phone}`} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-[#002fa7] px-3.5 font-display text-[14px] font-medium text-white hover:bg-[#00248a]"><Phone size={16} aria-hidden="true" />Call {lead.phone}</a>}
-                {lead.phone && <a href={`https://wa.me/${digits(lead.phone).length === 10 ? `91${digits(lead.phone)}` : digits(lead.phone)}`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[#bdbcb5] px-3.5 font-display text-[14px] font-medium hover:border-[#101115]"><MessageCircle size={16} aria-hidden="true" />WhatsApp</a>}
+                {lead.phone && <a href={whatsappLink(lead)} onClick={() => { if (lead.status === 'New' && onStatusChange) onStatusChange(lead.id, 'Contacted'); }} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[#bdbcb5] px-3.5 font-display text-[14px] font-medium hover:border-[#101115]"><MessageCircle size={16} aria-hidden="true" />WhatsApp</a>}
                 {lead.email && <a href={`mailto:${lead.email}`} className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[#bdbcb5] px-3.5 font-display text-[14px] font-medium hover:border-[#101115]"><Mail size={16} aria-hidden="true" />Email</a>}
                 <span className="ml-auto flex items-center gap-2">
                   {onStatusChange && <select aria-label={`Status for ${lead.name}`} value={lead.status} onChange={(event) => onStatusChange(lead.id, event.target.value as Lead['status'])} className="h-10 rounded-[10px] border border-[#bdbcb5] bg-white px-2.5 text-[14px]"><option>New</option><option>Contacted</option><option>Converted</option></select>}

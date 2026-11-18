@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { whatsappLink } from '../contact';
 import { Lead } from '../types';
 
 interface LeadDetailModalProps {
@@ -38,10 +39,7 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   };
 
   const handleWhatsApp = () => {
-    const text = encodeURIComponent(
-      `Hello ${lead.name}, thank you for reaching out to ${lead.targetBusiness} regarding "${lead.message}". How may we assist you today?`
-    );
-    window.open(`https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}?text=${text}`, '_blank');
+    window.open(whatsappLink(lead), '_blank', 'noopener');
   };
 
   return (

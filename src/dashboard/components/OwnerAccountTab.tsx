@@ -4,7 +4,7 @@ import { Badge, Button, Field, cx, fieldClass } from '@/components/ds';
 import { request } from '../api';
 
 export type OwnerUser = { name: string; email: string; phone?: string; emailVerified?: boolean; hasPassword?: boolean; notificationPreferences?: { email?: boolean } };
-type Session = { _id: string; userAgent?: string; ip?: string; createdAt?: string };
+type Session = { current?: boolean; _id: string; userAgent?: string; ip?: string; createdAt?: string };
 
 interface Props { user: OwnerUser | null; onUserChange: (user: OwnerUser) => void; onLogout: () => void; showToast: (message: string) => void }
 
@@ -42,7 +42,7 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
   // The profile loads after the page opens, so the fields are filled in when it arrives.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setName(user?.name || ''); setPhone(user?.phone || ''); }, [user]);
-  useEffect(() => { request('/auth/sessions').then((data) => setSessions(data.items || [])).catch(() => setSessions([])); }, []);
+  useEffect(() => { request('/auth/sessions', { headers: { 'x-refresh-token': localStorage.getItem('directflow_refresh_token') || '' } }).then((data) => setSessions(data.items || [])).catch(() => setSessions([])); }, []);
 
   async function saveProfile(event: React.FormEvent) {
     event.preventDefault();
@@ -153,7 +153,7 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
       </Card>
 
       <Card title="Where you’re signed in" hint="If you don’t recognise a device, sign out everywhere and change your password.">
-        {sessions.length ? <ul className="flex flex-col divide-y divide-[#ecebe7]">{sessions.slice(0, 6).map((session) => <li key={session._id} className="flex items-center gap-3 py-3"><Laptop size={20} className="shrink-0 text-[#6e7079]" /><div className="min-w-0 flex-1"><p className="text-[15px] font-medium leading-5">{device(session.userAgent)}</p><p className="text-[13px] leading-[18px] text-[#6e7079]">{[session.ip && !/^(::1|127.)/.test(session.ip) ? session.ip : '', when(session.createdAt)].filter(Boolean).join(' · ')}</p></div><button type="button" onClick={async () => { try { await request(`/auth/sessions/${session._id}`, { method: 'DELETE' }); setSessions((list) => list.filter((item) => item._id !== session._id)); } catch { /* leave it listed */ } }} className="h-9 shrink-0 rounded-[8px] px-3 text-[14px] font-medium text-[#b42318] hover:bg-[#fdecea]">Sign out</button></li>)}</ul> : <p className="text-[14px] text-[#6e7079]">No other sessions to show.</p>}
+        {sessions.length ? <ul className="flex flex-col divide-y divide-[#ecebe7]">{sessions.slice(0, 6).map((session) => <li key={session._id} className="flex items-center gap-3 py-3"><Laptop size={20} className="shrink-0 text-[#6e7079]" /><div className="min-w-0 flex-1"><p className="text-[15px] font-medium leading-5">{device(session.userAgent)}{session.current && <span className="ml-2 rounded-full bg-[#e7f4e5] px-2 py-0.5 align-middle font-display text-[12px] font-semibold text-[#2b7a26]">This device</span>}</p><p className="text-[13px] leading-[18px] text-[#6e7079]">{[session.ip && !/^(::1|127.)/.test(session.ip) ? session.ip : '', when(session.createdAt)].filter(Boolean).join(' · ')}</p></div>{!session.current && <button type="button" onClick={async () => { try { await request(`/auth/sessions/${session._id}`, { method: 'DELETE' }); setSessions((list) => list.filter((item) => item._id !== session._id)); } catch { /* leave it listed */ } }} className="h-9 shrink-0 rounded-[8px] px-3 text-[14px] font-medium text-[#b42318] hover:bg-[#fdecea]">Sign out</button>}</li>)}</ul> : <p className="text-[14px] text-[#6e7079]">No other sessions to show.</p>}
         <div className="flex flex-wrap gap-3"><Button type="secondary" size="s" onClick={signOutEverywhere} icon={<LogOut size={18} aria-hidden="true" />}>Sign out everywhere</Button></div>
       </Card>
 

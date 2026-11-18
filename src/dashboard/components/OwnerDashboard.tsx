@@ -5,6 +5,7 @@ import { Badge, Button, cx } from '@/components/ds';
 import { request } from '../api';
 import { completenessPercent, completenessSections, CompletenessInput } from '../completeness';
 import { BusinessListing, Lead, Review } from '../types';
+import { ShareListing } from './ShareListing';
 
 interface OwnerDashboardProps {
   businesses: BusinessListing[];
@@ -231,6 +232,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
         </div>
         </section>
       )}
+
+      {featured && <ShareListing business={featured} />}
 
       {featured && (
         <section className="flex flex-col gap-4 rounded-[20px] border border-[#dcdbd5] bg-white p-6" aria-label="Recent inquiries">
