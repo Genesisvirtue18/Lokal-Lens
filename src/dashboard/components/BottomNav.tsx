@@ -1,4 +1,5 @@
 import React from 'react';
+import { adminNavItems } from './AdminSidebar';
 import { BarChart3, LayoutGrid, MessageSquare, Settings, Star, Tag } from 'lucide-react';
 import { UserRole, OwnerTab, AdminTab } from '../types';
 
@@ -46,79 +47,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   // Admin Role Bottom Navigation
   return (
-    <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-1.5 bg-[#ffffff] border-t border-[#dcdbd5] shadow-md md:hidden">
-      {/* Tab 1: Overview */}
-      <button
-        onClick={() => onSelectAdminTab('overview')}
-        className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-150 cursor-pointer ${
-          adminTab === 'overview'
-            ? 'bg-[#e8edfb] text-[#002fa7] font-bold'
-            : 'text-[#4a4c55] hover:text-[#002fa7]'
-        }`}
-      >
-        <span
-          className="material-symbols-outlined text-[20px]"
-          style={adminTab === 'overview' ? { fontVariationSettings: "'FILL' 1" } : undefined}
-        >
-          dashboard
-        </span>
-        <span className="text-[12px] mt-0.5">Overview</span>
-      </button>
-
-      {/* Tab 2: Businesses */}
-      <button
-        onClick={() => onSelectAdminTab('businesses')}
-        className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-150 cursor-pointer ${
-          adminTab === 'businesses'
-            ? 'bg-[#e8edfb] text-[#002fa7] font-bold'
-            : 'text-[#4a4c55] hover:text-[#002fa7]'
-        }`}
-      >
-        <span
-          className="material-symbols-outlined text-[20px]"
-          style={adminTab === 'businesses' ? { fontVariationSettings: "'FILL' 1" } : undefined}
-        >
-          storefront
-        </span>
-        <span className="text-[12px] mt-0.5">Businesses</span>
-      </button>
-
-      {/* Tab 3: Leads */}
-      <button
-        onClick={() => onSelectAdminTab('leads')}
-        className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-150 cursor-pointer ${
-          adminTab === 'leads'
-            ? 'bg-[#e8edfb] text-[#002fa7] font-bold'
-            : 'text-[#4a4c55] hover:text-[#002fa7]'
-        }`}
-      >
-        <span
-          className="material-symbols-outlined text-[20px]"
-          style={adminTab === 'leads' ? { fontVariationSettings: "'FILL' 1" } : undefined}
-        >
-          contact_mail
-        </span>
-        <span className="text-[12px] mt-0.5">Leads</span>
-      </button>
-
-
-      {/* Tab 5: More */}
-      <button
-        onClick={() => onSelectAdminTab('more')}
-        className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all duration-150 cursor-pointer ${
-          adminTab === 'more'
-            ? 'bg-[#e8edfb] text-[#002fa7] font-bold'
-            : 'text-[#4a4c55] hover:text-[#002fa7]'
-        }`}
-      >
-        <span
-          className="material-symbols-outlined text-[20px]"
-          style={adminTab === 'more' ? { fontVariationSettings: "'FILL' 1" } : undefined}
-        >
-          more_horiz
-        </span>
-        <span className="text-[12px] mt-0.5">More</span>
-      </button>
+    <nav aria-label="Admin sections" className="fixed bottom-0 left-0 z-50 grid w-full grid-cols-6 border-t border-[#dcdbd5] bg-white px-1 pb-[max(4px,env(safe-area-inset-bottom))] pt-1 shadow-md md:hidden">
+      {adminNavItems.map(({ id, label, icon: Icon }) => {
+        const active = adminTab === id;
+        return (
+          <button key={id} type="button" onClick={() => onSelectAdminTab(id)} aria-current={active ? 'page' : undefined} className={`flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[10px] text-[11px] font-medium leading-4 transition-colors ${active ? 'bg-[#e8edfb] text-[#002fa7]' : 'text-[#4a4c55]'}`}>
+            <Icon size={20} strokeWidth={active ? 2.4 : 2} />
+            {label}
+          </button>
+        );
+      })}
     </nav>
   );
 };

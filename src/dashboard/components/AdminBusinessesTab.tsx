@@ -5,6 +5,7 @@ import { Badge, Button, cx } from '@/components/ds';
 import { businessDetailPath } from '@/lib/directory-data';
 import { assignBusinessOwner, deleteAdminBusiness, importBusinessesCsv, loadAdminOwners, reviewKyc, setAdminBusinessStatus, setBusinessPlan } from '../api';
 import { BusinessListing } from '../types';
+import { AdminListingDetails } from './AdminListingDetails';
 
 interface AdminBusinessesTabProps {
   activeBusinesses: BusinessListing[];
@@ -192,8 +193,6 @@ function ManagePanel({ business, onClose, onApprove, onReject, onClearMismatch, 
   const pending = business.status === 'Pending';
   const live = business.status === 'Active';
   const hasKyc = Boolean(business.gstNumber) || (business.kycDocuments?.length || 0) > 0;
-  const addr = business.address || {};
-  const address = [addr.addressLine1, addr.locality, addr.city, addr.state, addr.postalCode].filter(Boolean).join(', ');
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-[#101115]/50" onClick={onClose}>
@@ -205,22 +204,6 @@ function ManagePanel({ business, onClose, onApprove, onReject, onClearMismatch, 
 
         {error && <p role="alert" className="mx-6 mt-4 rounded-[10px] bg-[#fdecea] px-3 py-2 text-[14px] text-[#8c1d13]">{error}</p>}
 
-        <Section title="Listing">
-          <dl className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-2 text-[14px] leading-5">
-            <dt className="text-[#6e7079]">Category</dt><dd>{business.category}</dd>
-            <dt className="text-[#6e7079]">Address</dt><dd>{address || 'Not added'}</dd>
-            <dt className="text-[#6e7079]">Phone</dt><dd>{business.phone}</dd>
-            <dt className="text-[#6e7079]">Email</dt><dd className="break-all">{business.email || 'Not added'}</dd>
-            <dt className="text-[#6e7079]">Description</dt><dd className="text-[#4a4c55]">{business.description || 'Not added'}</dd>
-            <dt className="text-[#6e7079]">Services</dt><dd>{business.services?.length ? business.services.slice(0, 8).join(', ') : 'None'}</dd>
-            <dt className="text-[#6e7079]">Photos</dt><dd>{business.images?.length || 0}</dd>
-          </dl>
-          <div className="flex flex-wrap gap-2">
-            <Button type="primary" size="s" onClick={onEdit} icon={<Pencil size={16} aria-hidden="true" />}>Edit all details</Button>
-            <Button type="secondary" size="s" href={publicPath(business)} target="_blank" icon={<ExternalLink size={16} aria-hidden="true" />}>{live ? 'View public page' : 'Preview'}</Button>
-          </div>
-        </Section>
-
         {pending && (
           <Section title="Review this listing">
             {business.googlePlaceVerificationStatus === 'mismatch' && <p className="rounded-[10px] bg-[#fbf0d9] px-3 py-2 text-[14px] text-[#6b4700]">Google Place ID doesn’t match. It must be cleared before approval. <button type="button" onClick={() => onClearMismatch(business.id)} className="font-semibold underline">Clear it</button></p>}
@@ -229,8 +212,16 @@ function ManagePanel({ business, onClose, onApprove, onReject, onClearMismatch, 
             ) : (
               <div className="flex flex-wrap gap-2"><Button type="primary" size="s" onClick={() => { onApprove(business.id); onClose(); }} disabled={business.googlePlaceVerificationStatus === 'mismatch'}>Approve and publish</Button><Button type="secondary" size="s" onClick={() => setRejecting(true)}>Reject</Button></div>
             )}
+
           </Section>
         )}
+        <Section title="Listing">
+          <div className="flex flex-wrap gap-2">
+            <Button type="primary" size="s" onClick={onEdit} icon={<Pencil size={16} aria-hidden="true" />}>Edit all details</Button>
+            <Button type="secondary" size="s" href={publicPath(business)} target="_blank" icon={<ExternalLink size={16} aria-hidden="true" />}>{live ? 'View public page' : 'Preview as customer'}</Button>
+          </div>
+        </Section>
+        <AdminListingDetails id={business.id} />
         {business.status === 'Rejected' && business.rejectionReason && <Section title="Rejected"><p className="rounded-[10px] bg-[#fdecea] px-3 py-2 text-[14px] text-[#8c1d13]">{business.rejectionReason}</p></Section>}
 
         <Section title="Verification">

@@ -189,3 +189,19 @@ export async function loadAnalytics(days: 7 | 30 | 90, businessId?: string): Pro
 export async function replyToReview(businessId: string, reviewId: string, text: string) { const data = await request(`/owner/businesses/${businessId}/reviews/${reviewId}/reply`, { method: 'PUT', body: JSON.stringify({ text }) }); return data.reply as { text: string; createdAt: string }; }
 export async function removeReviewReply(businessId: string, reviewId: string) { await request(`/owner/businesses/${businessId}/reviews/${reviewId}/reply`, { method: 'DELETE' }); }
 export async function setListingVisibility(businessId: string, visible: boolean) { return request(`/owner/businesses/${businessId}/visibility`, { method: 'POST', body: JSON.stringify({ visible }) }); }
+
+// ---- Admin: people, reviews, inquiries, numbers ----
+export type Paged<T> = { items: T[]; pagination: { page: number; limit: number; totalItems: number; totalPages: number } };
+export type AdminUser = { _id: string; name: string; email?: string; phone?: string; role: 'customer' | 'business_owner' | 'admin' | 'super_admin'; status: 'active' | 'suspended'; emailVerified?: boolean; createdAt?: string; lastLoginAt?: string; listingsCount: number; reviewsCount: number };
+export type AdminUserDetail = { item: AdminUser; listings: { _id: string; name: string; listingStatus: string; kycStatus?: string; verificationStatus?: string; averageRating?: number; reviewCount?: number; viewCount?: number; leadCount?: number; address?: { city?: string; locality?: string }; category?: { name?: string }; createdAt?: string }[]; reviews: { id: string; businessId: string; businessName: string; rating: number; comment: string; createdAt?: string; reply?: string }[] };
+export type AdminReview = { id: string; businessId: string; businessName: string; rating: number; comment: string; createdAt?: string; reviewerName: string; reviewerId: string | null; reviewerEmail: string; source: 'member' | 'imported'; reply: string };
+export type AdminLead = { _id: string; name: string; phone: string; email?: string; service?: string; message: string; status: 'new' | 'contacted' | 'converted'; createdAt?: string; business?: { _id: string; name: string; owner?: { _id: string; name: string; email?: string } } };
+export type AdminStats = { customers: number; owners: number; admins: number; reviews: number; leads: number; leadsLast7Days: number };
+const qs = (params: Record<string, string | number | undefined>) => { const search = new URLSearchParams(); Object.entries(params).forEach(([key, value]) => { if (value !== undefined && value !== '' && value !== 'all') search.set(key, String(value)); }); return search.toString(); };
+export const loadAdminStats = async (): Promise<AdminStats> => request('/admin/stats');
+export const loadAdminUsers = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminUser>> => request(`/admin/users?${qs(params)}`);
+export const loadAdminUser = async (id: string): Promise<AdminUserDetail> => request(`/admin/users/${id}`);
+export const setAdminUserStatus = async (id: string, status: 'active' | 'suspended') => request(`/admin/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+export const loadAdminReviews = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminReview>> => request(`/admin/reviews?${qs(params)}`);
+export const deleteAdminReview = async (businessId: string, reviewId: string) => { await request(`/admin/businesses/${businessId}/reviews/${reviewId}`, { method: 'DELETE' }); };
+export const loadAdminLeads = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminLead>> => request(`/admin/leads?${qs(params)}`);

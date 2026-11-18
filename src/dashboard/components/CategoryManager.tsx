@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, Eye, EyeOff, FolderPlus, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { Button, cx } from '@/components/ds';
-import { CATEGORY_ICONS, CategoryIcon, hasValidIcon } from '@/lib/category-icons';
+import { CATEGORY_ICONS, CategoryIcon, guessIconKey, hasValidIcon } from '@/lib/category-icons';
 import { addCategoryServices, createCategory, deleteCategory, importCategoriesCsv, importServicesCsv, loadAdminCategories, ManagedCategory, updateCategory } from '../api';
 
 const input = 'h-10 rounded-[10px] border border-[#bdbcb5] bg-white px-3 text-[14px] outline-none focus:border-2 focus:border-[#002fa7]';
@@ -47,6 +47,8 @@ export const CategoryManager = ({ onMessage }: { onMessage: (message: string) =>
   const [busy, setBusy] = useState(false);
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState('');
+  const suggested = guessIconKey(newName);
+  const iconToUse = newIcon || suggested;
   const [open, setOpen] = useState('');
   const [editing, setEditing] = useState<{ id: string; name: string; icon: string } | null>(null);
   const [subName, setSubName] = useState('');
@@ -125,22 +127,24 @@ export const CategoryManager = ({ onMessage }: { onMessage: (message: string) =>
   };
 
   const withoutIcon = categories.filter((item) => !hasValidIcon(item.icon || ''));
+  const guessable = withoutIcon.filter((item) => guessIconKey(item.name));
+  const applyGuesses = () => run(async () => { for (const item of guessable) await updateCategory(item._id, { icon: guessIconKey(item.name) }); }, 'Icons set from the category names.');
 
   return (
     <main className="mx-auto flex w-full max-w-[1000px] flex-col gap-6 px-4 pb-24 pt-8 md:px-8 lg:pt-10">
       <div className="flex flex-col gap-2"><p className="font-eyebrow text-[#002fa7]">Admin</p><h1 className="text-[28px] font-semibold leading-9 tracking-[-0.0294em] md:text-[34px] md:leading-[42px]">Categories</h1><p className="text-[16px] leading-6 text-[#4a4c55]">The categories customers browse and the services owners can choose. Every category has an icon you pick, so the site looks the same everywhere.</p></div>
 
       {error && <p role="alert" className="rounded-[10px] bg-[#fdecea] px-4 py-3 text-[14px] text-[#8c1d13]">{error}</p>}
-      {withoutIcon.length > 0 && <p role="status" className="flex items-start gap-2 rounded-[10px] bg-[#fbf0d9] px-4 py-3 text-[14px] leading-5 text-[#6b4700]"><AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />{withoutIcon.length} {withoutIcon.length === 1 ? 'category has' : 'categories have'} no icon chosen yet ({withoutIcon.map((item) => item.name).join(', ')}). The site is guessing one from the name. Pick one with the pencil button so it stays consistent.</p>}
+      {withoutIcon.length > 0 && <p role="status" className="flex items-start gap-2 rounded-[10px] bg-[#fbf0d9] px-4 py-3 text-[14px] leading-5 text-[#6b4700]"><AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" /><span>{withoutIcon.length} {withoutIcon.length === 1 ? 'category has' : 'categories have'} no icon chosen yet ({withoutIcon.map((item) => item.name).join(', ')}). The site is guessing one from the name. Pick one with the pencil button so it stays consistent.{guessable.length > 0 && <> <button type="button" onClick={() => void applyGuesses()} disabled={busy} className="font-semibold underline">Set {guessable.length === withoutIcon.length ? 'all of them' : `${guessable.length} of them`} automatically</button> (you can still change any later).</>}</span></p>}
 
       <section className="flex flex-col gap-4 rounded-[16px] border border-[#dcdbd5] bg-white p-5" aria-label="Add a category">
         <h2 className="text-[18px] font-semibold leading-[26px]">Add a category</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <input value={newName} onChange={(event) => setNewName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && newName.trim().length >= 2 && hasValidIcon(newIcon)) void run(async () => { await createCategory(newName.trim(), undefined, newIcon); setNewName(''); setNewIcon(''); }, 'Category added.'); }} placeholder="Category name, e.g. Pet care" maxLength={120} aria-label="Category name" className={cx(input, 'min-w-[220px] flex-1')} />
-          <IconPicker value={newIcon} name={newName} onChange={setNewIcon} />
-          <Button type="primary" disabled={busy || newName.trim().length < 2 || !hasValidIcon(newIcon)} onClick={() => void run(async () => { await createCategory(newName.trim(), undefined, newIcon); setNewName(''); setNewIcon(''); }, 'Category added.')} icon={<Plus size={18} aria-hidden="true" />}>Add category</Button>
+          <input value={newName} onChange={(event) => setNewName(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && newName.trim().length >= 2 && hasValidIcon(iconToUse)) void run(async () => { await createCategory(newName.trim(), undefined, iconToUse); setNewName(''); setNewIcon(''); }, 'Category added.'); }} placeholder="Category name, e.g. Pet care" maxLength={120} aria-label="Category name" className={cx(input, 'min-w-[220px] flex-1')} />
+          <IconPicker value={iconToUse} name={newName} onChange={setNewIcon} />
+          <Button type="primary" disabled={busy || newName.trim().length < 2 || !hasValidIcon(iconToUse)} onClick={() => void run(async () => { await createCategory(newName.trim(), undefined, iconToUse); setNewName(''); setNewIcon(''); }, 'Category added.')} icon={<Plus size={18} aria-hidden="true" />}>Add category</Button>
         </div>
-        {!hasValidIcon(newIcon) && newName.trim().length >= 2 && <p className="text-[13px] text-[#6e7079]">Choose an icon to add this category.</p>}
+        {newName.trim().length >= 2 && (!hasValidIcon(iconToUse) ? <p className="text-[13px] text-[#6e7079]">We couldn’t guess an icon for this name. Choose one to add it.</p> : !newIcon ? <p className="text-[13px] text-[#6e7079]">Icon suggested from the name. Change it if it doesn’t fit.</p> : null)}
         <button type="button" onClick={() => setShowImport((v) => !v)} className="self-start text-[14px] font-medium text-[#002fa7] hover:underline">{showImport ? 'Hide CSV import' : 'Import many categories from a CSV'}</button>
         {showImport && <label className="flex flex-col gap-1.5 text-[14px] text-[#4a4c55]">CSV with a “name” column. Imported categories have no icon until you choose one.<input type="file" accept=".csv,text/csv" disabled={busy} onChange={chooseFile((file) => importCategoriesCsv(file), 'Categories imported.')} className="text-[14px]" /></label>}
       </section>

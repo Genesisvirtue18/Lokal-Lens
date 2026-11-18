@@ -24,6 +24,7 @@ export const CATEGORY_ICONS = [
 const BY_KEY = new Map(CATEGORY_ICONS.map((item) => [item.key, item]));
 
 // Only used when a category has no icon chosen yet, so older categories still look reasonable until an admin picks one.
+/** @type {[RegExp, string][]} */
 const SUGGESTIONS = [
   [/restaurant|cafe|café|food|bakery|dining/i, "utensils"],
   [/health|clinic|medical|hospital|dent|doctor/i, "stethoscope"],
@@ -38,6 +39,8 @@ const SUGGESTIONS = [
   [/real estate|property|realty/i, "building-2"],
 ];
 export const suggestIconKey = (name) => SUGGESTIONS.find(([pattern]) => pattern.test(name || ""))?.[1] || "store";
+/** A guess from the name, or an empty string when nothing fits (the admin then has to choose). */
+export const guessIconKey = (name) => SUGGESTIONS.find(([pattern]) => pattern.test(name || ""))?.[1] || "";
 export const hasValidIcon = (icon) => BY_KEY.has(icon);
 
 /** The icon of a category: the one the admin chose, otherwise a guess from its name. */

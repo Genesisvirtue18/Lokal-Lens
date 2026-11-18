@@ -1,7 +1,8 @@
 import React from 'react';
-import { BadgeCheck, ChevronRight, ClipboardCheck, Store, UserX } from 'lucide-react';
+import { BadgeCheck, ChevronRight, ClipboardCheck, MessageSquare, Star, Store, UserX, Users } from 'lucide-react';
 import { Badge, Button } from '@/components/ds';
-import { BusinessListing, Lead } from '../types';
+import { AdminStats } from '../api';
+import { AdminTab, BusinessListing, Lead } from '../types';
 
 interface AdminDashboardProps {
   pendingBusinesses: BusinessListing[];
@@ -11,6 +12,8 @@ interface AdminDashboardProps {
   onRejectBusiness: (id: string) => void;
   onInspectBusiness: (business: BusinessListing) => void;
   onViewAllPending: () => void;
+  stats?: AdminStats | null;
+  onGoTo?: (tab: AdminTab) => void;
   onOpenAddCategory?: () => void;
   onExportData?: () => void;
   onSelectLead?: (lead: Lead) => void;
@@ -28,7 +31,7 @@ function Stat({ label, value, note, icon: Icon, onClick }: { label: string; valu
   return onClick ? <button type="button" onClick={onClick} className={`${cls} transition-colors hover:border-[#101115]`}>{body}</button> : <div className={cls}>{body}</div>;
 }
 
-export const AdminDashboard: React.FC<AdminDashboardProps> = ({ pendingBusinesses, activeBusinesses, adminLeads, onApproveBusiness, onInspectBusiness, onViewAllPending }) => {
+export const AdminDashboard: React.FC<AdminDashboardProps> = ({ pendingBusinesses, activeBusinesses, stats, onGoTo, onApproveBusiness, onInspectBusiness, onViewAllPending }) => {
   const all = [...pendingBusinesses, ...activeBusinesses];
   const live = all.filter((item) => item.status === 'Active').length;
   const kycToCheck = all.filter((item) => item.kycStatus === 'submitted');
@@ -45,8 +48,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ pendingBusinesse
         <Stat icon={Store} label="All listings" value={all.length} note={`${live} live`} onClick={onViewAllPending} />
         <Stat icon={ClipboardCheck} label="Waiting for approval" value={pendingBusinesses.length} note={pendingBusinesses.length ? 'Review them below' : 'All caught up'} />
         <Stat icon={BadgeCheck} label="Verification to check" value={kycToCheck.length} note="GST or documents submitted" />
-        <Stat icon={UserX} label="Without an owner" value={unowned} note={`${adminLeads.length} customer inquiries so far`} />
+        <Stat icon={UserX} label="Without an owner" value={unowned} note="Listings nobody can manage yet" onClick={onViewAllPending} />
       </section>
+      {stats && (
+        <section aria-label="People and activity" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          <Stat icon={Users} label="Business owners" value={stats.owners} note="Signed-up owner accounts" onClick={() => onGoTo?.('people')} />
+          <Stat icon={Users} label="Customers" value={stats.customers} note="Signed-up customer accounts" onClick={() => onGoTo?.('people')} />
+          <Stat icon={Star} label="Reviews" value={stats.reviews} note="Across all listings" onClick={() => onGoTo?.('reviews')} />
+          <Stat icon={MessageSquare} label="Inquiries" value={stats.leads} note={`${stats.leadsLast7Days} in the last 7 days`} onClick={() => onGoTo?.('leads')} />
+        </section>
+      )}
 
       <section className="flex flex-col gap-4 rounded-[20px] border border-[#dcdbd5] bg-white p-6" aria-label="Needs attention">
         <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-[18px] font-semibold leading-[26px]">Needs your attention</h2><p className="text-[14px] leading-5 text-[#4a4c55]">Open a listing to read its details before you approve it.</p></div><Button type="ghost" size="s" onClick={onViewAllPending} trailingIcon={<ChevronRight size={18} aria-hidden="true" />}>All businesses</Button></div>

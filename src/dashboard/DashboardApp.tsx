@@ -4,7 +4,7 @@ import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserRole, OwnerTab, AdminTab, BusinessListing, Lead, Review } from './types';
-import { addOwnerLeadNote, clearGooglePlaceMismatch, loadAdminDashboard, loadOwnerDashboard, logout, request, reviewBusiness, setListingVisibility, updateOwnerLeadStatus } from './api';
+import { addOwnerLeadNote, clearGooglePlaceMismatch, AdminStats, loadAdminDashboard, loadAdminStats, loadOwnerDashboard, logout, request, reviewBusiness, setListingVisibility, updateOwnerLeadStatus } from './api';
 import { Header } from './components/Header';
 import { OwnerDashboard } from './components/OwnerDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -23,7 +23,10 @@ import { SearchModal } from './components/SearchModal';
 import { OwnerLeadsTab } from './components/OwnerLeadsTab';
 import { OwnerReviewsTab } from './components/OwnerReviewsTab';
 import { AdminBusinessesTab } from './components/AdminBusinessesTab';
-import { DesktopSidebar } from './components/DesktopSidebar';
+import { AdminSidebar } from './components/AdminSidebar';
+import { AdminPeopleTab } from './components/AdminPeopleTab';
+import { AdminReviewsTab } from './components/AdminReviewsTab';
+import { AdminLeadsTab } from './components/AdminLeadsTab';
 import { BusinessProfileForm } from './components/BusinessProfileForm';
 import { CategoryManager } from './components/CategoryManager';
 
@@ -37,6 +40,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
   // Each route receives a fixed role. There is deliberately no role switcher.
   const [ownerTab, setOwnerTab] = useState<OwnerTab>(initialTab === 'form' ? 'form' : 'business');
   const [adminTab, setAdminTab] = useState<AdminTab>('overview');
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [ownerUser, setOwnerUser] = useState<OwnerUser | null>(null);
   const [formEditId, setFormEditId] = useState('');
   const [formStep, setFormStep] = useState(0);
@@ -56,7 +60,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
     let live = true;
     (async () => { try {
       setLoading(true); setLoadError('');
-      if (role === 'admin') { const items = await loadAdminDashboard(); if (live) { setPendingBusinesses(items.filter((item) => item.status === 'Pending')); setActiveBusinesses(items.filter((item) => item.status !== 'Pending')); } }
+      if (role === 'admin') { loadAdminStats().then((value) => { if (live) setAdminStats(value); }).catch(() => {}); const items = await loadAdminDashboard(); if (live) { setPendingBusinesses(items.filter((item) => item.status === 'Pending')); setActiveBusinesses(items.filter((item) => item.status !== 'Pending')); } }
       else { const data = await loadOwnerDashboard(); if (live) { setActiveBusinesses(data.businesses); setReviews(data.reviews); setOwnerLeads(data.leads); } }
     } catch (error) { if (live) setLoadError(error instanceof Error ? error.message : 'Unable to load dashboard data'); } finally { if (live) setLoading(false); } })();
     return () => { live = false; };
@@ -110,6 +114,9 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [adminForm, setAdminForm] = useState<{ id: string } | null>(null);
   const [adminOpenId, setAdminOpenId] = useState('');
+  const [adminPersonId, setAdminPersonId] = useState('');
+  const openBusiness = (id: string) => { setAdminOpenId(id); setAdminTab('businesses'); };
+  const openPerson = (id: string) => { setAdminPersonId(id); setAdminTab('people'); };
 
   // Handlers
   const handleApproveBusiness = async (bizId: string) => {
@@ -214,7 +221,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
       {/* Main Responsive App Frame Container */}
       <div className="flex min-h-screen w-full">
         {role === 'owner' && <OwnerSidebar active={ownerTab === 'form' && formEditId ? 'business' : ownerTab} onSelect={setOwnerTab} newLeads={ownerLeads.filter((lead) => lead.status === 'New').length} reviewCount={reviews.filter((review) => !review.reply).length} onAddBusiness={handleAddBusiness} onLogout={doLogout} />}
-        {role === 'admin' && <DesktopSidebar role={role} ownerTab={ownerTab} adminTab={adminTab} onSelectOwnerTab={setOwnerTab} onSelectAdminTab={setAdminTab} />}
+        {role === 'admin' && <AdminSidebar active={adminTab} onSelect={(tab) => { setAdminForm(null); setAdminTab(tab); }} waiting={pendingBusinesses.length} onLogout={doLogout} />}
       <div className="min-w-0 flex-1 bg-[#f1f1ee]">
         {/* Top App Bar Component */}
         <Header
@@ -304,7 +311,9 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
                 adminLeads={adminLeads}
                 onApproveBusiness={handleApproveBusiness}
                 onRejectBusiness={handleRejectBusiness}
-                onInspectBusiness={(b) => { setAdminOpenId(b.id); setAdminTab('businesses'); }}
+                stats={adminStats}
+                onInspectBusiness={(b) => openBusiness(b.id)}
+                onGoTo={(tab) => setAdminTab(tab)}
                 onOpenAddCategory={() => showToast('Category creation is not available from the current API.')}
                 onExportData={() => showToast('Export is not available from the current API.')}
                 onSelectLead={(l) => setSelectedLead(l)}
@@ -333,14 +342,12 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
                   setActiveBusinesses(items => business.status !== 'Pending' ? [business, ...items.filter(item => item.id !== business.id)] : items.filter(item => item.id !== business.id));
                 }}
               />
-            ) : adminTab === 'leads' ? (
-              <OwnerLeadsTab
-                leads={adminLeads}
-                onSelectLead={(l) => setSelectedLead(l)}
-                onBackToDashboard={() => setAdminTab('overview')}
-              />
+            ) : adminTab === 'people' ? (
+              <AdminPeopleTab openId={adminPersonId} onCloseOpen={() => setAdminPersonId('')} onOpenBusiness={openBusiness} showToast={showToast} />
             ) : adminTab === 'reviews' ? (
-              <OwnerReviewsTab reviews={reviews} businesses={activeBusinesses} onReviewChange={onReviewChange} showToast={showToast} />
+              <AdminReviewsTab onOpenBusiness={openBusiness} onOpenPerson={openPerson} showToast={showToast} />
+            ) : adminTab === 'leads' ? (
+              <AdminLeadsTab onOpenBusiness={openBusiness} onOpenPerson={openPerson} />
             ) : (
               <CategoryManager onMessage={showToast} />
             )

@@ -1,0 +1,115 @@
+import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { ExternalLink } from 'lucide-react';
+import { loadAdminBusiness } from '../api';
+
+type Raw = {
+  tagline?: string; description?: string; businessType?: string; establishedYear?: number; serviceMode?: string; serviceAreas?: string[];
+  address?: Record<string, string>; location?: { coordinates?: [number, number] }; locationApproximate?: boolean;
+  serviceItems?: { name: string; priceFrom?: number; priceTo?: number; unit?: string }[]; services?: string[];
+  workingHours?: { day: string; isClosed?: boolean; opens?: string; closes?: string }[]; specialHours?: { label?: string; date?: string; isClosed?: boolean; opens?: string; closes?: string }[];
+  paymentModes?: string[]; languages?: string[]; priceRange?: string; amenities?: string[]; homeDelivery?: boolean;
+  offers?: { title: string; description?: string; code?: string; validUntil?: string }[];
+  phone?: string; alternatePhone?: string; whatsapp?: string; email?: string; website?: string; socialLinks?: Record<string, string>;
+  faqs?: { question: string; answer: string }[]; images?: string[]; logo?: string;
+  createdAt?: string; viewCount?: number; leadCount?: number; averageRating?: number; reviewCount?: number; slug?: string;
+  category?: { name?: string } | string;
+};
+
+const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const time = (value?: string) => { const [h, m] = String(value || '').split(':').map(Number); return Number.isNaN(h) ? '' : `${h % 12 || 12}:${String(m || 0).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+const money = (value?: number) => (value ? `₹${Number(value).toLocaleString('en-IN')}` : '');
+const priceText = (service: { priceFrom?: number; priceTo?: number; unit?: string }) => (service.priceFrom ? `${service.priceTo ? '' : 'From '}${money(service.priceFrom)}${service.priceTo ? ` – ${money(service.priceTo)}` : ''}${service.unit ? ` / ${service.unit}` : ''}` : '');
+const label = (value: string) => value.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+
+function Block({ title, children }: { title: string; children: React.ReactNode }) {
+  return <div className="flex flex-col gap-2"><h4 className="font-display text-[13px] font-semibold uppercase tracking-wide text-[#6e7079]">{title}</h4>{children}</div>;
+}
+function Row({ name, children }: { name: string; children: React.ReactNode }) {
+  return <div className="grid grid-cols-[110px_1fr] gap-x-4 text-[14px] leading-5"><dt className="text-[#6e7079]">{name}</dt><dd className="min-w-0 break-words">{children}</dd></div>;
+}
+const none = <span className="text-[#9a9ba3]">Not added</span>;
+const chips = (items?: string[]) => (items?.length ? <ul className="flex flex-wrap gap-1.5">{items.map((item) => <li key={item} className="rounded-full bg-[#f1f1ee] px-2.5 py-1 text-[13px]">{item}</li>)}</ul> : none);
+
+// Everything the owner entered, read-only, so an admin can judge a listing before approving it.
+export function AdminListingDetails({ id }: { id: string }) {
+  const [state, setState] = useState<{ id: string; item?: Raw; error?: string }>({ id: '' });
+  useEffect(() => {
+    let live = true;
+    loadAdminBusiness(id).then((item) => { if (live) setState({ id, item }); }).catch((reason) => { if (live) setState({ id, error: reason instanceof Error ? reason.message : 'Unable to load the full listing' }); });
+    return () => { live = false; };
+  }, [id]);
+  if (state.id !== id) return <p className="px-6 py-5 text-[14px] text-[#6e7079]">Loading the full listing…</p>;
+  if (state.error || !state.item) return <p role="alert" className="mx-6 my-5 rounded-[10px] bg-[#fdecea] px-3 py-2 text-[14px] text-[#8c1d13]">{state.error}</p>;
+  const item = state.item;
+  const address = item.address || {};
+  const coords = item.location?.coordinates;
+  const hours = DAY_ORDER.map((day) => item.workingHours?.find((entry) => String(entry.day).toLowerCase() === day)).filter(Boolean) as NonNullable<Raw['workingHours']>;
+  const socials = Object.entries(item.socialLinks || {}).filter(([, value]) => value);
+  const services: NonNullable<Raw['serviceItems']> = item.serviceItems?.length ? item.serviceItems : (item.services || []).map((name) => ({ name }));
+  const photos = [...(item.images || [])];
+
+  return (
+    <div className="flex flex-col gap-6 px-6 py-5">
+      {photos.length > 0 ? (
+        <Block title={`Photos (${photos.length})`}>
+          <ul className="grid grid-cols-4 gap-2">{photos.slice(0, 8).map((src, index) => <li key={src + index}><a href={src} target="_blank" rel="noreferrer" className="relative block aspect-square overflow-hidden rounded-[10px] bg-[#f1f1ee]"><Image src={src} alt={`Photo ${index + 1}`} unoptimized fill sizes="120px" className="object-cover" /></a></li>)}</ul>
+        </Block>
+      ) : <Block title="Photos">{none}</Block>}
+
+      <Block title="About">
+        <dl className="flex flex-col gap-1.5">
+          <Row name="Tagline">{item.tagline || none}</Row>
+          <Row name="Description"><span className="whitespace-pre-line text-[#2f3138]">{item.description || none}</span></Row>
+          <Row name="Type">{item.businessType ? label(item.businessType) : none}</Row>
+          <Row name="Established">{item.establishedYear || none}</Row>
+          <Row name="Serves">{item.serviceMode === 'visit' ? 'Customers visit the address' : item.serviceMode ? `${label(item.serviceMode)}${item.serviceAreas?.length ? `: ${item.serviceAreas.join(', ')}` : ''}` : none}</Row>
+        </dl>
+      </Block>
+
+      <Block title="Contact">
+        <dl className="flex flex-col gap-1.5">
+          <Row name="Phone">{[item.phone, item.alternatePhone].filter(Boolean).join(' · ') || none}</Row>
+          <Row name="WhatsApp">{item.whatsapp || none}</Row>
+          <Row name="Email">{item.email || none}</Row>
+          <Row name="Website">{item.website ? <a href={item.website} target="_blank" rel="noreferrer" className="text-[#002fa7] underline">{item.website}</a> : none}</Row>
+          <Row name="Social">{socials.length ? <span className="flex flex-wrap gap-x-3">{socials.map(([name, url]) => <a key={name} href={url} target="_blank" rel="noreferrer" className="capitalize text-[#002fa7] underline">{name}</a>)}</span> : none}</Row>
+        </dl>
+      </Block>
+
+      <Block title="Location">
+        <dl className="flex flex-col gap-1.5">
+          <Row name="Address">{[address.addressLine1, address.locality, address.city, address.state, address.postalCode].filter(Boolean).join(', ') || none}</Row>
+          {address.landmark && <Row name="Landmark">{address.landmark}</Row>}
+          <Row name="Map pin">{coords ? <a href={`https://www.openstreetmap.org/?mlat=${coords[1]}&mlon=${coords[0]}#map=18/${coords[1]}/${coords[0]}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[#002fa7] underline">{item.locationApproximate ? 'Placed from the address' : 'Exact pin set by the owner'}<ExternalLink size={13} aria-hidden="true" /></a> : <span className="text-[#8a5a00]">No pin on the map</span>}</Row>
+        </dl>
+      </Block>
+
+      <Block title="Opening hours">
+        {hours.length ? <ul className="flex max-w-[340px] flex-col gap-0.5 text-[14px]">{hours.map((entry) => <li key={entry.day} className="flex justify-between gap-4"><span className="capitalize">{entry.day}</span>{entry.isClosed ? <span className="text-[#6e7079]">Closed</span> : <span className="tabular-nums">{time(entry.opens)} – {time(entry.closes)}</span>}</li>)}</ul> : none}
+        {item.specialHours?.length ? <p className="text-[13px] text-[#4a4c55]">Special days: {item.specialHours.map((day) => `${day.label || day.date}${day.isClosed ? ' (closed)' : ''}`).join(', ')}</p> : null}
+      </Block>
+
+      <Block title={`Services (${services.length})`}>
+        {services.length ? <ul className="flex flex-col gap-1 text-[14px]">{services.map((service) => <li key={service.name} className="flex justify-between gap-4"><span>{service.name}</span><span className="text-[#4a4c55]">{priceText(service)}</span></li>)}</ul> : none}
+      </Block>
+
+      <Block title="Good to know">
+        <dl className="flex flex-col gap-1.5">
+          <Row name="Payments">{chips(item.paymentModes?.map(label))}</Row>
+          <Row name="Languages">{chips(item.languages)}</Row>
+          <Row name="Facilities">{chips(item.amenities)}</Row>
+          <Row name="Price level">{item.priceRange ? label(item.priceRange) : none}</Row>
+          <Row name="Home delivery">{item.homeDelivery ? 'Yes' : 'No'}</Row>
+        </dl>
+      </Block>
+
+      {item.offers?.length ? <Block title={`Offers (${item.offers.length})`}><ul className="flex flex-col gap-1.5 text-[14px]">{item.offers.map((offer) => <li key={offer.title}><span className="font-medium">{offer.title}</span>{offer.code ? ` · code ${offer.code}` : ''}{offer.validUntil ? ` · until ${new Date(offer.validUntil).toLocaleDateString('en-IN')}` : ''}{offer.description ? <span className="block text-[#4a4c55]">{offer.description}</span> : null}</li>)}</ul></Block> : null}
+      {item.faqs?.length ? <Block title={`Questions (${item.faqs.length})`}><ul className="flex flex-col gap-2 text-[14px]">{item.faqs.map((faq) => <li key={faq.question}><span className="font-medium">{faq.question}</span><span className="block text-[#4a4c55]">{faq.answer}</span></li>)}</ul></Block> : null}
+
+      <Block title="Activity">
+        <p className="text-[14px] text-[#4a4c55]">{item.viewCount || 0} profile views · {item.leadCount || 0} inquiries · {item.reviewCount || 0} reviews{item.averageRating ? ` (${Number(item.averageRating).toFixed(1)} average)` : ''} · created {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</p>
+      </Block>
+    </div>
+  );
+}
