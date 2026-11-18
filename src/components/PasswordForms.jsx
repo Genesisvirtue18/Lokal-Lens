@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button, Logo, fieldClass, labelClass } from "@/components/ds";
 import { useRouter } from "next/navigation";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "https://directory-backend-ai6r.onrender.com/api/v1").replace(/\/$/, "");
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 const inputClass = `mt-1.5 ${fieldClass}`;
 
 function Shell({ title, subtitle, children }) {

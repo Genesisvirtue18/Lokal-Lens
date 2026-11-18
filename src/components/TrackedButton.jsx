@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Globe, MessageCircle, Navigation, Phone, X } from "lucide-react";
 import { Button } from "@/components/ds";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "https://directory-backend-ai6r.onrender.com/api/v1").replace(/\/$/, "");
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 
 // Figma "Dialog / External action": what each button says before it leaves Lokal Lens.
 const COPY = {

@@ -7,7 +7,7 @@ import { Button } from "@/components/ds";
 import { authedFetch } from "@/dashboard/api";
 import ReportReviewButton from "@/components/ReportReviewButton";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "https://directory-backend-ai6r.onrender.com/api/v1").replace(/\/$/, "");
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 
 function Stars({ value, size = 16 }) {
   return <span className="inline-flex gap-0.5" role="img" aria-label={`${Number(value).toFixed(1)} out of 5`}>{[1, 2, 3, 4, 5].map((n) => <Star key={n} size={size} className={n <= Math.round(value) ? "fill-[#101115] text-[#101115]" : "text-[#bdbcb5]"} aria-hidden="true" />)}</span>;

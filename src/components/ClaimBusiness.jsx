@@ -6,7 +6,7 @@ import { Button, fieldClass } from "@/components/ds";
 import { authedFetch, request, uploadBusinessDocuments } from "@/dashboard/api";
 import { clean } from "@/lib/business-validation";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "https://directory-backend-ai6r.onrender.com/api/v1").replace(/\/$/, "");
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 const RELATIONS = [["owner", "I am the owner"], ["manager", "I manage it for the owner"], ["employee", "I work here"], ["agency", "I work for an agency that manages it"], ["other", "Something else"]];
 
 // "Is this your business?" on a public profile. Owners send proof, an admin checks it and hands the listing over.

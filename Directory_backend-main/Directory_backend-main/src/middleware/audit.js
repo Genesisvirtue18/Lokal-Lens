@@ -2,6 +2,7 @@ import { AuditLog } from '../models/AuditLog.js';
 import { Business } from '../models/Business.js';
 import { Category } from '../models/Category.js';
 import { User } from '../models/User.js';
+import { emailPerson } from '../services/notices.js';
 
 const ID = /[a-f0-9]{24}/g;
 const pick = (body, keys) => keys.filter((key) => body?.[key] !== undefined && body[key] !== '').map((key) => `${key}: ${Array.isArray(body[key]) ? `${body[key].length} items` : String(body[key]).slice(0, 120)}`).join(' · ');
@@ -31,6 +32,9 @@ const RULES = [
   ['DELETE', /^\/admin\/categories\/[^/]+$/, 'category', () => 'Deleted category', []],
 ];
 
+// Changes that need a second pair of eyes: every super admin gets an email, so a hijacked session can't act unnoticed.
+const RISKY = /^(Changed role|Created an? admin|Deleted listing|Bulk delete|Bulk assign|delete all listings|Approved a claim|Suspended account|Deleted category)/i;
+
 const targetName = async (type, id) => {
   if (!id) return '';
   try {
@@ -42,7 +46,7 @@ const targetName = async (type, id) => {
 };
 
 // Writes one AuditLog row after every successful admin change. It never slows down or breaks the request itself.
-export const auditAdmin = () => (req, res, next) => {
+export const auditAdmin = (mailer) => (req, res, next) => {
   if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) return next();
   res.on('finish', () => {
     if (res.statusCode >= 400 || !req.user) return;
@@ -53,7 +57,12 @@ export const auditAdmin = () => (req, res, next) => {
     const type = rule?.[2] || 'other';
     void (async () => {
       const name = await targetName(type, id);
-      await AuditLog.create({ actor: req.user._id || req.user.id, actorName: req.user.name, actorEmail: req.user.email, label: rule ? rule[3](body) : `${req.method} ${path}`, method: req.method, route: path.replace(ID, ':id'), targetType: type, targetId: id, targetName: name, details: rule ? pick(body, rule[4]) : '' });
+      const label = rule ? rule[3](body) : `${req.method} ${path}`;
+      await AuditLog.create({ actor: req.user._id || req.user.id, actorName: req.user.name, actorEmail: req.user.email, label, method: req.method, route: path.replace(ID, ':id'), targetType: type, targetId: id, targetName: name, details: rule ? pick(body, rule[4]) : '' });
+      if (mailer && RISKY.test(label)) {
+        const supers = await User.find({ role: 'super_admin', status: 'active', deletedAt: null }).select('email notificationPreferences').lean();
+        for (const person of supers) emailPerson(mailer, { ...person, notificationPreferences: undefined }, `Admin action: ${label}`, [`${req.user.name} (${req.user.email}) did this: ${label}${name ? ` — ${name}` : ''}.`, '', 'If you don’t recognise it, open Admin → Activity and suspend the account.']);
+      }
     })().catch(() => {});
   });
   next();

@@ -28,6 +28,12 @@ const publicListing = item => {
   delete normalized.msmeNumber;
   if (Array.isArray(normalized.reviews)) normalized.reviews = normalized.reviews.map(({ user, ...review }) => review);
   delete normalized.kycDocuments;
+  // The listing email is for our team to reach the owner, not for the public (the form says so). Internal counters stay internal too.
+  delete normalized.email;
+  delete normalized.leadCount;
+  delete normalized.contactClickCount;
+  delete normalized.deletedAt;
+  delete normalized.__v;
   delete normalized.kycStatus;
   delete normalized.plan;
   delete normalized.planExpiresAt;

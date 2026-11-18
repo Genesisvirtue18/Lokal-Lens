@@ -6,7 +6,7 @@ import { MapPin, Search, Store, Tag } from "lucide-react";
 import { Button, cx } from "@/components/ds";
 import { businessDetailPath } from "@/lib/directory-data";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "https://directory-backend-ai6r.onrender.com/api/v1").replace(/\/$/, "");
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 
 // Search module: Figma "Brand, header & footer / Search module".
 // White card, 20px radius, 8px padding. Fields are 14px radius with a Poppins label and an 18px DM Sans value.

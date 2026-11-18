@@ -6,6 +6,8 @@ import { AppError } from '../utils/AppError.js';
 import { sendSuccess } from '../utils/response.js';
 import { findRefreshToken, issueTokens, revokeRefreshToken } from '../utils/tokens.js';
 const publicUser = user => user.toJSON();
+// Compared against when the email is unknown, so a wrong email and a wrong password take the same time.
+const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 12);
 export const register = config => async (req, res, next) => { try {
   const { name, email, password } = req.validated.body;
   if (await User.exists({ email })) throw new AppError('An account with this email already exists', 409);
@@ -14,9 +16,16 @@ export const register = config => async (req, res, next) => { try {
   const tokens = await issueTokens(user, config, req); sendSuccess(res, 'Registration successful', { user: publicUser(user), ...tokens }, 201);
 } catch (e) { next(e); } };
 export const login = config => async (req, res, next) => { try {
-  const { email, password } = req.validated.body; const user = await User.findOne({ email }).select('+passwordHash');
-  if (!user || user.status !== 'active' || !await bcrypt.compare(password, user.passwordHash || '')) throw new AppError('Invalid email or password', 401);
-  user.lastLoginAt = new Date(); await user.save(); const tokens = await issueTokens(user, config, req); sendSuccess(res, 'Login successful', { user: publicUser(user), ...tokens });
+  const { email, password } = req.validated.body;
+  const user = await User.findOne({ email }).select('+passwordHash +failedLogins +lockedUntil');
+  if (user?.lockedUntil && user.lockedUntil > new Date()) throw new AppError('Too many wrong attempts. Try again in a few minutes, or sign in with an email code.', 429);
+  const matches = await bcrypt.compare(password, user?.passwordHash || DUMMY_HASH);
+  if (!user || user.status !== 'active' || !user.passwordHash || !matches) {
+    if (user) { user.failedLogins = (user.failedLogins || 0) + 1; if (user.failedLogins >= 8) { user.lockedUntil = new Date(Date.now() + 15 * 60 * 1000); user.failedLogins = 0; } await user.save().catch(() => {}); }
+    throw new AppError('Invalid email or password', 401);
+  }
+  user.failedLogins = 0; user.lockedUntil = undefined; user.lastLoginAt = new Date(); await user.save();
+  const tokens = await issueTokens(user, config, req); sendSuccess(res, 'Login successful', { user: publicUser(user), ...tokens });
 } catch (e) { next(e); } };
 export const refresh = config => async (req, res, next) => { try {
   const session = await findRefreshToken(req.validated.body.refreshToken).populate('user');

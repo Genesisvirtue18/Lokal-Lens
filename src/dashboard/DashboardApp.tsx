@@ -352,6 +352,8 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
               <AdminPeopleTab openId={adminPersonId} onCloseOpen={() => setAdminPersonId('')} onOpenBusiness={openBusiness} onListingsChanged={() => void reloadAdminList()} showToast={showToast} />
             ) : adminTab === 'reports' ? (
               <AdminReportsTab openReports={adminStats?.openReports || 0} pendingClaims={adminStats?.pendingClaims || 0} onChanged={() => void loadAdminStats().then(setAdminStats).catch(() => {})} onOpenBusiness={openBusiness} onOpenPerson={openPerson} showToast={showToast} />
+            ) : adminTab === 'account' ? (
+              <OwnerAccountTab user={ownerUser} onUserChange={setOwnerUser} onLogout={doLogout} showToast={showToast} />
             ) : adminTab === 'activity' ? (
               <AdminActivityTab onOpenBusiness={openBusiness} onOpenPerson={openPerson} />
             ) : adminTab === 'reviews' ? (

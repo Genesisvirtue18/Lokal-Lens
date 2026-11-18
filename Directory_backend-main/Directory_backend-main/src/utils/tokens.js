@@ -7,7 +7,7 @@ const durationMs = value => { const match = /^(\d+)([mhd])$/.exec(value); return
 export const accessToken = (user, config) => jwt.sign({ sub: user.id, role: user.role, pv: user.passwordChangedAt?.getTime() || 0 }, config.JWT_ACCESS_SECRET, { expiresIn: config.JWT_ACCESS_EXPIRES_IN });
 export async function issueTokens(user, config, req) {
   const raw = crypto.randomBytes(48).toString('base64url');
-  await RefreshToken.create({ user: user.id, tokenHash: hash(raw), expiresAt: new Date(Date.now() + durationMs(config.JWT_REFRESH_EXPIRES_IN)), userAgent: req?.get('user-agent'), ip: req?.ip });
+  await RefreshToken.create({ user: user.id, tokenHash: hash(raw), expiresAt: new Date(Date.now() + Math.min(durationMs(config.JWT_REFRESH_EXPIRES_IN), ['admin', 'super_admin'].includes(user.role) ? 12 * 36e5 : Infinity)), userAgent: req?.get('user-agent'), ip: req?.ip });
   return { accessToken: accessToken(user, config), refreshToken: raw };
 }
 export const findRefreshToken = raw => RefreshToken.findOne({ tokenHash: hash(raw), revokedAt: null }).select('+tokenHash');

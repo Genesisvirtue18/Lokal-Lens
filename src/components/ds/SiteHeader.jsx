@@ -15,7 +15,7 @@ const moreItems = [["Offers near you", "/offers", "offers", Tag], ["Ask Lokal", 
 
 const subscribe = (callback) => { window.addEventListener("storage", callback); return () => window.removeEventListener("storage", callback); };
 const readSignedIn = () => { try { return Boolean(localStorage.getItem("directflow_access_token")); } catch { return false; } };
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "https://directory-backend-ai6r.onrender.com/api/v1").replace(/\/$/, "");
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 const initials = (name = "") => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
 
 // Account / More menu. Signed out: "More" (Saved, Offers, Ask Lokal, Sign in). Signed in: the person's name, with Dashboard and Log out too.

@@ -17,6 +17,7 @@ import { createMailer } from '../services/mailer.js';
 import * as people from '../controllers/adminPeopleController.js';
 import * as ops from '../controllers/adminOpsController.js';
 import { auditAdmin } from '../middleware/audit.js';
+import { requirePassword } from '../middleware/stepUp.js';
 import { createGoogleReviewsController } from '../controllers/googlePlacesController.js';
 import { geocodeAddress } from '../services/geocodingService.js';
 import { createGooglePlacesService } from '../services/googlePlaces.js';
@@ -25,7 +26,6 @@ import { createGoogleBusinessProfileController } from '../controllers/googleBusi
 import { authLogin, authRegister, idParam, objectId, pagination, refreshSchema } from '../validators/common.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 
-const authLimiter = (req, res, next) => next(); // General API limiter is mounted by app; provider-specific limits can be configured per deployment.
 const pageQuery = pagination.extend({ search: z.string().trim().max(100).optional(), parent: objectId.optional(), active: z.coerce.boolean().optional(), state: z.string().max(180).optional(), city: z.string().max(180).optional() });
 const httpUrl = z.url().refine(value => {
   try { return ['http:', 'https:'].includes(new URL(value).protocol); }
@@ -117,6 +117,10 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.get('/google-business-profile/callback', gbp.callback());
   const strictLimit = (max, message) => rateLimit({ windowMs: 15 * 60 * 1000, limit: max, standardHeaders: 'draft-8', legacyHeaders: false, handler: (_req, res) => sendError(res, 429, message) });
   const resetLimit = strictLimit(5, 'Too many password reset attempts. Please try again later.');
+  const loginLimit = strictLimit(12, 'Too many sign-in attempts. Please wait a few minutes and try again.');
+  const registerLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false, handler: (_req, res) => sendError(res, 429, 'Too many sign-ups from this network. Please try again later.') });
+  const refreshLimit = strictLimit(120, 'Too many requests. Please try again shortly.');
+  const adminWriteLimit = rateLimit({ windowMs: 60 * 1000, limit: 120, skip: (req) => req.method === 'GET', standardHeaders: 'draft-8', legacyHeaders: false, handler: (_req, res) => sendError(res, 429, 'Slow down. Too many admin changes in a minute.') });
   const reviewLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false, handler: (_req, res) => sendError(res, 429, 'Review limit reached. Please try again later.') });
   router.post('/auth/forgot-password', resetLimit, validate(z.object({ body: z.object({ email: z.string().email() }).strict() })), auth.forgotPassword(config, mailer));
   router.post('/auth/reset-password', resetLimit, validate(z.object({ body: z.object({ token: z.string().min(20).max(200), password: z.string().min(8).max(128) }).strict() })), auth.resetPassword());
@@ -127,9 +131,9 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.post('/auth/otp/request', otpLimit, validate(z.object({ body: z.object({ email: z.string().email().transform(value => value.trim().toLowerCase()), name: z.string().trim().min(2).max(120).optional() }).strict() })), auth.requestOtp(config, mailer));
   router.post('/auth/otp/verify', otpLimit, validate(z.object({ body: z.object({ email: z.string().email().transform(value => value.trim().toLowerCase()), code: z.string().regex(/^\d{6}$/) }).strict() })), auth.verifyOtp(config));
   router.post('/auth/change-password', authenticate(config), strictLimit(10, 'Too many attempts. Please try again in a few minutes.'), validate(z.object({ body: z.object({ currentPassword: z.string().max(128).optional(), newPassword: z.string().min(8).max(128) }).strict() })), auth.changePassword(config));
-  router.post('/auth/register', authLimiter, validate(authRegister), auth.register(config));
-  router.post('/auth/login', authLimiter, validate(authLogin), auth.login(config));
-  router.post('/auth/refresh-token', authLimiter, validate(refreshSchema), auth.refresh(config));
+  router.post('/auth/register', registerLimit, validate(authRegister), auth.register(config));
+  router.post('/auth/login', loginLimit, validate(authLogin), auth.login(config));
+  router.post('/auth/refresh-token', refreshLimit, validate(refreshSchema), auth.refresh(config));
   router.post('/auth/logout', validate(refreshSchema), auth.logout());
   router.get('/auth/me', authenticate(config), auth.me());
   router.get('/auth/sessions', authenticate(config), auth.sessions());
@@ -247,7 +251,7 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   const servicesBody = z.object({ services: z.array(z.string().trim().min(1).max(150)).min(1).max(500) }).strict();
   router.get('/admin/categories', ...adminOnly, admin.categoryTree());
   router.patch('/admin/categories/:id', ...adminOnly, validate(idParam.extend({ body: categoryUpdateBody })), admin.updateCategory());
-  router.delete('/admin/categories/:id', ...adminOnly, validate(idParam), admin.removeCategory());
+  router.delete('/admin/categories/:id', ...adminOnly, requirePassword(), validate(idParam), admin.removeCategory());
   router.post('/admin/categories', ...adminOnly, validate(z.object({ body: categoryBody })), admin.createCategory());
   router.post('/admin/categories/import', ...adminOnly, csvUpload.single('file'), admin.importCategories(false));
   router.post('/admin/categories/:id/subcategories/import', ...adminOnly, validate(idParam), csvUpload.single('file'), admin.importCategories(true));
@@ -255,16 +259,16 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.post('/admin/categories/:id/services/import', ...adminOnly, validate(idParam), csvUpload.single('file'), admin.importServices());
   router.get('/admin/owners', ...adminOnly, admin.owners());
   router.get('/admin/businesses', ...adminOnly, validate(z.object({ query: pagination.extend({ status: z.enum(['draft', 'pending_review', 'published', 'suspended', 'rejected']).optional() }) })), admin.businesses());
-  router.use('/admin', auditAdmin());
+  router.use('/admin', adminWriteLimit, auditAdmin(mailer));
   const peopleQuery = { page: z.coerce.number().int().min(1).default(1), limit: z.coerce.number().int().min(1).max(100).default(25), search: z.string().trim().max(100).optional() };
   router.get('/admin/stats', ...adminOnly, people.stats());
   router.get('/admin/activity', ...adminOnly, validate(z.object({ query: z.object({ ...peopleQuery, type: z.enum(['business', 'user', 'category', 'review', 'report', 'claim', 'other']).optional() }) })), ops.listActivity());
-  router.post('/admin/users', ...adminOnly, validate(z.object({ body: z.object({ name: z.string().trim().min(2).max(120), email: z.string().trim().email().max(254), role: z.enum(['customer', 'business_owner', 'admin']) }).strict() })), ops.createUser(config, mailer));
-  router.patch('/admin/users/:id/role', ...adminOnly, validate(idParam.extend({ body: z.object({ role: z.enum(['customer', 'business_owner', 'admin']) }).strict() })), ops.changeRole());
+  router.post('/admin/users', ...adminOnly, requirePassword((req) => req.body?.role === 'admin'), validate(z.object({ body: z.object({ name: z.string().trim().min(2).max(120), email: z.string().trim().email().max(254), role: z.enum(['customer', 'business_owner', 'admin']) }).strict() })), ops.createUser(config, mailer));
+  router.patch('/admin/users/:id/role', ...adminOnly, requirePassword(), validate(idParam.extend({ body: z.object({ role: z.enum(['customer', 'business_owner', 'admin']) }).strict() })), ops.changeRole());
   router.get('/admin/reports', ...adminOnly, validate(z.object({ query: z.object({ ...peopleQuery, status: z.enum(['open', 'dismissed', 'removed', 'all']).optional() }) })), ops.listReports());
   router.patch('/admin/reports/:id', ...adminOnly, validate(idParam.extend({ body: z.object({ action: z.enum(['dismiss', 'remove']), note: z.string().trim().max(600).optional() }).strict() })), ops.resolveReport());
   router.get('/admin/claims', ...adminOnly, validate(z.object({ query: z.object({ ...peopleQuery, status: z.enum(['pending', 'approved', 'rejected', 'all']).optional() }) })), ops.listClaims());
-  router.patch('/admin/claims/:id', ...adminOnly, validate(idParam.extend({ body: z.object({ decision: z.enum(['approve', 'reject']), note: z.string().trim().max(600).optional() }).strict() })), ops.decideClaim(config, mailer));
+  router.patch('/admin/claims/:id', ...adminOnly, requirePassword((req) => req.body?.decision === 'approve'), validate(idParam.extend({ body: z.object({ decision: z.enum(['approve', 'reject']), note: z.string().trim().max(600).optional() }).strict() })), ops.decideClaim(config, mailer));
   router.get('/admin/export/businesses', ...adminOnly, ops.exportBusinesses());
   router.get('/admin/export/users', ...adminOnly, ops.exportUsers());
   router.post('/businesses/:id/reviews/:reviewId/report', reviewLimit, authenticate(config), validate(z.object({ params: z.object({ id: objectId, reviewId: objectId }), body: z.object({ reason: z.enum(['spam', 'fake', 'abusive', 'irrelevant', 'personal_info', 'other']), note: z.string().trim().max(600).optional() }).strict() })), ops.reportReview());
@@ -272,19 +276,19 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.get('/owner/claims', ...ownerOnly, ops.myClaims());
   router.get('/admin/users', ...adminOnly, validate(z.object({ query: z.object({ ...peopleQuery, role: z.enum(['customer', 'business_owner', 'admin', 'super_admin']).optional(), status: z.enum(['active', 'suspended']).optional() }) })), people.listUsers());
   router.get('/admin/users/:id', ...adminOnly, validate(idParam), people.userDetail());
-  router.patch('/admin/users/:id/status', ...adminOnly, validate(idParam.extend({ body: z.object({ status: z.enum(['active', 'suspended']) }).strict() })), people.setUserStatus());
+  router.patch('/admin/users/:id/status', ...adminOnly, requirePassword((req) => req.body?.status === 'suspended'), validate(idParam.extend({ body: z.object({ status: z.enum(['active', 'suspended']) }).strict() })), people.setUserStatus());
   router.get('/admin/reviews', ...adminOnly, validate(z.object({ query: z.object({ ...peopleQuery, rating: z.coerce.number().int().min(1).max(5).optional(), replied: z.enum(['yes', 'no']).optional() }) })), people.listReviews());
   router.get('/admin/leads', ...adminOnly, validate(z.object({ query: z.object({ ...peopleQuery, status: z.enum(['new', 'contacted', 'converted']).optional() }) })), people.listLeads());
   const listingAction = z.enum(['suspend', 'restore', 'delete']);
   const bulkAction = z.enum(['suspend', 'restore', 'delete', 'assign']);
-  router.post('/admin/users/:id/listings', ...adminOnly, validate(idParam.extend({ body: z.object({ action: listingAction }).strict() })), people.ownerListingsAction());
-  router.post('/admin/businesses/bulk', ...adminOnly, validate(z.object({ body: z.object({ ids: z.array(objectId).min(1).max(300), action: bulkAction, ownerId: objectId.optional() }).strict().refine((value) => value.action !== 'assign' || Boolean(value.ownerId), { message: 'Choose the owner to assign to', path: ['ownerId'] }) })), people.bulkListingsAction());
+  router.post('/admin/users/:id/listings', ...adminOnly, requirePassword((req) => req.body?.action === 'delete'), validate(idParam.extend({ body: z.object({ action: listingAction }).strict() })), people.ownerListingsAction());
+  router.post('/admin/businesses/bulk', ...adminOnly, requirePassword((req) => ['delete', 'assign'].includes(req.body?.action)), validate(z.object({ body: z.object({ ids: z.array(objectId).min(1).max(300), action: bulkAction, ownerId: objectId.optional() }).strict().refine((value) => value.action !== 'assign' || Boolean(value.ownerId), { message: 'Choose the owner to assign to', path: ['ownerId'] }) })), people.bulkListingsAction());
   router.get('/admin/businesses/:id', ...adminOnly, validate(idParam), admin.businessById());
   router.patch('/admin/businesses/:id', ...adminOnly, validate(idParam.extend({ body: ownerBusinessUpdateBody })), admin.updateBusiness());
   router.patch('/admin/businesses/:id/status', ...adminOnly, validate(idParam.extend({ body: z.object({ status: z.enum(['published', 'suspended']) }).strict() })), admin.setBusinessStatus(config, mailer));
-  router.delete('/admin/businesses/:id', ...adminOnly, validate(idParam), admin.removeBusiness());
+  router.delete('/admin/businesses/:id', ...adminOnly, requirePassword(), validate(idParam), admin.removeBusiness());
   router.post('/admin/businesses/import', ...adminOnly, csvUpload.single('file'), admin.importBusinesses());
-  router.patch('/admin/businesses/:id/owner', ...adminOnly, validate(idParam.extend({ body: z.object({ ownerId: objectId }).strict() })), admin.assignBusinessOwner());
+  router.patch('/admin/businesses/:id/owner', ...adminOnly, requirePassword(), validate(idParam.extend({ body: z.object({ ownerId: objectId }).strict() })), admin.assignBusinessOwner());
   router.post('/admin/businesses', ...adminOnly, validate(z.object({ body: ownerBusinessBody.extend({ email: z.union([z.string().email(), z.literal('')]).optional(), ownerId: objectId.optional(), publish: z.boolean().optional() }) })), admin.createBusiness());
   router.delete('/admin/businesses/:id/reviews/:reviewId', ...adminOnly, validate(z.object({ params: z.object({ id: objectId, reviewId: objectId }) })), reviews.deleteReview());
   router.patch('/admin/businesses/:id/kyc', ...adminOnly, validate(idParam.extend({ body: z.object({ decision: z.enum(['approve', 'reject']), reason: z.string().trim().max(500).optional() }).strict() })), admin.reviewKyc(config, mailer));

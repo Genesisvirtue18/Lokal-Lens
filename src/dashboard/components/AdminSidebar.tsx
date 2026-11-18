@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { ClipboardList, Flag, History, LayoutDashboard, LogOut, MessageSquare, Search, Shapes, Star, Store, Users } from 'lucide-react';
+import { ClipboardList, Flag, History, ShieldCheck, LayoutDashboard, LogOut, MessageSquare, Search, Shapes, Star, Store, Users } from 'lucide-react';
 import { Logo, cx } from '@/components/ds';
 import { AdminTab } from '../types';
 
@@ -13,6 +13,7 @@ export const adminNavItems: { id: AdminTab; label: string; icon: React.Component
   { id: 'leads', label: 'Inquiries', icon: MessageSquare },
   { id: 'categories', label: 'Categories', icon: Shapes },
   { id: 'activity', label: 'Activity', icon: History },
+  { id: 'account', label: 'Account & security', icon: ShieldCheck },
 ];
 
 interface Props { active: AdminTab; onSelect: (tab: AdminTab) => void; waiting: number; reports?: number; onLogout: () => void }

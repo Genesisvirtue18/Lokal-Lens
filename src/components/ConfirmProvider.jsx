@@ -18,6 +18,8 @@ const TONES = {
 export function ConfirmProvider({ children }) {
   const [request, setRequest] = useState(null);
   const [typed, setTyped] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const resolver = useRef(null);
   const opener = useRef(null);
   const cancelRef = useRef(null);
@@ -27,7 +29,7 @@ export function ConfirmProvider({ children }) {
   const ask = useCallback((options) => new Promise((resolve) => {
     opener.current = typeof document === "undefined" ? null : document.activeElement;
     resolver.current = resolve;
-    setTyped("");
+    setTyped(""); setPassword(""); setShowPassword(false);
     setRequest(options);
   }), []);
 
@@ -43,13 +45,14 @@ export function ConfirmProvider({ children }) {
     if (!request) return undefined;
     const previous = document.body.style.overflow; document.body.style.overflow = "hidden";
     // Risky actions start on Cancel (or on the typing box), so a stray Enter never confirms them.
-    setTimeout(() => (request.requireText ? inputRef.current : request.tone === "primary" ? confirmRef.current : cancelRef.current)?.focus(), 0);
+    setTimeout(() => (request.requireText || request.askPassword ? inputRef.current : request.tone === "primary" ? confirmRef.current : cancelRef.current)?.focus(), 0);
     return () => { document.body.style.overflow = previous; };
   }, [request]);
 
   const tone = TONES[request?.tone] || TONES.primary;
   const Icon = tone.icon;
-  const ready = !request?.requireText || typed.trim() === request.requireText;
+  const ready = (!request?.requireText || typed.trim() === request.requireText) && (!request?.askPassword || password.length > 0);
+  const answer = () => (request?.askPassword ? password : true);
 
   function onKeyDown(event) {
     if (event.key === "Escape") { event.stopPropagation(); close(false); return; }
@@ -78,12 +81,19 @@ export function ConfirmProvider({ children }) {
             {request.requireText && (
               <label className="flex flex-col gap-1.5 font-display text-[14px] font-medium text-[#101115]">
                 <span>Type <span className="font-mono font-semibold">{request.requireText}</span> to confirm</span>
-                <input ref={inputRef} value={typed} onChange={(event) => setTyped(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && ready) close(true); }} autoComplete="off" spellCheck={false} className="h-12 rounded-[10px] border border-[#bdbcb5] px-3.5 font-mono text-[16px] font-normal outline-none focus:border-2 focus:border-[#101115]" />
+                <input ref={inputRef} value={typed} onChange={(event) => setTyped(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && ready) close(answer()); }} autoComplete="off" spellCheck={false} className="h-12 rounded-[10px] border border-[#bdbcb5] px-3.5 font-mono text-[16px] font-normal outline-none focus:border-2 focus:border-[#101115]" />
+              </label>
+            )}
+            {request.askPassword && (
+              <label className="flex flex-col gap-1.5 font-display text-[14px] font-medium text-[#101115]">
+                <span>Enter your password to confirm</span>
+                <span className="relative"><input ref={request.requireText ? undefined : inputRef} type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && ready) close(answer()); }} autoComplete="current-password" className="h-12 w-full rounded-[10px] border border-[#bdbcb5] px-3.5 pr-16 text-[16px] font-normal outline-none focus:border-2 focus:border-[#101115]" /><button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-[6px] px-2 py-1 text-[13px] font-medium text-[#4a4c55] hover:bg-[#f1f1ee]">{showPassword ? "Hide" : "Show"}</button></span>
+                <span className="text-[13px] font-normal text-[#6e7079]">This action can’t be undone, so we check it’s really you.</span>
               </label>
             )}
             <div className="flex justify-end gap-3">
               <button ref={cancelRef} type="button" onClick={() => close(false)} className="h-11 rounded-[10px] border border-[#bdbcb5] bg-white px-5 font-display text-[15px] font-semibold text-[#101115] hover:border-[#101115] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#101115]/30">{request.cancelLabel || "Cancel"}</button>
-              <button ref={confirmRef} type="button" disabled={!ready} onClick={() => close(true)} className={`h-11 rounded-[10px] px-5 font-display text-[15px] font-semibold text-white focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-[#e4e3de] disabled:text-[#9a9ba3] ${tone.button}`}>{request.confirmLabel || "Confirm"}</button>
+              <button ref={confirmRef} type="button" disabled={!ready} onClick={() => close(answer())} className={`h-11 rounded-[10px] px-5 font-display text-[15px] font-semibold text-white focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-[#e4e3de] disabled:text-[#9a9ba3] ${tone.button}`}>{request.confirmLabel || "Confirm"}</button>
             </div>
           </div>
         </div>

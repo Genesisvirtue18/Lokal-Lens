@@ -22,6 +22,8 @@ const userSchema = new mongoose.Schema({
   otpHash: { type: String, select: false },
   otpExpiresAt: { type: Date, select: false },
   otpAttempts: { type: Number, default: 0, select: false },
+  failedLogins: { type: Number, default: 0, select: false },
+  lockedUntil: { type: Date, select: false },
   otpSentAt: { type: Date, select: false },
   deletedAt: { type: Date, default: null },
   notificationPreferences: { email: { type: Boolean, default: true }, sms: { type: Boolean, default: false } },

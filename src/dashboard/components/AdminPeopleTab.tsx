@@ -99,21 +99,21 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, onListingsChanged
 
   const bulk = async (action: ListingAction) => {
     const total = detail?.listings.length || 0;
-    const ok = action === 'delete' ? await confirm({ title: `Delete all ${total} listing${total === 1 ? '' : 's'} of ${detail?.item.name}?`, message: 'They disappear from the site and from this owner’s dashboard. There is no undo in the app.', confirmLabel: `Delete ${total} listing${total === 1 ? '' : 's'}`, tone: 'danger', requireText: 'DELETE' })
+    const ok = action === 'delete' ? await confirm({ title: `Delete all ${total} listing${total === 1 ? '' : 's'} of ${detail?.item.name}?`, message: 'They disappear from the site and from this owner’s dashboard. There is no undo in the app.', confirmLabel: `Delete ${total} listing${total === 1 ? '' : 's'}`, tone: 'danger', requireText: 'DELETE', askPassword: true })
       : action === 'suspend' ? await confirm({ title: `Suspend all listings of ${detail?.item.name}?`, message: 'Their live and paused listings are hidden from search until you restore them.', confirmLabel: 'Suspend all', tone: 'warning' })
         : await confirm({ title: `Restore all listings of ${detail?.item.name}?`, message: 'Suspended listings go live again.', confirmLabel: 'Restore all', tone: 'primary' });
     if (!ok) return;
     setBusy(true); setError('');
-    try { const done = await ownerListingsAction(id, action); showToast(`${done.count} listing${done.count === 1 ? '' : 's'} ${action === 'suspend' ? 'suspended' : action === 'restore' ? 'restored' : 'deleted'}.`); setDetail(await loadAdminUser(id)); onChanged(); onListingsChanged?.(); }
+    try { const done = await ownerListingsAction(id, action, typeof ok === 'string' ? ok : undefined); showToast(`${done.count} listing${done.count === 1 ? '' : 's'} ${action === 'suspend' ? 'suspended' : action === 'restore' ? 'restored' : 'deleted'}.`); setDetail(await loadAdminUser(id)); onChanged(); onListingsChanged?.(); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'That didn’t work'); }
     finally { setBusy(false); }
   };
   const changeRole = async (role: 'customer' | 'business_owner' | 'admin') => {
     if (!detail || role === detail.item.role) return;
-    const ok = role === 'admin' ? await confirm({ title: `Make ${detail.item.name} an admin?`, message: 'They will be able to manage every listing, account and review. Only do this for someone you fully trust.', confirmLabel: 'Make admin', tone: 'danger', requireText: 'ADMIN' }) : await confirm({ title: `Change ${detail.item.name} to ${role === 'customer' ? 'a customer' : 'a business owner'}?`, message: role === 'customer' ? 'They lose access to the owner dashboard. Their listings stay where they are.' : 'They get the owner dashboard and can add listings.', confirmLabel: 'Change', tone: 'warning' });
+    const ok = role === 'admin' ? await confirm({ title: `Make ${detail.item.name} an admin?`, message: 'They will be able to manage every listing, account and review. Only do this for someone you fully trust.', confirmLabel: 'Make admin', tone: 'danger', requireText: 'ADMIN', askPassword: true }) : await confirm({ title: `Change ${detail.item.name} to ${role === 'customer' ? 'a customer' : 'a business owner'}?`, message: role === 'customer' ? 'They lose access to the owner dashboard. Their listings stay where they are.' : 'They get the owner dashboard and can add listings.', confirmLabel: 'Change', tone: 'warning', askPassword: true });
     if (!ok) return;
     setBusy(true); setError('');
-    try { await changeAdminUserRole(detail.item._id, role); setDetail(await loadAdminUser(id)); onChanged(); showToast('Account type updated.'); }
+    try { await changeAdminUserRole(detail.item._id, role, typeof ok === 'string' ? ok : undefined); setDetail(await loadAdminUser(id)); onChanged(); showToast('Account type updated.'); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'That didn’t work'); }
     finally { setBusy(false); }
   };
@@ -122,9 +122,10 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, onListingsChanged
   const toggle = async () => {
     if (!user) return;
     const next = user.status === 'active' ? 'suspended' : 'active';
-    if (next === 'suspended' && !(await confirm({ title: `Suspend ${user.name}?`, message: 'They are signed out everywhere and can’t sign in until you reactivate the account. Their listings stay live.', confirmLabel: 'Suspend account', tone: 'warning' }))) return;
+    const pw = next === 'suspended' ? await confirm({ title: `Suspend ${user.name}?`, message: 'They are signed out everywhere and can’t sign in until you reactivate the account. Their listings stay live.', confirmLabel: 'Suspend account', tone: 'warning', askPassword: true }) : true;
+    if (!pw) return;
     setBusy(true); setError('');
-    try { await setAdminUserStatus(user._id, next); setDetail((current) => (current ? { ...current, item: { ...current.item, status: next } } : current)); onChanged(); showToast(next === 'suspended' ? 'Account suspended.' : 'Account reactivated.'); }
+    try { await setAdminUserStatus(user._id, next, typeof pw === 'string' ? pw : undefined); setDetail((current) => (current ? { ...current, item: { ...current.item, status: next } } : current)); onChanged(); showToast(next === 'suspended' ? 'Account suspended.' : 'Account reactivated.'); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'That didn’t work'); }
     finally { setBusy(false); }
   };
@@ -187,6 +188,7 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, onListingsChanged
 }
 
 function AddPersonDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const confirm = useConfirm();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'customer' | 'business_owner' | 'admin'>('business_owner');
@@ -194,8 +196,10 @@ function AddPersonDialog({ onClose, onCreated }: { onClose: () => void; onCreate
   const [error, setError] = useState('');
   const valid = name.trim().length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
   const submit = async () => {
+    let pw: string | boolean = true;
+    if (role === 'admin') { pw = await confirm({ title: `Create an admin account for ${name.trim()}?`, message: 'Admins can manage every listing, account and review. Only do this for someone you fully trust.', confirmLabel: 'Create admin', tone: 'danger', askPassword: true }); if (!pw) return; }
     setBusy(true); setError('');
-    try { await createAdminUser({ name: name.trim(), email: email.trim(), role }); onCreated(); }
+    try { await createAdminUser({ name: name.trim(), email: email.trim(), role }, typeof pw === 'string' ? pw : undefined); onCreated(); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to create the account'); setBusy(false); }
   };
   return (

@@ -7,7 +7,7 @@ import { Button, Chip, cx } from "@/components/ds";
 import BusinessCard from "@/components/ds/BusinessCard";
 import { toDirectoryBusiness } from "@/lib/directory-data";
 
-const apiUrl = (process.env.NEXT_PUBLIC_API_URL || "https://directory-backend-ai6r.onrender.com/api/v1").replace(/\/$/, "");
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 const HISTORY_KEY = "lokal-lens-ask-history";
 const FOLLOW_UPS = [["Only verified", { verified: "true" }], ["Open now", { openNow: "true" }], ["Top rated", { sort: "rating" }]];
 const EXAMPLES = ["Best dentist near me", "Vegan bakery", "Diwali party venue", "Electrician for tonight"];
