@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, CheckCircle2, ImagePlus, Plus, Trash2, X } from "lucide-react";
+import { AlertCircle, BadgeCheck, CheckCircle2, Clock, Copy, FileText, Globe, ImagePlus, Mail, MessageCircle, Phone, Plus, ShieldCheck, Trash2, UploadCloud, X } from "lucide-react";
+import { FacebookIcon, InstagramIcon, YoutubeIcon } from "@/components/BrandIcons";
 import { Button, Chip, Field, Logo, cx, fieldClass, labelClass } from "@/components/ds";
 import BusinessCard from "@/components/ds/BusinessCard";
 import PinPicker from "@/components/PinPicker";
@@ -27,6 +28,31 @@ const initial = {
 const money = (value) => (value === "" || value === undefined || value === null ? "" : `₹${Number(value).toLocaleString("en-IN")}`);
 const priceText = (service) => (service.priceFrom ? `${service.priceTo ? "" : "From "}${money(service.priceFrom)}${service.priceTo ? ` – ${money(service.priceTo)}` : ""}${service.unit ? ` / ${service.unit}` : ""}` : "Contact for pricing");
 const idOf = (value) => String(value?._id || value || "");
+
+// Opening hours: 30-minute steps shown as 9:00 AM, stored as 24-hour "09:00".
+const timeLabel = (value) => { const [h, m] = String(value).split(":").map(Number); if (Number.isNaN(h)) return value; return `${h % 12 || 12}:${String(m || 0).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
+const TIME_STEPS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
+function TimeSelect({ value, onChange, label, invalid }) {
+  const options = TIME_STEPS.includes(value) ? TIME_STEPS : [...TIME_STEPS, value].sort();
+  return (
+    <span className="relative inline-flex">
+      <Clock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#6e7079]" aria-hidden="true" />
+      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className={cx("h-11 w-[132px] cursor-pointer rounded-[10px] border bg-white pl-9 pr-2 font-body text-[15px] text-[#101115] outline-none transition-[border-color] hover:border-[#101115] focus:border-[#002fa7] focus:ring-2 focus:ring-[#002fa7]/20", invalid ? "border-2 border-[#b42318]" : "border-[#bdbcb5]")}>
+        {options.map((time) => <option key={time} value={time}>{timeLabel(time)}</option>)}
+      </select>
+    </span>
+  );
+}
+
+// Text input with a leading icon (and optional +91 prefix) for contact and social fields.
+function IconInput({ icon, prefix, tone = "text-[#6e7079]", children }) {
+  return (
+    <div className="relative">
+      <span className={cx("pointer-events-none absolute left-3.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-2", tone)}>{icon}{prefix && <span className="font-body text-[15px] text-[#4a4c55]">{prefix}</span>}</span>
+      {children}
+    </div>
+  );
+}
 
 // Turns a saved listing back into the form's shape, so editing uses exactly the same form as adding.
 function fromApi(item) {
@@ -430,10 +456,13 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
               <div className="flex flex-col gap-3">
                 <h2 id="field-services" tabIndex={-1} className="font-display text-[16px] font-semibold leading-6 outline-none">Services or products<span className="ml-0.5 text-[#b42318]" aria-hidden="true">*</span></h2>
                 {data.services.map((service, index) => (
-                  <div key={`${service.name}-${index}`} className="flex items-center gap-3 rounded-[12px] border border-[#dcdbd5] px-4 py-3">
-                    <span className="min-w-0 flex-1 truncate font-semibold">{service.name}</span>
-                    <span className={cx("shrink-0 text-[14px]", service.priceFrom ? "font-mono" : "font-display text-[13px] font-medium text-[#002fa7]")}>{priceText(service)}</span>
-                    <button type="button" aria-label={`Remove ${service.name}`} onClick={() => update({ services: data.services.filter((_, i) => i !== index) })} className="text-[#6e7079] hover:text-[#b42318]"><Trash2 size={18} /></button>
+                  <div key={`${service.name}-${index}`} className="flex items-center gap-3 rounded-[12px] border border-[#dcdbd5] bg-white p-3 pr-2 transition-colors hover:border-[#bdbcb5]">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#eef2fb] font-display text-[16px] font-semibold text-[#002fa7]" aria-hidden="true">{String(service.name).trim().charAt(0).toUpperCase()}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-display text-[15px] font-semibold leading-5 text-[#101115]">{service.name}</span>
+                      <span className={cx("block text-[13px] leading-[18px]", service.priceFrom ? "text-[#4a4c55]" : "text-[#6e7079]")}>{priceText(service)}</span>
+                    </span>
+                    <button type="button" aria-label={`Remove ${service.name}`} onClick={() => update({ services: data.services.filter((_, i) => i !== index) })} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-[#6e7079] hover:bg-[#fdecea] hover:text-[#b42318]"><Trash2 size={18} /></button>
                   </div>
                 ))}
                 {serviceDraft ? (
@@ -462,9 +491,11 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
                       <span className="w-24 text-[16px] capitalize">{day}</span>
                       {entry.open ? (
                         <span className="flex items-center gap-2">
-                          <input type="time" aria-label={`${day} opens`} value={entry.opens} onChange={(event) => set({ opens: event.target.value })} className={cx("h-11 rounded-[10px] border px-3 text-[16px]", wrongOrder ? "border-2 border-[#b42318]" : "border-[#bdbcb5]")} />
+                          <TimeSelect label={`${day} opens`} value={entry.opens} invalid={wrongOrder} onChange={(opens) => set({ opens })} />
                           <span className="text-[14px] text-[#6e7079]">to</span>
-                          <input type="time" aria-label={`${day} closes`} value={entry.closes} onChange={(event) => set({ closes: event.target.value })} className={cx("h-11 rounded-[10px] border px-3 text-[16px]", wrongOrder ? "border-2 border-[#b42318]" : "border-[#bdbcb5]")} />
+                          <TimeSelect label={`${day} closes`} value={entry.closes} invalid={wrongOrder} onChange={(closes) => set({ closes })} />
+                          {wrongOrder && <span role="alert" className="text-[13px] text-[#b42318]">Closing must be after opening</span>}
+                          {day === DAYS[0] && <button type="button" onClick={() => update({ hours: Object.fromEntries(DAYS.map((d) => [d, data.hours[d].open ? { ...data.hours[d], opens: entry.opens, closes: entry.closes } : data.hours[d]])) })} className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-[8px] px-2.5 text-[14px] font-medium text-[#002fa7] hover:bg-[#eef2fb]"><Copy size={15} aria-hidden="true" />Apply to all open days</button>}
                         </span>
                       ) : <span className="text-[16px] text-[#6e7079]">Closed</span>}
                     </div>
@@ -509,7 +540,7 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
                 <SubHeading hint="Helps customers decide before they call.">Payments, languages and facilities <span className="font-normal text-[#6e7079]">(optional)</span></SubHeading>
                 <div className="flex flex-col gap-2"><span className={labelClass}>Payment modes you accept</span><div className="flex flex-wrap gap-2">{PAYMENT_MODES.map(([value, label]) => <Chip key={value} selected={data.paymentModes.includes(value)} onClick={() => toggle("paymentModes", value)}>{label}</Chip>)}</div></div>
                 <div className="flex flex-col gap-2"><span className={labelClass}>Languages spoken</span><div className="flex flex-wrap gap-2">{LANGUAGES.map((value) => <Chip key={value} selected={data.languages.includes(value)} onClick={() => toggle("languages", value)}>{value}</Chip>)}</div></div>
-                <Field label="Price level" optional><select value={data.priceRange} onChange={(event) => update({ priceRange: event.target.value })} className={fieldClass}><option value="">Not specified</option>{PRICE_RANGES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+                <div className="flex flex-col gap-2"><span className={labelClass}>Price level <span className="font-normal text-[#6e7079]">(optional)</span></span><div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Price level">{PRICE_RANGES.map(([value, label]) => <Chip key={value} selected={data.priceRange === value} onClick={() => update({ priceRange: data.priceRange === value ? "" : value })}>{label.replace(/^₹+\s*/, "")}</Chip>)}</div><p className="text-[14px] leading-5 text-[#6e7079]">Tap again to clear. Shown on your profile so customers know what to expect.</p></div>
                 <div className="flex flex-col gap-2"><span className={labelClass}>Facilities and features</span><TagInput id="field-amenities" values={data.amenities} onChange={(amenities) => update({ amenities })} placeholder="e.g. Free Wi-Fi, then press Enter" suggestions={AMENITY_SUGGESTIONS} max={30} sanitize={(v) => clean.text(v, 60)} /></div>
                 <label className="flex min-h-11 cursor-pointer items-center gap-3 text-[16px]"><input type="checkbox" checked={data.homeDelivery} onChange={(event) => update({ homeDelivery: event.target.checked })} className="h-[18px] w-[18px] accent-[#002fa7]" />Home delivery or home service available</label>
               </div>
@@ -550,34 +581,55 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
 
               <SubHeading>Contact details</SubHeading>
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Phone" required error={errors.phone} helper="Customers will see this as a Call button."><input {...bind("phone", { sanitize: clean.phone })} type="tel" inputMode="numeric" maxLength={10} autoComplete="tel-national" placeholder="10-digit mobile number" className={inputErr("phone")} /></Field>
-                <Field label="Alternate phone" optional error={errors.alternatePhone}><input {...bind("alternatePhone", { sanitize: clean.phone })} type="tel" inputMode="numeric" maxLength={10} placeholder="10-digit number" className={inputErr("alternatePhone")} /></Field>
-                <Field label="WhatsApp" optional error={errors.whatsapp}><input {...bind("whatsapp", { sanitize: clean.phone })} type="tel" inputMode="numeric" maxLength={10} placeholder="Same as phone? Type it again" className={inputErr("whatsapp")} /></Field>
-                <Field label="Email" required error={errors.email} helper="Not shown publicly. Used to contact you about your listing."><input {...bind("email", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 254), tidy: (v) => String(v).trim().toLowerCase() })} type="email" inputMode="email" autoComplete="email" placeholder="name@example.com" className={inputErr("email")} /></Field>
-                <Field label="Website" optional error={errors.website} className="sm:col-span-2"><input {...bind("website", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 200), tidy: clean.website })} type="url" inputMode="url" autoComplete="url" placeholder="https://example.com" className={inputErr("website")} /></Field>
+                <Field label="Phone" required error={errors.phone} helper="Customers will see this as a Call button."><IconInput icon={<Phone size={18} aria-hidden="true" />} prefix="+91"><input {...bind("phone", { sanitize: clean.phone })} type="tel" inputMode="numeric" maxLength={10} autoComplete="tel-national" placeholder="10-digit mobile number" className={cx(inputErr("phone"), "!pl-[78px] focus:!pl-[77px]")} /></IconInput></Field>
+                <Field label="Alternate phone" optional error={errors.alternatePhone}><IconInput icon={<Phone size={18} aria-hidden="true" />} prefix="+91"><input {...bind("alternatePhone", { sanitize: clean.phone })} type="tel" inputMode="numeric" maxLength={10} placeholder="10-digit number" className={cx(inputErr("alternatePhone"), "!pl-[78px] focus:!pl-[77px]")} /></IconInput></Field>
+                <div className="flex flex-col gap-1.5">
+                  <Field label="WhatsApp" optional error={errors.whatsapp}><IconInput icon={<MessageCircle size={18} aria-hidden="true" />} prefix="+91" tone="text-[#1f9d55]"><input {...bind("whatsapp", { sanitize: clean.phone })} type="tel" inputMode="numeric" maxLength={10} placeholder="WhatsApp number" className={cx(inputErr("whatsapp"), "!pl-[78px] focus:!pl-[77px]")} /></IconInput></Field>
+                  {data.phone.length === 10 && !data.whatsapp && <button type="button" onClick={() => update({ whatsapp: data.phone })} className="self-start text-[14px] font-medium text-[#002fa7] hover:underline">Same as phone ({data.phone})</button>}
+                </div>
+                <Field label="Email" required error={errors.email} helper="Not shown publicly. Used to contact you about your listing."><IconInput icon={<Mail size={18} aria-hidden="true" />}><input {...bind("email", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 254), tidy: (v) => String(v).trim().toLowerCase() })} type="email" inputMode="email" autoComplete="email" placeholder="name@example.com" className={cx(inputErr("email"), "!pl-11 focus:!pl-[43px]")} /></IconInput></Field>
+                <Field label="Website" optional error={errors.website} className="sm:col-span-2"><IconInput icon={<Globe size={18} aria-hidden="true" />}><input {...bind("website", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 200), tidy: clean.website })} type="url" inputMode="url" autoComplete="url" placeholder="https://example.com" className={cx(inputErr("website"), "!pl-11 focus:!pl-[43px]")} /></IconInput></Field>
               </div>
 
               <SubHeading hint="Paste the link to your page. Each one becomes a button on your profile.">Social links <span className="font-normal text-[#6e7079]">(optional)</span></SubHeading>
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Instagram" optional error={errors.instagram}><input {...bind("instagram", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 200), tidy: clean.website })} inputMode="url" placeholder="https://instagram.com/yourpage" className={inputErr("instagram")} /></Field>
-                <Field label="Facebook" optional error={errors.facebook}><input {...bind("facebook", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 200), tidy: clean.website })} inputMode="url" placeholder="https://facebook.com/yourpage" className={inputErr("facebook")} /></Field>
-                <Field label="YouTube" optional error={errors.youtube} className="sm:col-span-2"><input {...bind("youtube", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 200), tidy: clean.website })} inputMode="url" placeholder="https://youtube.com/@yourchannel" className={inputErr("youtube")} /></Field>
+                <Field label="Instagram" optional error={errors.instagram}><IconInput icon={<InstagramIcon />} tone="text-[#c13584]"><input {...bind("instagram", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 200), tidy: clean.website })} inputMode="url" placeholder="instagram.com/yourpage" className={cx(inputErr("instagram"), "!pl-11 focus:!pl-[43px]")} /></IconInput></Field>
+                <Field label="Facebook" optional error={errors.facebook}><IconInput icon={<FacebookIcon />} tone="text-[#1877f2]"><input {...bind("facebook", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 200), tidy: clean.website })} inputMode="url" placeholder="facebook.com/yourpage" className={cx(inputErr("facebook"), "!pl-11 focus:!pl-[43px]")} /></IconInput></Field>
+                <Field label="YouTube" optional error={errors.youtube} className="sm:col-span-2"><IconInput icon={<YoutubeIcon />} tone="text-[#e02b20]"><input {...bind("youtube", { sanitize: (v) => String(v).replace(/\s/g, "").slice(0, 200), tidy: clean.website })} inputMode="url" placeholder="youtube.com/@yourchannel" className={cx(inputErr("youtube"), "!pl-11 focus:!pl-[43px]")} /></IconInput></Field>
               </div>
 
-              <SubHeading hint="Verified businesses get a green badge and rank higher. Your documents are only seen by our review team.">Get verified <span className="font-normal text-[#6e7079]">(recommended)</span></SubHeading>
-              <Field label="GST number" optional error={errors.gstNumber}><input {...bind("gstNumber", { sanitize: (v) => String(v).replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 15), tidy: (v) => String(v).trim().toUpperCase() })} maxLength={15} placeholder="e.g. 29ABCDE1234F1Z5" className={inputErr("gstNumber")} /></Field>
-              <div className="flex flex-col gap-2">
-                <span className={labelClass}>Address proof or business document</span>
-                {data.kycDocuments.map((doc, index) => <div key={`${doc.url}-${index}`} className="flex items-center gap-3 rounded-[10px] border border-[#dcdbd5] px-3 py-2 text-[14px]"><span className="min-w-0 flex-1 truncate">{DOC_TYPES.find(([value]) => value === doc.type)?.[1] || doc.type}{doc.name ? ` · ${doc.name}` : ""}</span><button type="button" aria-label="Remove document" onClick={() => update({ kycDocuments: data.kycDocuments.filter((_, i) => i !== index) })} className="text-[#6e7079] hover:text-[#b42318]"><Trash2 size={16} /></button></div>)}
-                <div className="flex flex-wrap items-center gap-2">
-                  <select aria-label="Document type" value={docType} onChange={(event) => setDocType(event.target.value)} className={cx(fieldClass, "w-auto min-w-[220px] flex-1")}>{DOC_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-                  <input ref={docInput} type="file" accept="image/jpeg,image/png,application/pdf" hidden onChange={(event) => { addDocument(event.target.files); event.target.value = ""; }} />
-                  <Button type="secondary" size="s" onClick={() => docInput.current?.click()} disabled={docBusy} className="h-12">{docBusy ? "Uploading…" : "Upload file"}</Button>
+              <section aria-labelledby="verify-heading" className="flex flex-col gap-5 rounded-[16px] border border-[#dcdbd5] bg-[#f7f9fd] p-5 sm:p-6">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] bg-[#e3f1e1] text-[#2b7a26]"><ShieldCheck size={24} aria-hidden="true" /></span>
+                  <div className="min-w-0">
+                    <h3 id="verify-heading" className="flex flex-wrap items-center gap-2 font-display text-[18px] font-semibold leading-6 text-[#101115]">Get verified<span className="rounded-full bg-[#e3f1e1] px-2 py-0.5 font-display text-[12px] font-medium text-[#2b7a26]">Recommended</span></h3>
+                    <p className="mt-1 text-[14px] leading-5 text-[#4a4c55]">Add one proof document and our team will review it.</p>
+                  </div>
                 </div>
-                <p className="text-[14px] leading-5 text-[#6e7079]">JPG, PNG or PDF · up to 5 MB.</p>
-                {docError && <p role="alert" className="text-[14px] text-[#b42318]">{docError}</p>}
-              </div>
-            </>}
+                <ul className="grid gap-2 text-[14px] leading-5 text-[#2f3138] sm:grid-cols-3">
+                  {["Green Verified badge on your profile", "Ranks higher in search", "Documents are private to our review team"].map((text) => <li key={text} className="flex items-start gap-2"><BadgeCheck size={18} className="mt-px shrink-0 text-[#2b7a26]" aria-hidden="true" />{text}</li>)}
+                </ul>
+                <Field label="GST number" optional error={errors.gstNumber} helper="15 characters, e.g. 29ABCDE1234F1Z5"><input {...bind("gstNumber", { sanitize: (v) => String(v).replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 15), tidy: (v) => String(v).trim().toUpperCase() })} maxLength={15} placeholder="Enter GST number" className={cx(inputErr("gstNumber"), "font-mono tracking-wide")} /></Field>
+                <div className="flex flex-col gap-3">
+                  <span className={labelClass}>Business document</span>
+                  <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Document type">{DOC_TYPES.map(([value, label]) => <Chip key={value} selected={docType === value} onClick={() => setDocType(value)}>{label}</Chip>)}</div>
+                  {data.kycDocuments.map((doc, index) => (
+                    <div key={`${doc.url}-${index}`} className="flex items-center gap-3 rounded-[12px] border border-[#cfe5cc] bg-white p-3 pr-2">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#e3f1e1] text-[#2b7a26]"><FileText size={20} aria-hidden="true" /></span>
+                      <span className="min-w-0 flex-1"><span className="block truncate font-display text-[14px] font-semibold leading-5">{DOC_TYPES.find(([value]) => value === doc.type)?.[1] || doc.type}</span><span className="block truncate text-[13px] leading-[18px] text-[#4a4c55]">{doc.name || "Uploaded"} · Pending review</span></span>
+                      <button type="button" aria-label="Remove document" onClick={() => update({ kycDocuments: data.kycDocuments.filter((_, i) => i !== index) })} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-[#6e7079] hover:bg-[#fdecea] hover:text-[#b42318]"><Trash2 size={18} /></button>
+                    </div>
+                  ))}
+                  <input ref={docInput} type="file" accept="image/jpeg,image/png,application/pdf" hidden onChange={(event) => { addDocument(event.target.files); event.target.value = ""; }} />
+                  <button type="button" onClick={() => docInput.current?.click()} disabled={docBusy} className="flex flex-col items-center gap-1 rounded-[12px] border border-dashed border-[#bdbcb5] bg-white px-4 py-5 text-center transition-colors hover:border-[#002fa7] hover:bg-[#f7f9fd] disabled:opacity-60">
+                    <UploadCloud size={24} className="text-[#002fa7]" aria-hidden="true" />
+                    <span className="font-display text-[15px] font-semibold text-[#101115]">{docBusy ? "Uploading…" : `Upload ${(DOC_TYPES.find(([value]) => value === docType)?.[1] || "document").toLowerCase()}`}</span>
+                    <span className="text-[13px] leading-[18px] text-[#6e7079]">JPG, PNG or PDF · up to 5 MB</span>
+                  </button>
+                  {docError && <p role="alert" className="text-[14px] text-[#b42318]">{docError}</p>}
+                </div>
+              </section>
+</>}
 
             {step === 4 && <>
               <dl className="flex flex-col gap-4 text-[16px]">
