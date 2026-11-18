@@ -35,7 +35,15 @@ export default function PinPicker({ value, source, onChange, onFindFromAddress, 
       if (cancelled || !node.current || map.current) return;
       L.current = leaflet;
       map.current = leaflet.map(node.current, { scrollWheelZoom: false }).setView(value ? [value.lat, value.lng] : [22.5, 79], value ? 17 : 5);
-      leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map.current);
+      const streets = leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' });
+      const esri = "https://server.arcgisonline.com/ArcGIS/rest/services";
+      const satellite = leaflet.layerGroup([
+        leaflet.tileLayer(`${esri}/World_Imagery/MapServer/tile/{z}/{y}/{x}`, { maxNativeZoom: 19, maxZoom: 21, attribution: "Imagery &copy; Esri, Maxar, Earthstar Geographics" }),
+        leaflet.tileLayer(`${esri}/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`, { maxNativeZoom: 19, maxZoom: 21 }),
+      ]);
+      map.current.options.maxZoom = 21;
+      satellite.addTo(map.current);
+      leaflet.control.layers({ Satellite: satellite, Streets: streets }, null, { collapsed: false, position: "topright" }).addTo(map.current);
       map.current.on("click", (event) => { const point = { lat: event.latlng.lat, lng: event.latlng.lng }; pin(point); latest.current(point, "user"); setStatus({ type: "ok", text: "Pin placed. Drag it to fine-tune." }); });
       setTimeout(() => map.current?.invalidateSize(), 200);
       if (value) pin(value, 17);
