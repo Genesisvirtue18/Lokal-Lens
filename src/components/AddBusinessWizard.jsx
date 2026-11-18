@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, BadgeCheck, CheckCircle2, Clock, Copy, FileText, Globe, ImagePlus, Mail, MessageCircle, Phone, Plus, ShieldCheck, Trash2, UploadCloud, X } from "lucide-react";
+import { AlertCircle, BadgeCheck, CheckCircle2, Clock, Copy, FileText, Globe, Pencil, ImagePlus, Mail, MessageCircle, Phone, Plus, ShieldCheck, Trash2, UploadCloud, X } from "lucide-react";
 import { FacebookIcon, InstagramIcon, YoutubeIcon } from "@/components/BrandIcons";
 import { Button, Chip, Field, Logo, cx, fieldClass, labelClass } from "@/components/ds";
 import BusinessCard from "@/components/ds/BusinessCard";
@@ -45,6 +45,28 @@ function TimeSelect({ value, onChange, label, invalid }) {
       <select aria-label={`${label}: minute`} value={m} onChange={(event) => emit(hour, Number(event.target.value), pm)} className={cx(selectPart, "w-10")}>{Array.from({ length: 60 }, (_, i) => i).map((n) => <option key={n} value={n}>{two(n)}</option>)}</select>
       <select aria-label={`${label}: AM or PM`} value={pm ? "PM" : "AM"} onChange={(event) => emit(hour, m, event.target.value === "PM")} className={cx(selectPart, "w-12 font-medium")}><option>AM</option><option>PM</option></select>
     </span>
+  );
+}
+
+const timeText = (value) => { const [h, m] = String(value).split(":").map(Number); if (Number.isNaN(h)) return value; return `${h % 12 || 12}:${String(m || 0).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
+function PreviewCard({ title, onEdit, children }) {
+  return (
+    <section className="rounded-[14px] border border-[#dcdbd5] bg-white">
+      <header className="flex items-center justify-between gap-3 border-b border-[#ecebe7] px-5 py-3">
+        <h3 className="font-display text-[16px] font-semibold leading-6 text-[#101115]">{title}</h3>
+        <button type="button" onClick={onEdit} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] px-2.5 text-[14px] font-medium text-[#002fa7] hover:bg-[#eef2fb]"><Pencil size={15} aria-hidden="true" />Edit</button>
+      </header>
+      <dl className="flex flex-col px-5">{children}</dl>
+    </section>
+  );
+}
+function PreviewRow({ label, children }) {
+  const empty = children === undefined || children === null || children === "" || children === false;
+  return (
+    <div className="grid gap-1 border-b border-[#f1f0ec] py-3 last:border-0 sm:grid-cols-[140px_1fr] sm:gap-4">
+      <dt className="font-display text-[14px] font-medium leading-6 text-[#6e7079]">{label}</dt>
+      <dd className="min-w-0 break-words text-[16px] leading-6 text-[#101115]">{empty ? <span className="text-[#9a9ba3]">Not added</span> : children}</dd>
+    </div>
   );
 }
 
@@ -636,24 +658,44 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
 </>}
 
             {step === 4 && <>
-              <dl className="flex flex-col gap-4 text-[16px]">
-                {[
-                  ["Business", `${data.name} · ${nameOf(data.category)}${data.businessType ? ` · ${BUSINESS_TYPES.find(([value]) => value === data.businessType)?.[1]}` : ""}`],
-                  ["Tagline", data.tagline],
-                  ["Description", data.description],
-                  ["Address", [data.addressLine1, data.locality, data.city, data.state, data.postalCode].filter(Boolean).join(", ")],
-                  ...(data.mode !== "visit" ? [["Areas served", data.serviceAreas.join(", ")]] : []),
-                  ["Services", data.services.map((service) => `${service.name} (${priceText(service)})`).join(" · ")],
-                  ["Hours", DAYS.filter((day) => data.hours[day].open).map((day) => `${day.slice(0, 3)} ${data.hours[day].opens}–${data.hours[day].closes}`).join(" · ") || "Closed all week"],
-                  ["Offers", data.offers.map((offer) => offer.title).join(" · ")],
-                  ["Payments", data.paymentModes.map((value) => PAYMENT_MODES.find(([id]) => id === value)?.[1]).join(", ")],
-                  ["Photos", `${photoUrls.length} uploaded`],
-                  ["Contact", [data.phone && `Call ${data.phone}`, data.whatsapp && "WhatsApp", data.website && "Website", data.instagram && "Instagram"].filter(Boolean).join(" · ")],
-                  ["Verification", data.kycDocuments.length || data.gstNumber ? "Documents added — we’ll check them" : "Not started — you can add documents any time"],
-                ].map(([label, value]) => (
-                  <div key={label} className="grid gap-1 border-b border-[#ecebe7] pb-4 last:border-0 last:pb-0 sm:grid-cols-[140px_1fr] sm:gap-4"><dt className="font-eyebrow text-[#6e7079]">{label}</dt><dd className="break-words leading-6">{value || "—"}</dd></div>
-                ))}
-              </dl>
+              <div className="flex flex-col gap-4">
+                <PreviewCard title="Basics" onEdit={() => goTo(0)}>
+                  <PreviewRow label="Business">{data.name} <span className="text-[#6e7079]">· {nameOf(data.category)}{data.businessType ? ` · ${BUSINESS_TYPES.find(([value]) => value === data.businessType)?.[1]}` : ""}</span></PreviewRow>
+                  <PreviewRow label="Tagline">{data.tagline}</PreviewRow>
+                  <PreviewRow label="Description">{data.description}</PreviewRow>
+                </PreviewCard>
+
+                <PreviewCard title="Location" onEdit={() => goTo(1)}>
+                  <PreviewRow label="Address">{[data.addressLine1, data.locality, data.city, data.state, data.postalCode].filter(Boolean).join(", ")}</PreviewRow>
+                  {data.mode !== "visit" && <PreviewRow label="Areas served">{data.serviceAreas.join(", ")}</PreviewRow>}
+                  <PreviewRow label="Map pin">{coords ? (pinSource === "user" ? "Exact pin set" : "Placed from address") : ""}</PreviewRow>
+                </PreviewCard>
+
+                <PreviewCard title="Services & hours" onEdit={() => goTo(2)}>
+                  <PreviewRow label="Services">
+                    <ul className="flex flex-col gap-1.5">{data.services.map((service, index) => <li key={`${service.name}-${index}`} className="flex flex-wrap items-baseline justify-between gap-x-4"><span className="font-medium">{service.name}</span><span className="text-[14px] text-[#4a4c55]">{priceText(service)}</span></li>)}</ul>
+                  </PreviewRow>
+                  <PreviewRow label="Opening hours">
+                    <ul className="flex max-w-[360px] flex-col gap-1">
+                      {DAYS.map((day) => { const entry = data.hours[day]; return <li key={day} className="flex items-baseline justify-between gap-4"><span className="w-24 capitalize">{day}</span>{entry.open ? <span className="tabular-nums">{timeText(entry.opens)} – {timeText(entry.closes)}</span> : <span className="text-[#6e7079]">Closed</span>}</li>; })}
+                    </ul>
+                  </PreviewRow>
+                  <PreviewRow label="Offers">{data.offers.map((offer) => offer.title).join(" · ")}</PreviewRow>
+                  <PreviewRow label="Payments">{data.paymentModes.map((value) => PAYMENT_MODES.find(([id]) => id === value)?.[1]).join(", ")}</PreviewRow>
+                </PreviewCard>
+
+                <PreviewCard title="Photos & contact" onEdit={() => goTo(3)}>
+                  <PreviewRow label="Photos">{photoUrls.length ? `${photoUrls.length} uploaded` : ""}</PreviewRow>
+                  <PreviewRow label="Phone">{data.phone && `+91 ${data.phone}`}</PreviewRow>
+                  <PreviewRow label="WhatsApp">{data.whatsapp && `+91 ${data.whatsapp}`}</PreviewRow>
+                  <PreviewRow label="Email">{data.email}</PreviewRow>
+                  <PreviewRow label="Website & social">{[data.website, data.instagram, data.facebook, data.youtube].filter(Boolean).join(" · ")}</PreviewRow>
+                </PreviewCard>
+
+                <PreviewCard title="Verification" onEdit={() => goTo(3)}>
+                  <PreviewRow label="Status">{data.kycDocuments.length || data.gstNumber ? <span className="inline-flex items-center gap-1.5 text-[#2b7a26]"><BadgeCheck size={18} aria-hidden="true" />Documents added. Our team will review them.</span> : <span className="text-[#6e7079]">Not started. You can add documents any time.</span>}</PreviewRow>
+                </PreviewCard>
+              </div>
               <div className="flex flex-col gap-3 border-t border-[#ecebe7] pt-5">
                 <SubHeading hint="Answer what customers often ask. This also helps people find you.">Common questions <span className="font-normal text-[#6e7079]">(optional)</span></SubHeading>
                 {data.faqs.map((faq, index) => (
