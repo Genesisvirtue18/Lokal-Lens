@@ -133,7 +133,15 @@ export async function updateOwnerLeadStatus(id: string, status: Lead['status']) 
 export async function addOwnerLeadNote(id: string, note: string) {
   await request(`/owner/leads/${id}/notes`, { method: 'POST', body: JSON.stringify({ note }) });
 }
-export async function loadAdminDashboard(): Promise<BusinessListing[]> { const { items = [] } = await request('/admin/businesses?limit=100'); return items.map(toDashboardBusiness); }
+export async function loadAdminDashboard(): Promise<BusinessListing[]> {
+  const all: ApiBusiness[] = [];
+  for (let page = 1; page <= 50; page += 1) {
+    const { items = [], pagination } = await request(`/admin/businesses?limit=100&page=${page}`);
+    all.push(...items);
+    if (!pagination?.hasNextPage) break;
+  }
+  return all.map(toDashboardBusiness);
+}
 export async function loadAdminOwners(): Promise<{ id: string; name: string; email: string }[]> { const { items = [] } = await request('/admin/owners'); return items.map((item: { _id: string; name: string; email: string }) => ({ id: item._id, name: item.name, email: item.email })); }
 export async function assignBusinessOwner(id: string, ownerId: string) { const { item } = await request(`/admin/businesses/${id}/owner`, { method: 'PATCH', body: JSON.stringify({ ownerId }) }); return toDashboardBusiness(item); }
 export async function reviewBusiness(id: string, decision: 'approve' | 'reject', rejectionReason?: string) { const { item } = await request(`/admin/businesses/${id}/review`, { method: 'PATCH', body: JSON.stringify({ decision, ...(rejectionReason ? { rejectionReason } : {}) }) }); return toDashboardBusiness(item); }
@@ -142,10 +150,14 @@ export async function setBusinessPlan(id: string, plan: 'free' | 'premium', plan
 export async function clearGooglePlaceMismatch(id: string) { const { item } = await request(`/admin/businesses/${id}/google-place`, { method: 'PATCH' }); return toDashboardBusiness(item); }
 export async function loadBusinessFormData() { const { items = [] } = await request('/categories/tree'); return { categories: items }; }
 export async function geocodeBusinessAddress(address: { addressLine1: string; addressLine2?: string; landmark?: string; locality?: string; city: string; state: string; postalCode?: string; country: string }) { const params = new URLSearchParams(Object.entries(address).filter((entry): entry is [string, string] => Boolean(entry[1]))); const { point } = await request(`/owner/geocode?${params}`, { signal: AbortSignal.timeout(15000) }); return point as { lat: number; lng: number; label: string }; }
+export async function loadAdminBusiness(id: string) { const { item } = await request(`/admin/businesses/${id}`); return item; }
+export async function createAdminBusiness(payload: Record<string, unknown>) { const { item } = await request('/admin/businesses', { method: 'POST', body: JSON.stringify(payload) }); return toDashboardBusiness(item); }
+export async function updateAdminBusiness(id: string, payload: Record<string, unknown>) { const { item } = await request(`/admin/businesses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); return toDashboardBusiness(item); }
+export async function setAdminBusinessStatus(id: string, status: 'published' | 'suspended') { const { item } = await request(`/admin/businesses/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }); return toDashboardBusiness(item); }
+export async function deleteAdminBusiness(id: string) { await request(`/admin/businesses/${id}`, { method: 'DELETE' }); }
 export async function loadOwnerBusiness(id: string) { const { item } = await request(`/owner/businesses/${id}`); return item; }
 export async function createOwnerBusiness(payload: Record<string, unknown>) { const { item } = await request('/owner/businesses', { method: 'POST', body: JSON.stringify(payload) }); return toDashboardBusiness(item); }
 export async function updateOwnerBusiness(id: string, payload: Record<string, unknown>) { const { item } = await request(`/owner/businesses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); return toDashboardBusiness(item); }
-export async function createAdminBusiness(payload: Record<string, unknown>) { const { item } = await request('/admin/businesses', { method: 'POST', body: JSON.stringify(payload) }); return toDashboardBusiness(item); }
 export async function uploadBusinessDocuments(files: File[]) { const form = new FormData(); files.forEach(file => form.append('files', file)); const response = await authedFetch(`${baseUrl}/owner/documents`, { method: 'POST', body: form }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || 'Unable to upload files'); return (body.data?.urls || []) as string[]; }
 export async function uploadBusinessImages(files: File[]) { const urls: string[] = []; for (let offset = 0; offset < files.length; offset += 10) { const form = new FormData(); files.slice(offset, offset + 10).forEach(file => form.append('images', file)); const response = await authedFetch(`${baseUrl}/owner/uploads`, { method: 'POST', body: form }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || 'Unable to upload images'); urls.push(...(body.data?.urls || [])); } return urls; }
 export type ManagedCategory = { _id: string; name: string; services?: string[]; children?: ManagedCategory[] };

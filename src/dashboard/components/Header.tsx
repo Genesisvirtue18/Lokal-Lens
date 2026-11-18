@@ -19,9 +19,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   role,
   onOpenSearch,
-  onOpenNotifications,
-  unreadNotificationsCount,
-  onOpenProfileMenu,
   onOpenMobileMenu,
   onLogout,
   onAddBusiness,
@@ -55,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         )}
 
-        <Image src="/images/lokal-lens-figma.svg" alt="Lokal Lens" width={230} height={40} className="h-auto w-36 sm:w-44" />
+        <Image src="/images/lokal-lens-figma.svg" alt="Lokal Lens" width={230} height={40} className="h-auto w-36 sm:w-44 md:hidden" />
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
@@ -70,29 +67,8 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="material-symbols-outlined text-[20px]">search</span>
         </button>
 
-        <button
-          onClick={onOpenNotifications}
-          aria-label="Notifications"
-          className="relative p-2 rounded-xl text-[#4a4c55] hover:bg-white transition-colors duration-150 active:scale-95"
-        >
-          <span className="material-symbols-outlined text-[20px]">notifications</span>
-          {unreadNotificationsCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-xl bg-[#002fa7] text-white font-bold text-[12px] ring-2 ring-white">
-              {unreadNotificationsCount}
-            </span>
-          )}
-        </button>
-
         <div className="ml-1 flex items-center border-l border-[#dcdbd5] pl-2">
-          <button
-            onClick={onOpenProfileMenu}
-            className="relative cursor-pointer focus:outline-none"
-            title="Administrator profile"
-          >
-            <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[#e8edfb] font-bold text-[#002fa7] shadow-xs ring-1 ring-[#dcdbd5]">
-              AD
-            </div>
-          </button>
+          <div title="Administrator" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8edfb] font-display text-[13px] font-bold text-[#002fa7] ring-1 ring-[#dcdbd5]">AD</div>
         </div>
       </div>
     </header>

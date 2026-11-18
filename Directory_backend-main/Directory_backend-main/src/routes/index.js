@@ -249,6 +249,10 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.post('/admin/categories/:id/services/import', ...adminOnly, validate(idParam), csvUpload.single('file'), admin.importServices());
   router.get('/admin/owners', ...adminOnly, admin.owners());
   router.get('/admin/businesses', ...adminOnly, validate(z.object({ query: pagination.extend({ status: z.enum(['draft', 'pending_review', 'published', 'suspended', 'rejected']).optional() }) })), admin.businesses());
+  router.get('/admin/businesses/:id', ...adminOnly, validate(idParam), admin.businessById());
+  router.patch('/admin/businesses/:id', ...adminOnly, validate(idParam.extend({ body: ownerBusinessUpdateBody })), admin.updateBusiness());
+  router.patch('/admin/businesses/:id/status', ...adminOnly, validate(idParam.extend({ body: z.object({ status: z.enum(['published', 'suspended']) }).strict() })), admin.setBusinessStatus());
+  router.delete('/admin/businesses/:id', ...adminOnly, validate(idParam), admin.removeBusiness());
   router.post('/admin/businesses/import', ...adminOnly, csvUpload.single('file'), admin.importBusinesses());
   router.patch('/admin/businesses/:id/owner', ...adminOnly, validate(idParam.extend({ body: z.object({ ownerId: objectId }).strict() })), admin.assignBusinessOwner());
   router.post('/admin/businesses', ...adminOnly, validate(z.object({ body: ownerBusinessBody.extend({ email: z.union([z.string().email(), z.literal('')]).optional(), ownerId: objectId.optional(), publish: z.boolean().optional() }) })), admin.createBusiness());

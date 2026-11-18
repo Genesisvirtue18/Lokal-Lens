@@ -189,6 +189,55 @@ export const businesses = () => async (req, res, next) => { try {
   sendSuccess(res, 'Businesses retrieved successfully', { items, pagination: { page, limit, totalItems, totalPages: Math.ceil(totalItems / limit), hasNextPage: page * limit < totalItems, hasPreviousPage: page > 1 } });
 } catch (error) { next(error); } };
 
+export const businessById = () => async (req, res, next) => { try {
+  const item = await Business.findOne({ _id: req.params.id, deletedAt: null }).populate('owner', 'name email').populate('category', 'name').lean();
+  if (!item) throw new AppError('Business not found', 404);
+  sendSuccess(res, 'Business retrieved successfully', { item });
+} catch (error) { next(error); } };
+
+// Admin can edit every field the owner can, on any listing. Status is changed through the review / status routes, not here.
+export const updateBusiness = () => async (req, res, next) => { try {
+  const item = await Business.findOne({ _id: req.params.id, deletedAt: null });
+  if (!item) throw new AppError('Business not found', 404);
+  const { googlePlaceId, ...body } = req.validated.body; // Google Place links are verified through their own routes
+  void googlePlaceId;
+  const category = body.category || item.category;
+  if (body.category && !await Category.exists({ _id: body.category, isActive: true, parentCategory: null })) throw new AppError('Category not found', 422);
+  const subcategories = body.subcategories ?? item.subcategories;
+  if (subcategories?.length && await Category.countDocuments({ _id: { $in: subcategories }, isActive: true, parentCategory: category }) !== new Set(subcategories.map(String)).size) throw new AppError('Select subcategories belonging to the chosen category', 422);
+  const extra = body.secondaryCategories;
+  if (extra?.length) {
+    const ids = [...new Set(extra.map(String))];
+    if (ids.includes(String(category))) throw new AppError('The primary category cannot also be an additional category', 422);
+    if (await Category.countDocuments({ _id: { $in: ids }, isActive: true }) !== ids.length) throw new AppError('One or more additional categories were not found', 422);
+  }
+  Object.assign(item, body);
+  await item.save();
+  await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email' }]);
+  sendSuccess(res, 'Business updated successfully', { item });
+} catch (error) { next(error); } };
+
+// Take a live listing down (suspend) or put it back up.
+export const setBusinessStatus = () => async (req, res, next) => { try {
+  const item = await Business.findOne({ _id: req.params.id, deletedAt: null });
+  if (!item) throw new AppError('Business not found', 404);
+  const { status } = req.validated.body;
+  if (status === 'suspended' && !['published', 'paused'].includes(item.listingStatus)) throw new AppError('Only a live or paused listing can be suspended', 422);
+  if (status === 'published' && item.listingStatus !== 'suspended') throw new AppError('Only a suspended listing can be restored', 422);
+  item.listingStatus = status;
+  await item.save();
+  await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email' }]);
+  sendSuccess(res, status === 'suspended' ? 'Listing suspended' : 'Listing restored', { item });
+} catch (error) { next(error); } };
+
+export const removeBusiness = () => async (req, res, next) => { try {
+  const item = await Business.findOne({ _id: req.params.id, deletedAt: null });
+  if (!item) throw new AppError('Business not found', 404);
+  item.deletedAt = new Date(); item.listingStatus = 'deleted';
+  await item.save();
+  res.status(204).end();
+} catch (error) { next(error); } };
+
 export const owners = () => async (req, res, next) => { try {
   const items = await User.find({ role: 'business_owner', status: 'active', deletedAt: null }).select('name email phone').sort('name').lean();
   sendSuccess(res, 'Business owners retrieved successfully', { items });

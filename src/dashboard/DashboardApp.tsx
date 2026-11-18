@@ -73,6 +73,9 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
     }
   }, [role, initialTab]);
 
+  const reloadAdminList = async () => {
+    try { const items = await loadAdminDashboard(); setPendingBusinesses(items.filter((item) => item.status === 'Pending')); setActiveBusinesses(items.filter((item) => item.status !== 'Pending')); } catch { /* keep what is on screen */ }
+  };
   const reloadOwner = async () => {
     try { const data = await loadOwnerDashboard(); setActiveBusinesses(data.businesses); setReviews(data.reviews); setOwnerLeads(data.leads); } catch { /* keep what is on screen */ }
   };
@@ -105,6 +108,8 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
   const [isBusinessFormOpen, setIsBusinessFormOpen] = useState(false);
   const [businessFormTargetId, setBusinessFormTargetId] = useState<string | undefined>(undefined);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [adminForm, setAdminForm] = useState<{ id: string } | null>(null);
+  const [adminOpenId, setAdminOpenId] = useState('');
 
   // Handlers
   const handleApproveBusiness = async (bizId: string) => {
@@ -290,14 +295,16 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
             )
           ) : (
             // Admin View
-            adminTab === 'overview' ? (
+            adminForm ? (
+              <AddBusinessWizard key={adminForm.id || 'new'} embedded admin editId={adminForm.id} onExit={() => setAdminForm(null)} onSaved={reloadAdminList} />
+            ) : adminTab === 'overview' ? (
               <AdminDashboard
                 pendingBusinesses={pendingBusinesses}
                 activeBusinesses={activeBusinesses}
                 adminLeads={adminLeads}
                 onApproveBusiness={handleApproveBusiness}
                 onRejectBusiness={handleRejectBusiness}
-                onInspectBusiness={(b) => setPublicProfileBiz(b)}
+                onInspectBusiness={(b) => { setAdminOpenId(b.id); setAdminTab('businesses'); }}
                 onOpenAddCategory={() => showToast('Category creation is not available from the current API.')}
                 onExportData={() => showToast('Export is not available from the current API.')}
                 onSelectLead={(l) => setSelectedLead(l)}
@@ -307,11 +314,14 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
               <AdminBusinessesTab
                 activeBusinesses={activeBusinesses}
                 pendingBusinesses={pendingBusinesses}
-                onInspectBusiness={(b) => setPublicProfileBiz(b)}
                 onApproveBusiness={handleApproveBusiness}
                 onRejectBusiness={handleRejectBusiness}
                 onClearGooglePlaceMismatch={handleClearGooglePlaceMismatch}
-                onBackToOverview={() => setAdminTab('overview')}
+                onCreate={() => setAdminForm({ id: '' })}
+                onEdit={(business) => setAdminForm({ id: business.id })}
+                openId={adminOpenId}
+                onClose={() => setAdminOpenId('')}
+                onBusinessRemoved={(id) => { setPendingBusinesses((items) => items.filter((item) => item.id !== id)); setActiveBusinesses((items) => items.filter((item) => item.id !== id)); showToast('Listing deleted.'); }}
                 onBusinessesImported={(businesses) => {
                   const importedIds = new Set(businesses.map(item => item.id));
                   setPendingBusinesses((items) => [...businesses.filter(item => item.status === 'Pending'), ...items.filter(item => !importedIds.has(item.id))]);

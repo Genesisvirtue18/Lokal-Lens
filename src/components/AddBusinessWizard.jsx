@@ -9,7 +9,7 @@ import { Button, Chip, Field, Logo, cx, fieldClass, labelClass } from "@/compone
 import BusinessCard from "@/components/ds/BusinessCard";
 import PinPicker from "@/components/PinPicker";
 import { AMENITY_SUGGESTIONS, BUSINESS_TYPES, DAYS, DOC_TYPES, INDIAN_STATES, LANGUAGES, PAYMENT_MODES, PRICE_RANGES, STEP_FIELDS, check, checkFaq, checkOffer, checkService, checkSpecialHours, clean } from "@/lib/business-validation";
-import { createOwnerBusiness, geocodeBusinessAddress, loadBusinessFormData, loadOwnerBusiness, request, updateOwnerBusiness, uploadBusinessDocuments, uploadBusinessImages } from "@/dashboard/api";
+import { createAdminBusiness, createOwnerBusiness, geocodeBusinessAddress, loadAdminBusiness, loadAdminOwners, loadBusinessFormData, loadOwnerBusiness, request, updateAdminBusiness, updateOwnerBusiness, uploadBusinessDocuments, uploadBusinessImages } from "@/dashboard/api";
 
 const DRAFT_KEY = "lokal-lens-business-draft";
 const STEPS = ["Basics", "Location", "Services & hours", "Photos & contact", "Preview"];
@@ -154,10 +154,13 @@ function TagInput({ id, values, onChange, placeholder, suggestions = [], max = 3
 
 /**
  * Used standalone and embedded inside the owner dashboard, where the sidebar stays in place.
- * @param {{ embedded?: boolean, editId?: string, initialStep?: number, onExit?: () => void, onSaved?: () => void }} props
+ * @param {{ embedded?: boolean, admin?: boolean, editId?: string, initialStep?: number, onExit?: () => void, onSaved?: () => void }} props
  */
-export default function AddBusinessWizard({ embedded = false, editId: editIdProp = "", initialStep = 0, onExit, onSaved } = {}) {
+export default function AddBusinessWizard({ embedded = false, admin = false, editId: editIdProp = "", initialStep = 0, onExit, onSaved } = {}) {
   const router = useRouter();
+  const [adminOwners, setAdminOwners] = useState([]);
+  const [adminOwnerId, setAdminOwnerId] = useState("");
+  const [publishNow, setPublishNow] = useState(true);
   const [ready, setReady] = useState(false);
   const [editId, setEditId] = useState("");
   const [step, setStep] = useState(0);
@@ -207,7 +210,8 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
     let draft = null;
     try { if (!edit) draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || "null"); } catch { /* ignore a broken draft */ }
     (async () => {
-      const [{ categories: tree = [] }, me, item] = await Promise.all([loadBusinessFormData().catch(() => ({ categories: [] })), request("/auth/me").catch(() => ({})), edit ? loadOwnerBusiness(edit).catch(() => null) : Promise.resolve(null)]);
+      const [{ categories: tree = [] }, me, item] = await Promise.all([loadBusinessFormData().catch(() => ({ categories: [] })), request("/auth/me").catch(() => ({})), edit ? (admin ? loadAdminBusiness : loadOwnerBusiness)(edit).catch(() => null) : Promise.resolve(null)]);
+      if (admin) loadAdminOwners().then(setAdminOwners).catch(() => setAdminOwners([]));
       setCategories(tree);
       if (edit && item) {
         setEditId(edit); setData(fromApi(item));
@@ -215,12 +219,12 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
         if (item.location?.coordinates) { setCoords({ lat: item.location.coordinates[1], lng: item.location.coordinates[0] }); setPinSource("user"); }
         const wanted = embedded ? initialStep + 1 : Number(query.get("step")); if (wanted >= 1 && wanted <= 5) setStep(wanted - 1);
       } else {
-        setData((current) => ({ ...current, ...(draft?.data || {}), email: draft?.data?.email || me.user?.email || "" }));
+        setData((current) => ({ ...current, ...(draft?.data || {}), email: draft?.data?.email || (admin ? "" : me.user?.email) || "" }));
         if (draft?.step) setStep(Math.min(4, draft.step));
       }
       setReady(true);
     })();
-  }, [router, embedded, editIdProp, initialStep]);
+  }, [router, embedded, admin, editIdProp, initialStep]);
 
   const update = (patch) => { setDirty(true); setData((current) => ({ ...current, ...patch })); setErrors((current) => { const keys = Object.keys(patch).filter((key) => current[key]); if (!keys.length) return current; const next = { ...current }; keys.forEach((key) => delete next[key]); return next; }); };
   const categoryOptions = useMemo(() => categories.flatMap((root) => [{ value: `${root._id}|`, label: root.name }, ...(root.children || []).map((child) => ({ value: `${root._id}|${child._id}`, label: `${root.name} › ${child.name}` }))]), [categories]);
@@ -352,7 +356,10 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
         ...(data.gstNumber ? { gstNumber: data.gstNumber.toUpperCase() } : { gstNumber: "" }), kycDocuments: data.kycDocuments.map(({ type, url }) => ({ type, url })),
         faqs: data.faqs, ...(photoUrls.length ? { images: photoUrls, logo: photoUrls[0] } : { images: [] }),
       };
-      if (editing) await updateOwnerBusiness(editId, payload); else await createOwnerBusiness(payload); // new listings go straight into review
+      if (admin) {
+        if (editing) await updateAdminBusiness(editId, payload);
+        else await createAdminBusiness({ ...payload, ...(adminOwnerId ? { ownerId: adminOwnerId } : {}), publish: publishNow });
+      } else if (editing) await updateOwnerBusiness(editId, payload); else await createOwnerBusiness(payload); // new listings go straight into review
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ }
       setPhase(editing ? "saved" : "submitted");
       onSaved?.();
@@ -386,9 +393,9 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
     <section className="mx-auto flex max-w-[640px] flex-col items-center gap-4 px-4 py-20 text-center">
       <span className="grid h-16 w-16 place-items-center rounded-full bg-[#e7f4e5] text-[#2b7a26]"><CheckCircle2 size={32} aria-hidden="true" /></span>
       <p className="font-eyebrow text-[#002fa7]">{phase === "saved" ? "Saved" : "Submitted"}</p>
-      <h1 className="text-[34px] font-semibold leading-[42px] tracking-[-0.0294em]">{phase === "saved" ? "Your changes are saved" : "Thanks — we’re reviewing your listing"}</h1>
-      <p className="text-[16px] leading-6 text-[#4a4c55]">{phase === "saved" ? "Your listing now shows the new details. Major changes may be checked by our team again." : <>Our team reviews new listings before they go live. You’ll get an email at <strong className="text-[#101115]">{data.email}</strong> once it’s approved. You can keep editing it from your dashboard.</>}</p>
-      <div className="mt-3 flex flex-wrap justify-center gap-3">{embedded ? <Button type="primary" onClick={exit}>Back to overview</Button> : <><Button type="primary" href="/business-owner">Go to dashboard</Button><Button type="secondary" href="/">Back to home</Button></>}</div>
+      <h1 className="text-[34px] font-semibold leading-[42px] tracking-[-0.0294em]">{phase === "saved" ? (admin ? "Changes saved" : "Your changes are saved") : admin ? (publishNow ? "Listing published" : "Draft saved") : "Thanks — we’re reviewing your listing"}</h1>
+      <p className="text-[16px] leading-6 text-[#4a4c55]">{admin ? (phase === "saved" ? "The listing now shows the new details." : publishNow ? "The listing is live in the directory." : "It is saved as a draft and not visible to customers.") : phase === "saved" ? "Your listing now shows the new details. Major changes may be checked by our team again." : <>Our team reviews new listings before they go live. You’ll get an email at <strong className="text-[#101115]">{data.email}</strong> once it’s approved. You can keep editing it from your dashboard.</>}</p>
+      <div className="mt-3 flex flex-wrap justify-center gap-3">{embedded ? <Button type="primary" onClick={exit}>{admin ? "Back to businesses" : "Back to overview"}</Button> : <><Button type="primary" href="/business-owner">Go to dashboard</Button><Button type="secondary" href="/">Back to home</Button></>}</div>
     </section>,
   );
 
@@ -657,6 +664,13 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
 </>}
 
             {step === 4 && <>
+              {admin && !editing && (
+                <section className="flex flex-col gap-4 rounded-[14px] border border-[#cdd6ef] bg-[#f7f9fd] p-5" aria-label="Admin options">
+                  <h3 className="font-display text-[16px] font-semibold leading-6">Admin options</h3>
+                  <Field label="Owner" optional helper="The owner can then sign in and manage this listing. Leave empty to assign later."><select value={adminOwnerId} onChange={(event) => setAdminOwnerId(event.target.value)} className={fieldClass}><option value="">No owner yet</option>{adminOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name} · {owner.email}</option>)}</select></Field>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 text-[16px]"><input type="checkbox" checked={publishNow} onChange={(event) => setPublishNow(event.target.checked)} className="h-[18px] w-[18px] accent-[#002fa7]" />Publish right away (otherwise it is saved as a draft)</label>
+                </section>
+              )}
               <div className="flex flex-col gap-4">
                 <PreviewCard title="Basics" onEdit={() => goTo(0)}>
                   <PreviewRow label="Business">{data.name} <span className="text-[#6e7079]">· {nameOf(data.category)}{data.businessType ? ` · ${BUSINESS_TYPES.find(([value]) => value === data.businessType)?.[1]}` : ""}</span></PreviewRow>
@@ -719,7 +733,7 @@ export default function AddBusinessWizard({ embedded = false, editId: editIdProp
             {step === 0 ? (embedded ? <Button type="secondary" onClick={exit}>Cancel</Button> : <Button type="secondary" href={editing ? "/business-owner" : "/"}>Cancel</Button>) : <Button type="secondary" onClick={back}>Back</Button>}
             <div className="flex flex-wrap gap-3">
               {editing && step < 4 && <Button type="secondary" onClick={submit} disabled={busy}>{busy ? "Saving…" : "Save changes"}</Button>}
-              {step < 4 ? <Button type="primary" onClick={next}>Continue</Button> : <Button type="primary" onClick={submit} disabled={busy}>{busy ? (editing ? "Saving…" : "Submitting…") : phase === "failed" ? "Try again" : editing ? "Save changes" : "Submit for review"}</Button>}
+              {step < 4 ? <Button type="primary" onClick={next}>Continue</Button> : <Button type="primary" onClick={submit} disabled={busy}>{busy ? (editing || admin ? "Saving…" : "Submitting…") : phase === "failed" ? "Try again" : editing ? "Save changes" : admin ? (publishNow ? "Publish listing" : "Save draft") : "Submit for review"}</Button>}
             </div>
           </div>
         </div>
