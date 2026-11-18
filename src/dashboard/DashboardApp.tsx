@@ -82,6 +82,10 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
     try { await setListingVisibility(business.id, !pause); await reloadOwner(); showToast(pause ? 'Listing paused.' : 'Your listing is live again.'); }
     catch (error) { showToast(error instanceof Error ? error.message : 'Unable to change the listing.'); }
   };
+  const deleteListing = async (business: BusinessListing) => {
+    try { await request(`/owner/businesses/${business.id}`, { method: 'DELETE' }); await reloadOwner(); showToast(`“${business.name}” was deleted.`); }
+    catch (error) { showToast(error instanceof Error ? error.message : 'Unable to delete the listing.'); }
+  };
   const openForm = (id = '', step = 0) => { setFormEditId(id); setFormStep(step); setOwnerTab('form'); window.scrollTo({ top: 0 }); };
   const doLogout = async () => { try { await logout(); } catch { /* Local credentials are cleared even if the API is unreachable. */ } finally { router.replace('/login'); router.refresh(); } };
 
@@ -248,6 +252,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
                 onOpenCompleteProfile={handleEditBusiness}
                 onEditAtStep={(business, step) => openForm(business.id, step)}
                 onToggleVisibility={toggleVisibility}
+                onDeleteBusiness={deleteListing}
                 onAddBusiness={handleAddBusiness}
                 onSelectLead={(l) => setSelectedLead(l)}
                 onOpenReplyReview={(r) => setSelectedReview(r)}
@@ -326,6 +331,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
           onSelectOwnerTab={(t) => setOwnerTab(t)}
           onSelectAdminTab={(t) => setAdminTab(t)}
           leadsCount={ownerLeads.length}
+          newLeads={ownerLeads.filter((lead) => lead.status === 'New').length}
         />
       </div>
       </div>

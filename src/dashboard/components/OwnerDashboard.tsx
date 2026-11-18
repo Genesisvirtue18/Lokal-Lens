@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { BadgeCheck, Check, ChevronRight, ExternalLink, Eye, MessageSquare, Pencil, Plus, Star, Store } from 'lucide-react';
+import { BadgeCheck, Check, ChevronRight, ExternalLink, Eye, MessageSquare, Pencil, Plus, Star, Store, Trash2 } from 'lucide-react';
 import { Badge, Button, cx } from '@/components/ds';
 import { request } from '../api';
 import { completenessPercent, completenessSections, CompletenessInput } from '../completeness';
@@ -14,6 +14,7 @@ interface OwnerDashboardProps {
   onOpenCompleteProfile: (business: BusinessListing) => void;
   onEditAtStep?: (business: BusinessListing, step: number) => void;
   onToggleVisibility?: (business: BusinessListing) => void;
+  onDeleteBusiness?: (business: BusinessListing) => Promise<void> | void;
   onAddBusiness: () => void;
   onSelectLead: (lead: Lead) => void;
   onOpenReplyReview: (review: Review) => void;
@@ -32,12 +33,12 @@ export const inputFromListing = (business: BusinessListing): CompletenessInput =
 
 function Stat({ icon: Icon, label, value, note, tone }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: React.ReactNode; note?: string; tone?: 'alert' }) {
   return (
-    <div className="flex flex-col gap-3 rounded-[16px] border border-[#dcdbd5] bg-white p-5">
+    <div className="flex flex-col gap-2 rounded-[16px] border border-[#dcdbd5] bg-white p-4 sm:gap-3 sm:p-5">
       <div className="flex items-center justify-between gap-3">
         <p className="font-display text-[14px] font-medium leading-5 text-[#4a4c55]">{label}</p>
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#e6ebf7] text-[#002fa7]"><Icon size={18} /></span>
       </div>
-      <p className="text-[32px] font-semibold leading-9 tracking-[-0.02em] tabular-nums">{value}</p>
+      <p className="text-[28px] font-semibold leading-9 tracking-[-0.02em] tabular-nums sm:text-[32px]">{value}</p>
       {note ? <p className={cx('text-[13px] leading-[18px]', tone === 'alert' ? 'font-medium text-[#002fa7]' : 'text-[#6e7079]')}>{note}</p> : null}
     </div>
   );
@@ -103,7 +104,10 @@ function EmailVerification() {
 
 const leadTone: Record<Lead['status'], string> = { New: 'bg-[#e6ebf7] text-[#002fa7]', Contacted: 'bg-[#fbf0d9] text-[#8a5a00]', Converted: 'bg-[#e7f4e5] text-[#2b7a26]' };
 
-export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, leads, reviews, onOpenPublicProfile, onOpenCompleteProfile, onEditAtStep, onToggleVisibility, onAddBusiness, onSelectLead, onViewAllLeads }) => {
+export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, leads, reviews, onOpenPublicProfile, onOpenCompleteProfile, onEditAtStep, onToggleVisibility, onDeleteBusiness, onAddBusiness, onSelectLead, onViewAllLeads }) => {
+  const [toDelete, setToDelete] = useState<BusinessListing | null>(null);
+  const [typed, setTyped] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [selectedId, setSelectedId] = useState('');
   const featured = businesses.find((business) => business.id === selectedId) || businesses[0];
   const sections = featured ? completenessSections(inputFromListing(featured)) : [];
@@ -128,7 +132,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
       </div>
 
       {businesses.length > 0 && (
-        <section aria-label="Summary" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section aria-label="Summary" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <Stat icon={Eye} label="Profile views" value={totalViews.toLocaleString('en-IN')} note="Across all listings" />
           <Stat icon={MessageSquare} label="Inquiries" value={leads.length} note={newLeads ? `${newLeads} new to reply to` : 'No new inquiries'} tone={newLeads ? 'alert' : undefined} />
           <Stat icon={Star} label="Average rating" value={average ? average.toFixed(1) : '–'} note={ratings.length ? `From ${ratings.length} review${ratings.length === 1 ? '' : 's'}` : 'No reviews yet'} />
@@ -154,11 +158,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
                     <div className="flex min-w-0 flex-col gap-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="truncate text-[18px] font-semibold leading-6 tracking-[-0.01em]">{business.name}</h2>
-                        {live ? <Badge tone="live">Live</Badge> : paused ? <Badge tone="pending">Paused</Badge> : pending ? <Badge tone="pending">In review</Badge> : <Badge tone="closed">{business.status}</Badge>}
+                        {live ? <Badge tone="live">Live</Badge> : paused ? <Badge tone="pending">Paused</Badge> : pending ? <Badge tone="pending">In review</Badge> : business.status === 'Rejected' ? <Badge tone="closed">Needs changes</Badge> : <Badge tone="closed">{business.status}</Badge>}
                         {business.verified && <Badge tone="verified">Verified</Badge>}
                       </div>
                       <p className="truncate text-[14px] leading-5 text-[#6e7079]">{[business.category, business.location].filter(Boolean).join(' · ')}</p>
-                      <p className="text-[13px] leading-[18px] text-[#4a4c55]">{pending ? 'Not visible to customers until our team approves it.' : live ? 'Visible to customers.' : paused ? 'Hidden from search until you resume.' : 'Not visible to customers right now.'}</p>
+                      {business.status === 'Rejected' && <p role="status" className="rounded-[10px] bg-[#fdecea] px-3 py-2 text-[13px] leading-[18px] text-[#8c1d13]"><span className="font-semibold">Our team asked for changes{business.rejectionReason ? ':' : '.'}</span>{business.rejectionReason ? ` ${business.rejectionReason}` : ''} Fix it and save. It goes back to review automatically.</p>}
+                      {business.status === 'Rejected' ? null : <p className="text-[13px] leading-[18px] text-[#4a4c55]">{pending ? 'Not visible to customers until our team approves it.' : live ? 'Visible to customers.' : paused ? 'Hidden from search until you resume.' : 'Not visible to customers right now.'}</p>}
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-col gap-1 md:w-[150px]">
@@ -169,6 +174,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
                     <Button type="primary" size="s" onClick={() => onOpenCompleteProfile(business)} icon={<Pencil size={18} aria-hidden="true" />}>Edit</Button>
                     <Button type="secondary" size="s" onClick={() => onOpenPublicProfile(business)} icon={<ExternalLink size={18} aria-hidden="true" />}>{live ? 'View as customer' : 'Preview'}</Button>
                     {(live || paused) && onToggleVisibility && <Button type="ghost" size="s" onClick={() => onToggleVisibility(business)}>{live ? 'Pause' : 'Resume'}</Button>}
+                    {onDeleteBusiness && <button type="button" onClick={() => { setTyped(''); setToDelete(business); }} aria-label={`Delete ${business.name}`} className="grid h-10 w-10 place-items-center rounded-[10px] text-[#6e7079] hover:bg-[#fdecea] hover:text-[#b42318]"><Trash2 size={18} aria-hidden="true" /></button>}
                   </div>
                 </li>
               );
@@ -249,6 +255,18 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
             </ul>
           ) : <p className="rounded-[12px] bg-[#f7f7f4] px-4 py-6 text-center text-[14px] text-[#4a4c55]">No inquiries yet. Once your listing is live, customer messages and calls will appear here.</p>}
         </section>
+      )}
+      {toDelete && (
+        <div role="dialog" aria-modal="true" aria-labelledby="delete-title" className="fixed inset-0 z-50 grid place-items-center bg-[#101115]/50 p-4" onClick={() => !deleting && setToDelete(null)}>
+          <div className="flex w-full max-w-[440px] flex-col gap-4 rounded-[20px] bg-white p-6 shadow-xl" onClick={(event) => event.stopPropagation()}>
+            <div><h2 id="delete-title" className="text-[20px] font-semibold leading-7">Delete “{toDelete.name}”?</h2><p className="mt-1 text-[14px] leading-5 text-[#4a4c55]">It disappears from search and its public page stops working. Customer inquiries and reviews are kept by our team. This can’t be undone from here.</p></div>
+            <label className="flex flex-col gap-1.5"><span className="font-display text-[14px] font-medium">Type the business name to confirm</span><input autoFocus value={typed} onChange={(event) => setTyped(event.target.value)} placeholder={toDelete.name} className="h-12 w-full rounded-[10px] border border-[#bdbcb5] px-3.5 text-[16px] outline-none focus:border-2 focus:border-[#b42318]" /></label>
+            <div className="flex justify-end gap-3">
+              <Button type="secondary" size="s" onClick={() => setToDelete(null)} disabled={deleting}>Cancel</Button>
+              <button type="button" disabled={deleting || typed.trim().toLowerCase() !== toDelete.name.trim().toLowerCase()} onClick={async () => { setDeleting(true); try { await onDeleteBusiness?.(toDelete); } finally { setDeleting(false); setToDelete(null); } }} className="h-10 rounded-[10px] bg-[#b42318] px-4 font-display text-[14px] font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#e4e3de] disabled:text-[#9a9ba3]">{deleting ? 'Deleting…' : 'Delete listing'}</button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   );

@@ -13,6 +13,7 @@ export interface BusinessListing {
   phone: string;
   status: 'Active' | 'Pending' | 'Rejected' | 'Draft' | 'Suspended' | 'Paused';
   slug?: string;
+  rejectionReason?: string;
   offers?: { id: string; title: string; description: string; code: string; occasion: string; validUntil: string; isActive: boolean }[];
   timeAgo: string;
   rating?: number;

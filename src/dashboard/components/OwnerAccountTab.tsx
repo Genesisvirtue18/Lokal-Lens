@@ -114,7 +114,7 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
 
   return (
     <main className="mx-auto flex w-full max-w-[860px] flex-col gap-6 px-4 pb-24 pt-8 md:px-8 lg:pt-10">
-      <div className="flex flex-col gap-2"><p className="font-eyebrow text-[#002fa7]">Account</p><h1 className="text-[28px] font-semibold leading-9 tracking-[-0.0294em] md:text-[34px] md:leading-[42px]">Account settings</h1><p className="text-[16px] leading-6 text-[#4a4c55]">Your own details and sign-in. Your business details are under “My listings”.</p></div>
+      <div className="flex flex-col gap-2"><p className="font-eyebrow text-[#002fa7]">Account</p><h1 className="text-[28px] font-semibold leading-9 tracking-[-0.0294em] md:text-[34px] md:leading-[42px]">Account settings</h1><p className="text-[16px] leading-6 text-[#4a4c55]">Your own details and sign-in. Your business details are under Overview.</p></div>
 
       <Card title="Your profile">
         <form onSubmit={saveProfile} className="flex flex-col gap-4" noValidate>
