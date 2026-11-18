@@ -20,6 +20,7 @@ const schema = z.object({
   CLIENT_URL: clientOrigin,
   CLIENT_URL_2: clientOrigin.optional(),
   TRUST_PROXY: z.string().default(''),
+  COOKIE_SAMESITE: z.enum(['none', 'lax', 'strict']).optional(),
   EMAIL_FROM: z.string().optional(),
   SMTP_HOST: z.string().trim().optional(),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
@@ -39,6 +40,11 @@ const schema = z.object({
   GOOGLE_TOKEN_ENCRYPTION_KEY: z.union([z.literal(''), z.string().regex(/^[a-fA-F0-9]{64}$/)]).optional(),
 }).refine(value => value.JWT_ACCESS_SECRET !== value.JWT_REFRESH_SECRET, {
   path: ['JWT_REFRESH_SECRET'], message: 'Access and refresh secrets must differ',
+}).refine(value => value.NODE_ENV !== 'production' || value.TRUST_PROXY.trim() !== '', {
+  // Without this, every visitor behind Render's proxy looks like one IP and the rate limits protect nothing.
+  path: ['TRUST_PROXY'], message: 'Set TRUST_PROXY=1 in production (the app runs behind a proxy)',
+}).refine(value => value.NODE_ENV !== 'production' || value.CLIENT_URL.startsWith('https://'), {
+  path: ['CLIENT_URL'], message: 'CLIENT_URL must be https in production',
 });
 
 export function parseEnv(source = process.env) {

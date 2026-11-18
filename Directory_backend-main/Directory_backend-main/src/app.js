@@ -19,7 +19,7 @@ export function createApp(config, { databaseState = () => mongoose.connection.re
     ? /^\d+$/.test(trustedProxy) ? Number(trustedProxy) : trustedProxy.split(',').map(value => value.trim())
     : false);
   app.use(helmet());
-  app.use(cors({ origin: [config.CLIENT_URL, config.CLIENT_URL_2].filter(Boolean) }));
+  app.use(cors({ origin: [config.CLIENT_URL, config.CLIENT_URL_2].filter(Boolean), credentials: true }));
   // Omit URLs, queries, headers and bodies to avoid recording future auth tokens or PII.
   if (logging) app.use(morgan(':method :status :res[content-length] - :response-time ms'));
   app.use('/api/v1', rateLimit({

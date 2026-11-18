@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BadgeCheck, Eye, EyeOff, Laptop, LogOut, Trash2 } from 'lucide-react';
 import { Badge, Button, Field, cx, fieldClass } from '@/components/ds';
-import { request } from '../api';
+import { saveSession, request } from '../api';
 
 export type OwnerUser = { name: string; email: string; phone?: string; emailVerified?: boolean; hasPassword?: boolean; notificationPreferences?: { email?: boolean } };
 type Session = { current?: boolean; _id: string; userAgent?: string; ip?: string; createdAt?: string };
@@ -42,7 +42,7 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
   // The profile loads after the page opens, so the fields are filled in when it arrives.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setName(user?.name || ''); setPhone(user?.phone || ''); }, [user]);
-  useEffect(() => { request('/auth/sessions', { headers: { 'x-refresh-token': localStorage.getItem('directflow_refresh_token') || '' } }).then((data) => setSessions(data.items || [])).catch(() => setSessions([])); }, []);
+  useEffect(() => { request('/auth/sessions').then((data) => setSessions(data.items || [])).catch(() => setSessions([])); }, []);
 
   async function saveProfile(event: React.FormEvent) {
     event.preventDefault();
@@ -69,8 +69,7 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
     setSavingPassword(true);
     try {
       const data = await request('/auth/change-password', { method: 'POST', body: JSON.stringify({ ...(user?.hasPassword ? { currentPassword: current } : {}), newPassword: next }) });
-      if (data.accessToken) localStorage.setItem('directflow_access_token', data.accessToken);
-      if (data.refreshToken) localStorage.setItem('directflow_refresh_token', data.refreshToken);
+      saveSession(data.accessToken);
       setCurrent(''); setNext(''); setAgain('');
       onUserChange({ ...(user as OwnerUser), hasPassword: true });
       showToast(user?.hasPassword ? 'Password updated. Other devices were signed out.' : 'Password set. You can now sign in with it.');

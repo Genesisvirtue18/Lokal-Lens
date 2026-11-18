@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { BadgeCheck, Check, ChevronRight, ExternalLink, Eye, MessageSquare, Pencil, Plus, Star, Store, Trash2 } from 'lucide-react';
 import { Badge, Button, cx } from '@/components/ds';
-import { loadMyClaims, MyClaim, request } from '../api';
+import { loadMyClaims, MyClaim, request, saveSession } from '../api';
 import { completenessPercent, completenessSections, CompletenessInput } from '../completeness';
 import { BusinessListing, Lead, Review } from '../types';
 import { ShareListing } from './ShareListing';
@@ -81,8 +81,7 @@ function EmailVerification() {
     setBusy(true); setError('');
     try {
       const data = await request('/auth/otp/verify', { method: 'POST', body: JSON.stringify({ email, code }) });
-      if (data.accessToken) localStorage.setItem('directflow_access_token', data.accessToken);
-      if (data.refreshToken) localStorage.setItem('directflow_refresh_token', data.refreshToken);
+      saveSession(data.accessToken);
       setVerified(true); setStep('idle'); setMessage('Email confirmed.');
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'That code is not right.'); }
     finally { setBusy(false); }

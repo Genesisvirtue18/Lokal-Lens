@@ -6,12 +6,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Button, Field, Logo, cx, fieldClass } from "@/components/ds";
+import { saveSession } from "@/dashboard/api";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function call(path, payload) {
-  const response = await fetch(`${apiUrl}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const response = await fetch(`${apiUrl}${path}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.errors?.[0]?.message || body.message || "Something went wrong. Please try again.");
   return body;
@@ -30,6 +31,7 @@ export default function LoginPage({ initialRegistering = false }) {
   const [showPassword, setShowPassword] = useState(false);
   const [terms, setTerms] = useState(false);
   const [code, setCode] = useState("");
+  const [challenge, setChallenge] = useState(""); // set when an admin passed the password and now needs the emailed code
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -46,7 +48,7 @@ export default function LoginPage({ initialRegistering = false }) {
 
   function switchMode(next) {
     router.replace(`${next ? "/register" : "/login"}${window.location.search}`);
-    setRegistering(next); setStep("form"); setFieldErrors({}); setError(""); setNotice(""); setCode("");
+    setRegistering(next); setStep("form"); setChallenge(""); setFieldErrors({}); setError(""); setNotice(""); setCode("");
   }
 
   function validate() {
@@ -62,8 +64,7 @@ export default function LoginPage({ initialRegistering = false }) {
   }
 
   function finish(data) {
-    localStorage.setItem("directflow_access_token", data.accessToken);
-    localStorage.setItem("directflow_refresh_token", data.refreshToken);
+    saveSession(data.accessToken);
     window.dispatchEvent(new Event("storage"));
     const next = new URLSearchParams(window.location.search).get("next");
     router.push(["admin", "super_admin"].includes(data.user.role) ? "/admin" : next && next.startsWith("/") && !next.startsWith("//") ? next : "/business-owner");
@@ -85,7 +86,9 @@ export default function LoginPage({ initialRegistering = false }) {
       if (method === "code") await sendCode();
       else {
         const body = await call(`/auth/${registering ? "register" : "login"}`, { ...(registering ? { name: name.trim() } : {}), email: email.trim().toLowerCase(), password });
-        finish(body.data);
+        if (body.data?.requires2fa) { setChallenge(body.data.challenge); setStep("code"); setCode(body.data.devCode || ""); setCooldown(30); setNotice(body.data.devCode ? `Test mode: your code is ${body.data.devCode}.` : "We emailed you a 6-digit code to finish signing in."); }
+        else if (registering) { setStep("code"); setCode(body.data?.devCode || ""); setCooldown(30); setNotice(body.data?.devCode ? `Test mode: email isn’t set up yet, so your code is ${body.data.devCode}.` : body.message || "We sent a 6-digit code to your email."); }
+        else finish(body.data);
       }
     } catch (reason) { setError(reason.message); }
     finally { setBusy(false); }
@@ -95,14 +98,19 @@ export default function LoginPage({ initialRegistering = false }) {
     event.preventDefault();
     if (code.length !== 6) { setError("Enter the 6-digit code from your email."); return; }
     setBusy(true); setError("");
-    try { const body = await call("/auth/otp/verify", { email: email.trim().toLowerCase(), code }); finish(body.data); }
+    try { const body = challenge ? await call("/auth/login/2fa", { challenge, code }) : await call("/auth/otp/verify", { email: email.trim().toLowerCase(), code }); finish(body.data); }
     catch (reason) { setError(reason.message); }
     finally { setBusy(false); }
   }
 
   async function resend() {
     setBusy(true); setError("");
-    try { await sendCode(); } catch (reason) { setError(reason.message); }
+    try {
+      if (challenge) {
+        const body = await call("/auth/login", { email: email.trim().toLowerCase(), password });
+        if (body.data?.requires2fa) { setChallenge(body.data.challenge); setCode(body.data.devCode || ""); setCooldown(30); setNotice("We emailed you a new code."); }
+      } else await sendCode();
+    } catch (reason) { setError(reason.message); }
     finally { setBusy(false); }
   }
 
@@ -178,7 +186,7 @@ export default function LoginPage({ initialRegistering = false }) {
               </Field>
               <Button type="primary" htmlType="submit" className="w-full" disabled={busy || code.length !== 6}>{busy ? "Checking…" : "Verify & continue"}</Button>
               <div className="flex flex-wrap items-center justify-between gap-2 text-[14px] leading-5">
-                <button type="button" onClick={() => { setStep("form"); setError(""); setNotice(""); }} className="font-medium text-[#002fa7] hover:underline">Change email</button>
+                <button type="button" onClick={() => { setStep("form"); setChallenge(""); setError(""); setNotice(""); }} className="font-medium text-[#002fa7] hover:underline">Change email</button>
                 <button type="button" onClick={resend} disabled={cooldown > 0 || busy} className="font-medium text-[#002fa7] hover:underline disabled:text-[#9a9ba1] disabled:no-underline">{cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}</button>
               </div>
             </form>

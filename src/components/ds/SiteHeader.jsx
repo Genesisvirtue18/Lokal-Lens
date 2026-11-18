@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronDown, Heart, LayoutDashboard, LogIn, LogOut, MapPin, Menu, MessageCircleQuestion, Plus, Search, Tag, User, X } from "lucide-react";
 import { BarContainer, Button, IconButton, Logo, cx } from "@/components/ds";
 import CitySelector from "@/components/CitySelector";
+import { authedFetch, logout as endSession } from "@/dashboard/api";
 
 // Header: Figma "Brand, header & footer / Header".
 //  variant="desktop"  80px bar, logo + primary nav + location selector + Saved + Add Your Business + Sign In
@@ -26,8 +27,7 @@ function MoreMenu({ active, signedIn }) {
   useEffect(() => {
     if (!signedIn) return undefined;
     let live = true;
-    let token = ""; try { token = localStorage.getItem("directflow_access_token") || ""; } catch { /* no storage */ }
-    fetch(`${apiUrl}/auth/me`, { headers: { Authorization: `Bearer ${token}` } }).then(async (res) => { if (res.status === 401) { try { const refresh = localStorage.getItem("directflow_refresh_token"); const again = refresh ? await fetch(`${apiUrl}/auth/refresh-token`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken: refresh }) }) : null; const data = again?.ok ? (await again.json()).data : null; if (data?.accessToken) { localStorage.setItem("directflow_access_token", data.accessToken); localStorage.setItem("directflow_refresh_token", data.refreshToken); const me = await fetch(`${apiUrl}/auth/me`, { headers: { Authorization: `Bearer ${data.accessToken}` } }).then((r) => r.json()); if (live) setName(me.data?.user?.name || ""); return; } localStorage.removeItem("directflow_access_token"); localStorage.removeItem("directflow_refresh_token"); window.dispatchEvent(new Event("storage")); } catch { /* stay as is */ } return; } const body = await res.json(); if (live) setName(body.data?.user?.name || ""); }).catch(() => {});
+    authedFetch(`${apiUrl}/auth/me`).then(async (res) => { if (!res.ok) return; const body = await res.json(); if (live) setName(body.data?.user?.name || ""); }).catch(() => {});
     return () => { live = false; };
   }, [signedIn]);
   useEffect(() => {
@@ -37,7 +37,7 @@ function MoreMenu({ active, signedIn }) {
     document.addEventListener("mousedown", close); document.addEventListener("keydown", key);
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", key); };
   }, [open]);
-  const logout = () => { try { localStorage.removeItem("directflow_access_token"); localStorage.removeItem("directflow_refresh_token"); } catch { /* ignore */ } window.dispatchEvent(new Event("storage")); window.location.assign("/"); };
+  const logout = async () => { try { await endSession(); } catch { /* the local sign-in is cleared anyway */ } window.dispatchEvent(new Event("storage")); window.location.assign("/"); };
   const items = [...(signedIn ? [["Dashboard", "/business-owner", "dashboard", LayoutDashboard]] : []), ...moreItems, ...(signedIn ? [] : [["Sign in", "/login", "login", LogIn]])];
   const current = items.some(([, , key]) => key === active);
   const first = signedIn ? name.split(/\s+/)[0] : "";

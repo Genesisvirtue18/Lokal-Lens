@@ -65,27 +65,27 @@ type ApiBusiness = {
 
 const baseUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5000/api/v1')).replace(/\/$/, '');
 const token = () => typeof window === 'undefined' ? '' : localStorage.getItem('directflow_access_token') || '';
-const clearSession = () => { if (typeof window !== 'undefined') { localStorage.removeItem('directflow_access_token'); localStorage.removeItem('directflow_refresh_token'); } };
+// Sign-in state: the 15-minute access token sits in localStorage. The long-lived refresh token is an httpOnly cookie that page code
+// can't read; the browser sends it on its own (credentials: 'include'), so a script injected into a page can't steal a lasting session.
+export const saveSession = (accessToken?: string) => { if (typeof window !== 'undefined' && accessToken) localStorage.setItem('directflow_access_token', accessToken); };
+export const clearSession = () => { if (typeof window !== 'undefined') { localStorage.removeItem('directflow_access_token'); localStorage.removeItem('directflow_refresh_token'); } };
 let refreshing: Promise<boolean> | null = null;
-// Access tokens last 15 minutes. Swap the refresh token for a new pair once, shared by all calls that fail at the same time.
-function refreshSession(): Promise<boolean> {
+// Swap the refresh cookie for a fresh access token once, shared by every call that fails at the same moment.
+export function refreshSession(): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
   refreshing ??= (async () => {
-    const refreshToken = localStorage.getItem('directflow_refresh_token');
-    if (!refreshToken) return false;
     try {
-      const response = await fetch(`${baseUrl}/auth/refresh-token`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
+      const response = await fetch(`${baseUrl}/auth/refresh-token`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}' });
       const body = await response.json().catch(() => ({}));
       if (!response.ok || !body.data?.accessToken) return false;
-      localStorage.setItem('directflow_access_token', body.data.accessToken);
-      if (body.data.refreshToken) localStorage.setItem('directflow_refresh_token', body.data.refreshToken);
+      saveSession(body.data.accessToken);
       return true;
     } catch { return false; }
   })().finally(() => { refreshing = null; });
   return refreshing;
 }
 export async function authedFetch(url: string, init: RequestInit & { headers?: Record<string, string> } = {}, retry = true): Promise<Response> {
-  const response = await fetch(url, { ...init, headers: { ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...init.headers } });
+  const response = await fetch(url, { ...init, credentials: 'include', headers: { ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...init.headers } });
   if (response.status !== 401 || !retry) return response;
   if (await refreshSession()) return authedFetch(url, init, false);
   clearSession();
@@ -98,7 +98,7 @@ export async function request(path: string, options: RequestInit = {}) {
   if (!response.ok) throw new Error(body.message || 'Unable to load dashboard data');
   return body.data || {};
 }
-export async function logout() { const refreshToken = typeof window === 'undefined' ? '' : localStorage.getItem('directflow_refresh_token') || ''; try { if (refreshToken) await request('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }); } finally { if (typeof window !== 'undefined') { localStorage.removeItem('directflow_access_token'); localStorage.removeItem('directflow_refresh_token'); } } }
+export async function logout() { try { await fetch(`${baseUrl}/auth/logout`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } finally { clearSession(); } }
 const ago = (value?: string) => value ? new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(Math.round((new Date(value).getTime() - Date.now()) / 86400000), 'day') : 'Recently';
 const reviewStats = (item: ApiBusiness) => { const ratings = (item.reviews || []).map((review) => Number(review.rating)).filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5); return ratings.length ? { average: Number((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(2)), count: ratings.length } : { average: Number(item.averageRating || 0), count: Number(item.reviewCount || 0) }; };
 export const toDashboardBusiness = (item: ApiBusiness): BusinessListing => { const stats = reviewStats(item); return ({ id: item._id || item.id || '', name: item.name || 'Business', owner: item.owner?.name || 'Unassigned', ownerId: item.owner?._id, category: (item.category?.name || 'Services') as BusinessListing['category'], location: [item.address?.locality, item.address?.city, item.address?.state].filter(Boolean).join(', ') || 'Location not added', phone: item.phone || 'Not added', alternatePhone: item.alternatePhone, whatsapp: item.whatsapp, email: item.email, website: item.website, logo: item.logo, images: item.images || [], services: item.services || [], address: item.address || {}, workingHours: item.workingHours || [], status: item.listingStatus === 'published' ? 'Active' : item.listingStatus === 'rejected' ? 'Rejected' : item.listingStatus === 'pending_review' ? 'Pending' : item.listingStatus === 'suspended' ? 'Suspended' : item.listingStatus === 'paused' ? 'Paused' : 'Draft', slug: item.slug, rejectionReason: item.rejectionReason, kycRejectionReason: item.kycRejectionReason, offers: (item.offers || []).map((offer) => ({ id: offer._id || '', title: offer.title || '', description: offer.description || '', code: offer.code || '', occasion: offer.occasion || '', validUntil: offer.validUntil || '', isActive: offer.isActive !== false })), timeAgo: ago(item.createdAt), rating: stats.average, averageRating: stats.average, reviewsCount: stats.count, views: Number(item.viewCount || 0), enquiries: Number(item.leadCount || 0), verified: item.verificationStatus === 'verified', googlePlaceVerificationStatus: item.googlePlaceVerificationStatus || 'unverified', description: item.description || '', kycStatus: item.kycStatus || 'not_submitted', gstNumber: item.gstNumber, msmeNumber: item.msmeNumber, kycDocuments: item.kycDocuments || [], plan: item.plan || 'free', planExpiresAt: item.planExpiresAt }); };
