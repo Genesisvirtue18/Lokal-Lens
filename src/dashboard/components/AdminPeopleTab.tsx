@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink, Mail, Search, Star, UserCheck, UserX, X } from 'lucide-react';
 import { Badge, Button, cx } from '@/components/ds';
-import { AdminUser, AdminUserDetail, loadAdminUser, loadAdminUsers, Paged, setAdminUserStatus } from '../api';
+import { AdminUser, AdminUserDetail, ListingAction, loadAdminUser, loadAdminUsers, ownerListingsAction, Paged, setAdminUserStatus } from '../api';
 
 const field = 'h-10 rounded-[10px] border border-[#bdbcb5] bg-white px-3 text-[14px] outline-none focus:border-2 focus:border-[#002fa7]';
 const ROLE: Record<AdminUser['role'], string> = { customer: 'Customer', business_owner: 'Business owner', admin: 'Admin', super_admin: 'Admin' };
@@ -13,7 +13,7 @@ function RoleBadge({ role }: { role: AdminUser['role'] }) {
   return <span className={cx('inline-flex items-center rounded-full px-2.5 py-1 font-display text-[13px] font-medium', tone)}>{ROLE[role]}</span>;
 }
 
-export const AdminPeopleTab: React.FC<{ openId?: string; onCloseOpen?: () => void; onOpenBusiness: (id: string) => void; showToast: (message: string) => void }> = ({ openId, onCloseOpen, onOpenBusiness, showToast }) => {
+export const AdminPeopleTab: React.FC<{ openId?: string; onCloseOpen?: () => void; onOpenBusiness: (id: string) => void; onListingsChanged?: () => void; showToast: (message: string) => void }> = ({ openId, onCloseOpen, onOpenBusiness, onListingsChanged, showToast }) => {
   const [role, setRole] = useState('all');
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
@@ -75,12 +75,12 @@ export const AdminPeopleTab: React.FC<{ openId?: string; onCloseOpen?: () => voi
         )}
       </div>
 
-      {selectedId && <PersonPanel key={selectedId} id={selectedId} onClose={() => { setSelectedId(''); onCloseOpen?.(); }} onChanged={() => setVersion((value) => value + 1)} onOpenBusiness={(id) => { setSelectedId(''); onCloseOpen?.(); onOpenBusiness(id); }} showToast={showToast} />}
+      {selectedId && <PersonPanel key={selectedId} id={selectedId} onClose={() => { setSelectedId(''); onCloseOpen?.(); }} onChanged={() => setVersion((value) => value + 1)} onOpenBusiness={(id) => { setSelectedId(''); onCloseOpen?.(); onOpenBusiness(id); }} onListingsChanged={onListingsChanged} showToast={showToast} />}
     </main>
   );
 };
 
-function PersonPanel({ id, onClose, onChanged, onOpenBusiness, showToast }: { id: string; onClose: () => void; onChanged: () => void; onOpenBusiness: (id: string) => void; showToast: (message: string) => void }) {
+function PersonPanel({ id, onClose, onChanged, onOpenBusiness, onListingsChanged, showToast }: { id: string; onClose: () => void; onChanged: () => void; onOpenBusiness: (id: string) => void; onListingsChanged?: () => void; showToast: (message: string) => void }) {
   const [detail, setDetail] = useState<AdminUserDetail | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -93,6 +93,15 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, showToast }: { id
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = previous; };
   }, [onClose]);
 
+  const bulk = async (action: ListingAction) => {
+    const total = detail?.listings.length || 0;
+    if (action === 'delete') { const typed = window.prompt(`Delete all ${total} listing${total === 1 ? '' : 's'} of this owner? They disappear from the site. Type DELETE to confirm.`); if (typed?.trim() !== 'DELETE') return; }
+    else if (!window.confirm(action === 'suspend' ? `Suspend all live and paused listings of this owner? They are hidden from search until you restore them.` : 'Restore all suspended listings of this owner?')) return;
+    setBusy(true); setError('');
+    try { const done = await ownerListingsAction(id, action); showToast(`${done.count} listing${done.count === 1 ? '' : 's'} ${action === 'suspend' ? 'suspended' : action === 'restore' ? 'restored' : 'deleted'}.`); setDetail(await loadAdminUser(id)); onChanged(); onListingsChanged?.(); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'That didn’t work'); }
+    finally { setBusy(false); }
+  };
   const user = detail?.item;
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
   const toggle = async () => {
@@ -131,9 +140,11 @@ function PersonPanel({ id, onClose, onChanged, onOpenBusiness, showToast }: { id
             {user.role === 'business_owner' && (
               <section className="flex flex-col gap-3 border-t border-[#ecebe7] px-6 py-5">
                 <h3 className="font-eyebrow text-[#6e7079]">Listings ({detail.listings.length})</h3>
+                {detail.listings.length > 0 && <div className="flex flex-wrap gap-2 rounded-[12px] border border-[#ecebe7] bg-[#f7f7f4] p-3"><span className="w-full font-display text-[13px] font-medium text-[#4a4c55]">Apply to all {detail.listings.length} of this owner’s listings</span><Button type="secondary" size="s" disabled={busy} onClick={() => void bulk('suspend')}>Suspend all</Button><Button type="secondary" size="s" disabled={busy} onClick={() => void bulk('restore')}>Restore all</Button><button type="button" disabled={busy} onClick={() => void bulk('delete')} className="inline-flex h-10 items-center rounded-[10px] border border-[#f1c9c4] bg-white px-3.5 font-display text-[14px] font-medium text-[#b42318] hover:bg-[#fdecea] disabled:opacity-50">Delete all</button></div>}
                 {detail.listings.length ? <ul className="flex flex-col gap-2">{detail.listings.map((listing) => (
                   <li key={listing._id}><button type="button" onClick={() => onOpenBusiness(listing._id)} className="flex w-full items-center gap-3 rounded-[12px] border border-[#dcdbd5] p-3 text-left hover:border-[#002fa7]"><span className="min-w-0 flex-1"><span className="block truncate font-display text-[15px] font-semibold leading-5">{listing.name}</span><span className="block truncate text-[13px] leading-[18px] text-[#6e7079]">{[listing.category?.name, listing.address?.locality || listing.address?.city].filter(Boolean).join(' · ')} · {listing.viewCount || 0} views · {listing.leadCount || 0} inquiries</span></span><Badge tone={listing.listingStatus === 'published' ? 'live' : listing.listingStatus === 'pending_review' || listing.listingStatus === 'paused' ? 'pending' : 'closed'}>{LISTING_STATUS[listing.listingStatus] || listing.listingStatus}</Badge><ExternalLink size={16} className="shrink-0 text-[#6e7079]" aria-hidden="true" /></button></li>
                 ))}</ul> : <p className="text-[14px] text-[#6e7079]">This owner hasn’t created a listing yet.</p>}
+                
               </section>
             )}
 

@@ -326,6 +326,8 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
                 onApproveBusiness={handleApproveBusiness}
                 onRejectBusiness={handleRejectBusiness}
                 onClearGooglePlaceMismatch={handleClearGooglePlaceMismatch}
+                onReload={() => void reloadAdminList()}
+                onToast={showToast}
                 onCreate={() => setAdminForm({ id: '' })}
                 onEdit={(business) => setAdminForm({ id: business.id })}
                 openId={adminOpenId}
@@ -343,7 +345,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
                 }}
               />
             ) : adminTab === 'people' ? (
-              <AdminPeopleTab openId={adminPersonId} onCloseOpen={() => setAdminPersonId('')} onOpenBusiness={openBusiness} showToast={showToast} />
+              <AdminPeopleTab openId={adminPersonId} onCloseOpen={() => setAdminPersonId('')} onOpenBusiness={openBusiness} onListingsChanged={() => void reloadAdminList()} showToast={showToast} />
             ) : adminTab === 'reviews' ? (
               <AdminReviewsTab onOpenBusiness={openBusiness} onOpenPerson={openPerson} showToast={showToast} />
             ) : adminTab === 'leads' ? (

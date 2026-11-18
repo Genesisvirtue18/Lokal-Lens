@@ -205,3 +205,6 @@ export const setAdminUserStatus = async (id: string, status: 'active' | 'suspend
 export const loadAdminReviews = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminReview>> => request(`/admin/reviews?${qs(params)}`);
 export const deleteAdminReview = async (businessId: string, reviewId: string) => { await request(`/admin/businesses/${businessId}/reviews/${reviewId}`, { method: 'DELETE' }); };
 export const loadAdminLeads = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminLead>> => request(`/admin/leads?${qs(params)}`);
+export type ListingAction = 'suspend' | 'restore' | 'delete';
+export const bulkListingsAction = async (ids: string[], action: ListingAction): Promise<{ count: number }> => request('/admin/businesses/bulk', { method: 'POST', body: JSON.stringify({ ids, action }) });
+export const ownerListingsAction = async (userId: string, action: ListingAction): Promise<{ count: number }> => request(`/admin/users/${userId}/listings`, { method: 'POST', body: JSON.stringify({ action }) });

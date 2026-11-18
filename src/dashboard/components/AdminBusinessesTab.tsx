@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { BadgeCheck, ChevronLeft, ChevronRight, ExternalLink, Pencil, Plus, Search, ShieldCheck, Store, Trash2, Upload, X } from 'lucide-react';
 import { Badge, Button, cx } from '@/components/ds';
 import { businessDetailPath } from '@/lib/directory-data';
-import { assignBusinessOwner, deleteAdminBusiness, importBusinessesCsv, loadAdminOwners, reviewKyc, setAdminBusinessStatus, setBusinessPlan } from '../api';
+import { assignBusinessOwner, bulkListingsAction, deleteAdminBusiness, importBusinessesCsv, loadAdminOwners, reviewKyc, setAdminBusinessStatus, setBusinessPlan } from '../api';
 import { BusinessListing } from '../types';
 import { AdminListingDetails } from './AdminListingDetails';
 
@@ -16,6 +16,8 @@ interface AdminBusinessesTabProps {
   onBusinessesImported: (businesses: BusinessListing[]) => void;
   onBusinessUpdated: (business: BusinessListing) => void;
   onBusinessRemoved: (id: string) => void;
+  onReload?: () => void;
+  onToast?: (message: string) => void;
   onCreate: () => void;
   onEdit: (business: BusinessListing) => void;
   openId?: string;
@@ -41,7 +43,7 @@ function VerificationBadge({ business }: { business: BusinessListing }) {
   return <span className="text-[13px] text-[#6e7079]">Not verified</span>;
 }
 
-export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({ activeBusinesses, pendingBusinesses, onApproveBusiness, onRejectBusiness, onClearGooglePlaceMismatch, onBusinessesImported, onBusinessUpdated, onBusinessRemoved, onCreate, onEdit, openId, onClose }) => {
+export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({ activeBusinesses, pendingBusinesses, onApproveBusiness, onRejectBusiness, onClearGooglePlaceMismatch, onBusinessesImported, onBusinessUpdated, onBusinessRemoved, onReload, onToast, onCreate, onEdit, openId, onClose }) => {
   const all = useMemo(() => [...pendingBusinesses, ...activeBusinesses], [pendingBusinesses, activeBusinesses]);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
@@ -52,6 +54,17 @@ export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({ activeBu
   const [pickedId, setSelectedId] = useState('');
   const selectedId = pickedId || openId || '';
   const [showImport, setShowImport] = useState(false);
+  const [checked, setChecked] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const runBulk = async (action: 'suspend' | 'restore' | 'delete') => {
+    const n = checked.length;
+    if (action === 'delete') { const typed = window.prompt(`Delete ${n} listing${n === 1 ? '' : 's'}? They disappear from the site. Type DELETE to confirm.`); if (typed?.trim() !== 'DELETE') return; }
+    else if (!window.confirm(action === 'suspend' ? `Suspend ${n} listing${n === 1 ? '' : 's'}? Live and paused ones are hidden from search until you restore them.` : `Restore ${n} suspended listing${n === 1 ? '' : 's'}?`)) return;
+    setBulkBusy(true);
+    try { const done = await bulkListingsAction(checked, action); onToast?.(`${done.count} listing${done.count === 1 ? '' : 's'} ${action === 'suspend' ? 'suspended' : action === 'restore' ? 'restored' : 'deleted'}.`); setChecked([]); onReload?.(); }
+    catch (reason) { onToast?.(reason instanceof Error ? reason.message : 'That didn’t work'); }
+    finally { setBulkBusy(false); }
+  };
 
 
   const categories = useMemo(() => [...new Set(all.map((item) => item.category))].sort(), [all]);
@@ -99,18 +112,29 @@ export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({ activeBu
         <select aria-label="Owner" value={owner} onChange={(event) => reset(setOwner)(event.target.value)} className={fieldBase}><option value="all">Any owner</option><option value="none">No owner ({counts.unowned})</option></select>
       </div>
 
+      {checked.length > 0 && (
+        <div role="toolbar" aria-label="Bulk actions" className="flex flex-wrap items-center gap-2 rounded-[12px] border border-[#cdd6ef] bg-[#f7f9fd] px-4 py-3">
+          <span className="mr-2 font-display text-[14px] font-semibold">{checked.length} selected</span>
+          <Button type="secondary" size="s" onClick={() => void runBulk('suspend')} disabled={bulkBusy}>Suspend</Button>
+          <Button type="secondary" size="s" onClick={() => void runBulk('restore')} disabled={bulkBusy}>Restore</Button>
+          <button type="button" onClick={() => void runBulk('delete')} disabled={bulkBusy} className="inline-flex h-10 items-center gap-1.5 rounded-[10px] border border-[#f1c9c4] bg-white px-3.5 font-display text-[14px] font-medium text-[#b42318] hover:bg-[#fdecea] disabled:opacity-50"><Trash2 size={16} aria-hidden="true" />Delete</button>
+          <Button type="ghost" size="s" onClick={() => setChecked([])}>Clear selection</Button>
+          {filtered.length > rows.length && checked.length < filtered.length && <button type="button" onClick={() => setChecked(filtered.map((row) => row.id))} className="ml-auto text-[14px] font-medium text-[#002fa7] hover:underline">Select all {filtered.length} matching</button>}
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-[16px] border border-[#dcdbd5] bg-white">
-        <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_120px_130px_200px] gap-4 border-b border-[#ecebe7] bg-[#f7f7f4] px-5 py-3 font-eyebrow text-[#6e7079] lg:grid"><span>Business</span><span>Category</span><span>Owner</span><span>Status</span><span>Verification</span><span className="text-right">Actions</span></div>
+        <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_120px_130px_200px] gap-4 border-b border-[#ecebe7] bg-[#f7f7f4] px-5 py-3 font-eyebrow text-[#6e7079] lg:grid"><span className="flex items-center gap-3"><input type="checkbox" aria-label="Select all on this page" checked={rows.length > 0 && rows.every((row) => checked.includes(row.id))} onChange={(event) => setChecked(event.target.checked ? [...new Set([...checked, ...rows.map((row) => row.id)])] : checked.filter((id) => !rows.some((row) => row.id === id)))} className="h-4 w-4 accent-[#002fa7]" />Business</span><span>Category</span><span>Owner</span><span>Status</span><span>Verification</span><span className="text-right">Actions</span></div>
         {rows.length === 0 ? <p className="px-6 py-14 text-center text-[15px] text-[#4a4c55]">{all.length ? 'No businesses match these filters.' : 'No businesses yet. Add the first one.'}</p> : (
           <ul>
             {rows.map((item) => {
               const image = item.images?.[0] || item.logo || '';
               return (
                 <li key={item.id} className="grid grid-cols-1 items-center gap-3 border-b border-[#ecebe7] px-5 py-4 last:border-0 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1.2fr)_120px_130px_200px] lg:gap-4">
-                  <button type="button" onClick={() => setSelectedId(item.id)} className="flex min-w-0 items-center gap-3 text-left">
+                  <span className="flex min-w-0 items-center gap-3"><input type="checkbox" aria-label={`Select ${item.name}`} checked={checked.includes(item.id)} onChange={(event) => setChecked(event.target.checked ? [...checked, item.id] : checked.filter((id) => id !== item.id))} className="h-4 w-4 shrink-0 accent-[#002fa7]" /><button type="button" onClick={() => setSelectedId(item.id)} className="flex min-w-0 items-center gap-3 text-left">
                     <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[10px] bg-[#f1f1ee]">{image ? <Image src={image} alt="" unoptimized fill sizes="48px" className="object-cover" /> : <span className="grid h-full place-items-center text-[#6e7079]"><Store size={20} aria-hidden="true" /></span>}</span>
                     <span className="min-w-0"><span className="block truncate font-display text-[15px] font-semibold leading-5 text-[#101115] hover:text-[#002fa7]">{item.name}</span><span className="block truncate text-[13px] leading-[18px] text-[#6e7079]">{item.location} · {item.timeAgo}</span></span>
-                  </button>
+                  </button></span>
                   <span className="truncate text-[14px] text-[#4a4c55]">{item.category}</span>
                   <span className="min-w-0 truncate text-[14px]">{item.ownerId ? <span className="text-[#4a4c55]">{item.owner}</span> : <span className="font-medium text-[#8a5a00]">Unassigned</span>}</span>
                   <span><StatusBadge status={item.status} /></span>

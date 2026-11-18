@@ -95,3 +95,26 @@ export const stats = () => async (_req, res, next) => { try {
   const byRole = Object.fromEntries(roles.map((row) => [row._id, row.count]));
   sendSuccess(res, 'Stats retrieved successfully', { customers: byRole.customer || 0, owners: byRole.business_owner || 0, admins: (byRole.admin || 0) + (byRole.super_admin || 0), reviews: reviewRows[0]?.count || 0, leads, leadsLast7Days: newLeads });
 } catch (error) { next(error); } };
+
+// ---- Bulk actions on listings: all of one owner's, or a selected set ----------------------------
+const applyListingAction = async (filter, action) => {
+  const base = { ...filter, deletedAt: null };
+  if (action === 'suspend') return (await Business.updateMany({ ...base, listingStatus: { $in: ['published', 'paused'] } }, { $set: { listingStatus: 'suspended' } })).modifiedCount;
+  if (action === 'restore') return (await Business.updateMany({ ...base, listingStatus: 'suspended' }, { $set: { listingStatus: 'published' } })).modifiedCount;
+  return (await Business.updateMany(base, { $set: { listingStatus: 'deleted', deletedAt: new Date() } })).modifiedCount;
+};
+const doneMessage = (action, count) => `${count} listing${count === 1 ? '' : 's'} ${action === 'suspend' ? 'suspended' : action === 'restore' ? 'restored' : 'deleted'}`;
+
+export const ownerListingsAction = () => async (req, res, next) => { try {
+  const user = await User.findOne({ _id: req.params.id, deletedAt: null }).select('role').lean();
+  if (!user) throw new AppError('User not found', 404);
+  const { action } = req.validated.body;
+  const count = await applyListingAction({ owner: user._id }, action);
+  sendSuccess(res, doneMessage(action, count), { count });
+} catch (error) { next(error); } };
+
+export const bulkListingsAction = () => async (req, res, next) => { try {
+  const { ids, action } = req.validated.body;
+  const count = await applyListingAction({ _id: { $in: ids } }, action);
+  sendSuccess(res, doneMessage(action, count), { count });
+} catch (error) { next(error); } };

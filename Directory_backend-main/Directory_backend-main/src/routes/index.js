@@ -260,6 +260,9 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.patch('/admin/users/:id/status', ...adminOnly, validate(idParam.extend({ body: z.object({ status: z.enum(['active', 'suspended']) }).strict() })), people.setUserStatus());
   router.get('/admin/reviews', ...adminOnly, validate(z.object({ query: z.object({ ...peopleQuery, rating: z.coerce.number().int().min(1).max(5).optional(), replied: z.enum(['yes', 'no']).optional() }) })), people.listReviews());
   router.get('/admin/leads', ...adminOnly, validate(z.object({ query: z.object({ ...peopleQuery, status: z.enum(['new', 'contacted', 'converted']).optional() }) })), people.listLeads());
+  const listingAction = z.enum(['suspend', 'restore', 'delete']);
+  router.post('/admin/users/:id/listings', ...adminOnly, validate(idParam.extend({ body: z.object({ action: listingAction }).strict() })), people.ownerListingsAction());
+  router.post('/admin/businesses/bulk', ...adminOnly, validate(z.object({ body: z.object({ ids: z.array(objectId).min(1).max(300), action: listingAction }).strict() })), people.bulkListingsAction());
   router.get('/admin/businesses/:id', ...adminOnly, validate(idParam), admin.businessById());
   router.patch('/admin/businesses/:id', ...adminOnly, validate(idParam.extend({ body: ownerBusinessUpdateBody })), admin.updateBusiness());
   router.patch('/admin/businesses/:id/status', ...adminOnly, validate(idParam.extend({ body: z.object({ status: z.enum(['published', 'suspended']) }).strict() })), admin.setBusinessStatus());
