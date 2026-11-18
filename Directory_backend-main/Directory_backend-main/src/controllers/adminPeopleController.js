@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { Business } from '../models/Business.js';
 import { Lead } from '../models/Lead.js';
+import { ListingClaim } from '../models/ListingClaim.js';
+import { ReviewReport } from '../models/ReviewReport.js';
 import { RefreshToken } from '../models/RefreshToken.js';
 import { User } from '../models/User.js';
 import { AppError } from '../utils/AppError.js';
@@ -86,24 +88,27 @@ export const listLeads = () => async (req, res, next) => { try {
 // ---- Numbers for the overview ---------------------------------------------------------------------
 export const stats = () => async (_req, res, next) => { try {
   const since = new Date(Date.now() - 7 * 86400000);
-  const [roles, leads, newLeads, reviewRows] = await Promise.all([
+  const [roles, leads, newLeads, reviewRows, openReports, pendingClaims] = await Promise.all([
     User.aggregate([{ $match: { deletedAt: null, status: { $ne: 'deleted' } } }, { $group: { _id: '$role', count: { $sum: 1 } } }]),
     Lead.countDocuments({}),
     Lead.countDocuments({ createdAt: { $gte: since } }),
     Business.aggregate([{ $match: { deletedAt: null } }, { $group: { _id: null, count: { $sum: { $size: { $ifNull: ['$reviews', []] } } } } }]),
+    ReviewReport.countDocuments({ status: 'open' }),
+    ListingClaim.countDocuments({ status: 'pending' }),
   ]);
   const byRole = Object.fromEntries(roles.map((row) => [row._id, row.count]));
-  sendSuccess(res, 'Stats retrieved successfully', { customers: byRole.customer || 0, owners: byRole.business_owner || 0, admins: (byRole.admin || 0) + (byRole.super_admin || 0), reviews: reviewRows[0]?.count || 0, leads, leadsLast7Days: newLeads });
+  sendSuccess(res, 'Stats retrieved successfully', { customers: byRole.customer || 0, owners: byRole.business_owner || 0, admins: (byRole.admin || 0) + (byRole.super_admin || 0), reviews: reviewRows[0]?.count || 0, leads, leadsLast7Days: newLeads, openReports, pendingClaims });
 } catch (error) { next(error); } };
 
 // ---- Bulk actions on listings: all of one owner's, or a selected set ----------------------------
-const applyListingAction = async (filter, action) => {
+const applyListingAction = async (filter, action, ownerId) => {
   const base = { ...filter, deletedAt: null };
   if (action === 'suspend') return (await Business.updateMany({ ...base, listingStatus: { $in: ['published', 'paused'] } }, { $set: { listingStatus: 'suspended' } })).modifiedCount;
   if (action === 'restore') return (await Business.updateMany({ ...base, listingStatus: 'suspended' }, { $set: { listingStatus: 'published' } })).modifiedCount;
+  if (action === 'assign') return (await Business.updateMany(base, { $set: { owner: ownerId } })).modifiedCount;
   return (await Business.updateMany(base, { $set: { listingStatus: 'deleted', deletedAt: new Date() } })).modifiedCount;
 };
-const doneMessage = (action, count) => `${count} listing${count === 1 ? '' : 's'} ${action === 'suspend' ? 'suspended' : action === 'restore' ? 'restored' : 'deleted'}`;
+const doneMessage = (action, count) => `${count} listing${count === 1 ? '' : 's'} ${action === 'suspend' ? 'suspended' : action === 'restore' ? 'restored' : action === 'assign' ? 'assigned' : 'deleted'}`;
 
 export const ownerListingsAction = () => async (req, res, next) => { try {
   const user = await User.findOne({ _id: req.params.id, deletedAt: null }).select('role').lean();
@@ -114,7 +119,8 @@ export const ownerListingsAction = () => async (req, res, next) => { try {
 } catch (error) { next(error); } };
 
 export const bulkListingsAction = () => async (req, res, next) => { try {
-  const { ids, action } = req.validated.body;
-  const count = await applyListingAction({ _id: { $in: ids } }, action);
+  const { ids, action, ownerId } = req.validated.body;
+  if (action === 'assign' && !await User.exists({ _id: ownerId, role: 'business_owner', status: 'active', deletedAt: null })) throw new AppError('Active business owner not found', 422);
+  const count = await applyListingAction({ _id: { $in: ids } }, action, ownerId);
   sendSuccess(res, doneMessage(action, count), { count });
 } catch (error) { next(error); } };

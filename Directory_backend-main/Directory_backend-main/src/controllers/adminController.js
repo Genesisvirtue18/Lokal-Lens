@@ -3,6 +3,7 @@ import { User } from '../models/User.js';
 import { Category } from '../models/Category.js';
 import { AppError } from '../utils/AppError.js';
 import { sendSuccess } from '../utils/response.js';
+import { dashboardUrl, emailPerson } from '../services/notices.js';
 
 const slugify = value => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 110) || 'category';
 const uniqueSlug = async (name, reserved = new Set()) => { const base = slugify(name); let slug = base; let suffix = 2; while (reserved.has(slug) || await Category.exists({ slug })) slug = `${base}-${suffix++}`; reserved.add(slug); return slug; };
@@ -218,7 +219,7 @@ export const updateBusiness = () => async (req, res, next) => { try {
 } catch (error) { next(error); } };
 
 // Take a live listing down (suspend) or put it back up.
-export const setBusinessStatus = () => async (req, res, next) => { try {
+export const setBusinessStatus = (config, mailer) => async (req, res, next) => { try {
   const item = await Business.findOne({ _id: req.params.id, deletedAt: null });
   if (!item) throw new AppError('Business not found', 404);
   const { status } = req.validated.body;
@@ -226,7 +227,8 @@ export const setBusinessStatus = () => async (req, res, next) => { try {
   if (status === 'published' && item.listingStatus !== 'suspended') throw new AppError('Only a suspended listing can be restored', 422);
   item.listingStatus = status;
   await item.save();
-  await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email' }]);
+  await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email notificationPreferences' }]);
+  emailPerson(mailer, item.owner, status === 'suspended' ? `“${item.name}” was taken down` : `“${item.name}” is live again`, status === 'suspended' ? [`Our team suspended “${item.name}”, so it no longer shows in search.`, '', 'If you think this is a mistake, reply to this email and we will look into it.'] : [`“${item.name}” is back on Lokal Lens and customers can find it again.`]);
   sendSuccess(res, status === 'suspended' ? 'Listing suspended' : 'Listing restored', { item });
 } catch (error) { next(error); } };
 
@@ -315,7 +317,7 @@ export const importBusinesses = () => async (req, res, next) => { try {
   sendSuccess(res, 'Business CSV processed', { items: created, createdCount: created.length, failed, failedCount: failed.length });
 } catch (error) { next(error); } };
 
-export const reviewBusiness = () => async (req, res, next) => { try {
+export const reviewBusiness = (config, mailer) => async (req, res, next) => { try {
   const item = await Business.findOne({ _id: req.params.id, deletedAt: null, listingStatus: 'pending_review' });
   if (!item) throw new AppError('Business not found', 404);
   const { decision, rejectionReason } = req.validated.body;
@@ -323,10 +325,12 @@ export const reviewBusiness = () => async (req, res, next) => { try {
   if (decision === 'approve' && item.googlePlaceVerificationStatus === 'mismatch') throw new AppError('This listing has a mismatched Google Place ID. Reject the listing so the owner can correct it before approval.', 422);
   // Approving a listing makes it public. The green Verified badge is separate: it is earned through the verification (KYC) review.
   item.listingStatus = decision === 'approve' ? 'published' : 'rejected'; item.verificationStatus = decision === 'approve' ? item.verificationStatus : 'rejected'; item.rejectionReason = decision === 'reject' ? rejectionReason : undefined;
-  await item.save(); await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email' }]); sendSuccess(res, `Business ${decision}d successfully`, { item });
+  await item.save(); await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email notificationPreferences' }]);
+  emailPerson(mailer, item.owner, decision === 'approve' ? `“${item.name}” is now live on Lokal Lens` : `“${item.name}” needs changes before it can go live`, decision === 'approve' ? [`Good news. Our team approved “${item.name}”, and customers can now find it.`, '', `Manage it here: ${dashboardUrl(config)}`] : [`We couldn’t publish “${item.name}” yet.`, ...(rejectionReason ? ['', `What to change: ${rejectionReason}`] : []), '', `Fix it and save. It goes back to review automatically: ${dashboardUrl(config)}`]);
+  sendSuccess(res, `Business ${decision}d successfully`, { item });
 } catch (error) { next(error); } };
 
-export const reviewKyc = () => async (req, res, next) => { try {
+export const reviewKyc = (config, mailer) => async (req, res, next) => { try {
   const item = await Business.findOne({ _id: req.params.id, deletedAt: null });
   if (!item) throw new AppError('Business not found', 404);
   const { decision } = req.validated.body;
@@ -335,7 +339,8 @@ export const reviewKyc = () => async (req, res, next) => { try {
   item.kycRejectionReason = decision === 'reject' ? (req.validated.body.reason || undefined) : undefined;
   item.verificationStatus = decision === 'approve' ? 'verified' : 'pending';
   item.kycDocuments.forEach(doc => { doc.status = decision === 'approve' ? 'approved' : 'rejected'; });
-  await item.save(); await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email' }]);
+  await item.save(); await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email notificationPreferences' }]);
+  emailPerson(mailer, item.owner, decision === 'approve' ? `“${item.name}” is now verified` : `Verification for “${item.name}” wasn’t approved`, decision === 'approve' ? [`“${item.name}” now shows the green Verified badge and ranks higher in search.`] : [`We couldn’t verify “${item.name}”.`, ...(req.validated.body.reason ? ['', `Reason: ${req.validated.body.reason}`] : []), '', `Upload a clear document or correct the GST number here: ${dashboardUrl(config)}`]);
   sendSuccess(res, `Verification ${decision === 'approve' ? 'approved' : 'rejected'}`, { item });
 } catch (error) { next(error); } };
 export const setPlan = () => async (req, res, next) => { try {
