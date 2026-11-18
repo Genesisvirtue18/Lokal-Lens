@@ -1,5 +1,6 @@
 "use client";
 
+import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserRole, OwnerTab, AdminTab, BusinessListing, Lead, Review } from './types';
@@ -235,7 +236,20 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
           {loading ? (
             <div className="mx-auto max-w-7xl px-6 py-10 text-sm text-[#4a4c55]">Loading dashboard data…</div>
           ) : loadError ? (
-            <div className="mx-auto max-w-7xl px-6 py-10 text-sm text-red-700">{loadError}. Please sign in again or start the API server.</div>
+            (() => {
+              const wrongAccount = /not authorized|forbidden|permission/i.test(loadError);
+              return (
+                <div className="mx-auto flex max-w-[520px] flex-col items-center gap-4 px-6 py-16 text-center">
+                  <h1 className="text-[24px] font-semibold leading-8">{wrongAccount ? 'This area is for business owners' : 'We couldn’t load your dashboard'}</h1>
+                  <p className="text-[16px] leading-6 text-[#4a4c55]">{wrongAccount ? 'You’re signed in with a customer account. Sign in with your business owner account, or create one to list your business.' : 'Check your internet connection and try again. If it keeps happening, sign in again.'}</p>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    {!wrongAccount && <button type="button" onClick={() => window.location.reload()} className="h-11 rounded-[10px] bg-[#002fa7] px-5 font-display text-[15px] font-semibold text-white">Try again</button>}
+                    <button type="button" onClick={() => void doLogout()} className={wrongAccount ? 'h-11 rounded-[10px] bg-[#002fa7] px-5 font-display text-[15px] font-semibold text-white' : 'h-11 rounded-[10px] border border-[#bdbcb5] bg-white px-5 font-display text-[15px] font-semibold'}>{wrongAccount ? 'Sign in as business owner' : 'Sign in again'}</button>
+                    <Link href="/directory" className="inline-flex h-11 items-center rounded-[10px] border border-[#bdbcb5] bg-white px-5 font-display text-[15px] font-semibold">Browse directory</Link>
+                  </div>
+                </div>
+              );
+            })()
           ) : role === 'owner' && ownerTab === 'form' ? (
             <AddBusinessWizard key={formEditId || 'new'} embedded editId={formEditId} initialStep={formStep} onExit={() => setOwnerTab('business')} onSaved={reloadOwner} />
           ) : role === 'owner' && ownerTab === 'settings' ? (
