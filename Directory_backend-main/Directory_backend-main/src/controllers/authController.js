@@ -19,7 +19,7 @@ export const register = (config, mailer) => async (req, res, next) => { try {
   const { name, email, password, role, phone } = req.validated.body;
   if (isBlockedTestEmail(config, email)) throw new AppError('This address can’t be used here', 400);
   const existing = await User.findOne({ email }).select('+passwordHash');
-  if (existing && !isRemoved(existing)) throw new AppError('An account with this email already exists. Sign in instead.', 409);
+  if (existing && !isRemoved(existing) && !isPending(existing)) throw new AppError('An account with this email already exists. Sign in instead.', 409);
   const mobile = nationalPhone(phone);
   if (await phoneInUse(mobile, existing?._id)) throw new AppError('This mobile number is already used by another account.', 409);
   const displayName = name || email.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 120) || 'Lokal Lens member';
@@ -45,6 +45,8 @@ const phoneInUse = async (mobile, exceptId) => {
   if (!taken) await User.updateMany({ phone: mobile, ...other, $or: [{ status: 'deleted' }, { emailVerified: { $ne: true } }] }, { $unset: { phone: 1 } });
   return Boolean(taken);
 };
+// A sign-up whose email was never confirmed holds nothing real yet: filling the form again simply replaces its details.
+const isPending = (user) => Boolean(user) && user.status === 'active' && user.emailVerified !== true && !isAdminRole(user);
 const isRemoved = (user) => Boolean(user) && user.status === 'deleted' && !isAdminRole(user);
 const startFresh = (user) => {
   user.status = 'active'; user.deletedAt = null; user.emailVerified = false; user.passwordHash = undefined; user.googleId = undefined;
@@ -235,8 +237,8 @@ export const requestOtp = (config, mailer) => async (req, res, next) => { try {
   const { email, name, role, phone } = req.validated.body;
   if (isBlockedTestEmail(config, email)) return sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600 });
   let user = await User.findOne({ email }).select('+otpHash +otpExpiresAt +otpSentAt');
-  const fresh = isRemoved(user);
-  if (fresh) startFresh(user);
+  const fresh = isRemoved(user) || (isPending(user) && req.body?.role !== undefined);
+  if (fresh && isRemoved(user)) startFresh(user);
   else if (user && user.status !== 'active') throw new AppError('This account is not active', 403);
   if (user?.otpSentAt && Date.now() - user.otpSentAt.getTime() < 30 * 1000) throw new AppError('Please wait a few seconds before asking for another code.', 429);
   // Admins never sign in with a code alone. Answer the same way, send nothing.

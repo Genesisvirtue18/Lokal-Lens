@@ -33,6 +33,21 @@ test('an account that was removed can sign up again with the same email, startin
     assert.equal(session.body.data.user.name, 'New Person');
     assert.equal(await User.countDocuments({ email: 'back@example.com' }), 1, 'same record, no duplicate');
 
+    // An unconfirmed sign-up can be redone with different details (the form sends a role); a plain sign-in request does not change it.
+    await post('/auth/otp/request', { email: 'redo@example.com', name: 'First Try', role: 'customer' }).expect(200);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await User.updateOne({ email: 'redo@example.com' }, { $unset: { otpSentAt: 1 } });
+    await post('/auth/otp/request', { email: 'redo@example.com', name: 'Second Try', role: 'business_owner', phone: '9000000009' }).expect(200);
+    let redo = await User.findOne({ email: 'redo@example.com' });
+    assert.equal(redo.name, 'Second Try');
+    assert.equal(redo.role, 'business_owner');
+    assert.equal(redo.phone, '9000000009');
+    await User.updateOne({ email: 'redo@example.com' }, { $unset: { otpSentAt: 1 } });
+    await request(app).post('/api/v1/auth/otp/request').send({ email: 'redo@example.com' }).expect(200);   // sign-in tab: no role in the form
+    redo = await User.findOne({ email: 'redo@example.com' });
+    assert.equal(redo.name, 'Second Try', 'a sign-in request leaves the details alone');
+    assert.equal(redo.role, 'business_owner');
+
     // Password sign-up on a removed account.
     await User.create({ name: 'Gone', email: 'gone@example.com', role: 'business_owner', ...removed() });
     await post('/auth/register', { name: 'Fresh Owner', email: 'gone@example.com', password: 'brand-new-pass-1', role: 'business_owner', phone: '9000000003' }).expect(201);
