@@ -8,6 +8,7 @@ export function createMailer(config) {
       host: config.SMTP_HOST,
       port: config.SMTP_PORT || 587,
       secure: (config.SMTP_PORT || 587) === 465,
+      requireTLS: (config.SMTP_PORT || 587) !== 465, // port 587: always upgrade to an encrypted connection before logging in
       auth: config.SMTP_USER ? { user: config.SMTP_USER, pass: config.SMTP_PASS } : undefined,
     })
     : null;

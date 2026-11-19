@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { getBusiness, getBusinesses } from "@/lib/api";
-import { businessDetailPath, toDirectoryBusiness } from "@/lib/directory-data";
+import { toDirectoryBusiness } from "@/lib/directory-data";
 import BusinessProfileView from "@/components/BusinessProfileView";
 
-export default async function BusinessDetailPage({ params, canonicalRedirect = false }) {
+export default async function BusinessDetailPage({ params }) {
   const { slug } = await params;
   const business = await getBusiness(slug);
   if (!business) notFound();

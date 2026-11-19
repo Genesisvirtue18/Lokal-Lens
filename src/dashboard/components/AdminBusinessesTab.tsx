@@ -250,6 +250,7 @@ function ManagePanel({ business, onClose, onApprove, onReject, onClearMismatch, 
         {pending && (
           <Section title="Review this listing">
             {business.googlePlaceVerificationStatus === 'mismatch' && <p className="rounded-[10px] bg-[#fbf0d9] px-3 py-2 text-[14px] text-[#6b4700]">Google Place ID doesn’t match. It must be cleared before approval. <button type="button" onClick={() => onClearMismatch(business.id)} className="font-semibold underline">Clear it</button></p>}
+            {business.reviewNote && <p className="rounded-[10px] border border-[#cfd9f3] bg-[#f3f6fd] px-3 py-2 text-[14px] leading-5 text-[#1f2d5c]"><span className="font-semibold">Sent back for review:</span> {business.reviewNote}</p>}
             {rejecting ? (
               <div className="flex flex-col gap-2"><label className="flex flex-col gap-1.5 text-[14px] font-medium">What should the owner change?<textarea value={reason} onChange={(event) => setReason(event.target.value)} maxLength={2000} rows={3} placeholder="They will see this on their dashboard" className="rounded-[10px] border border-[#bdbcb5] p-3 text-[14px] font-normal outline-none focus:border-2 focus:border-[#002fa7]" /></label><div className="flex gap-2"><Button type="primary" size="s" onClick={() => { onReject(business.id, reason.trim() || undefined); onClose(); }}>Send rejection</Button><Button type="ghost" size="s" onClick={() => setRejecting(false)}>Cancel</Button></div></div>
             ) : (

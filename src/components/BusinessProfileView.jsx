@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Globe, MessageCircle, Navigation, Sparkles, ImageIcon, MapPin, Phone, Store } from "lucide-react";
-import { FaFacebookF, FaInstagram, FaWhatsapp, FaYoutube } from "react-icons/fa";
+import { ChevronDown, ChevronRight, Globe, MessageCircle, Navigation, Sparkles, ImageIcon, MapPin, Phone } from "lucide-react";
+import { FaFacebookF, FaInstagram, FaYoutube } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import { businessDetailPath, categoryListingPath } from "@/lib/directory-data";
 import { buildBusinessJsonLd, buildBreadcrumbJsonLd, buildFaqJsonLd, jsonLdString } from "@/lib/business-schema";
@@ -19,6 +19,7 @@ import BusinessCard from "@/components/ds/BusinessCard";
 import { Badge, Button, cx } from "@/components/ds";
 import TrackedButton from "@/components/TrackedButton";
 import ClaimBusiness from "@/components/ClaimBusiness";
+import ReportListingButton from "@/components/ReportListingButton";
 import { optimizedImage } from "@/lib/images";
 
 
@@ -69,7 +70,6 @@ function formatContactPhone(value) {
 }
 
 const paymentLabels = { cash: "Cash", upi: "UPI", debit_card: "Debit card", credit_card: "Credit card", net_banking: "Net banking", cheque: "Cheque", emi: "EMI", wallet: "Wallets" };
-const typeLabels = { shop: "Shop", service_provider: "Service provider", restaurant: "Restaurant", clinic: "Clinic", institute: "Institute", manufacturer: "Manufacturer", wholesaler: "Wholesaler", online: "Online business", other: "Business" };
 
 
 
@@ -87,8 +87,6 @@ export default function BusinessProfileView({ business, related = [], preview = 
   const contactPhoneHref = contactPhone.replace(/[^+\d]/g, "");
   const verified = business.verificationStatus === "verified";
   const photos = [...new Set([...(business.images || []), business.logo].filter(validImage))];
-  const galleryPhotos = photos.slice(0,5);
-  const gallerySlots = ({ 1: ["col-span-4 row-span-2"], 2: ["col-span-2 row-span-2", "col-span-2 row-span-2"], 3: ["col-span-2 row-span-2", "col-span-2", "col-span-2"], 4: ["col-span-2 row-span-2", "col-span-2", "", ""], 5: ["col-span-2 row-span-2", "", "", "", ""] })[galleryPhotos.length] || [];
   const photoCount = Math.max(Number(business.photoCount)||0,photos.length);
   const coordinates = business.location?.coordinates;
   const coordinateQuery = coordinates ? `${coordinates[1]},${coordinates[0]}` : "";
@@ -96,7 +94,9 @@ export default function BusinessProfileView({ business, related = [], preview = 
   const directionsQuery = coordinateQuery || mapQuery;
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(directionsQuery)}`;
   const mapEmbedUrl = business.mapEmbedUrl && /^https:\/\/(www\.)?google\.com\/maps\/embed/.test(business.mapEmbedUrl) ? business.mapEmbedUrl : `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=17&output=embed`;
-  const whatsappUrl = business.whatsapp ? `https://wa.me/${business.whatsapp.replace(/\D/g,"")}` : null;
+  const whatsappDigits = (business.whatsapp || "").replace(/\D/g, "");
+  // wa.me needs the country code: a 10-digit Indian number gets 91 in front. The message opens pre-written, the person just presses send.
+  const whatsappUrl = whatsappDigits.length >= 10 ? `https://wa.me/${whatsappDigits.length === 10 ? `91${whatsappDigits}` : whatsappDigits}?text=${encodeURIComponent(`Hi, I found ${business.name} on Lokal Lens and would like to know more.`)}` : null;
   const social = [["Facebook",business.socialLinks?.facebook,FaFacebookF],["Instagram",business.socialLinks?.instagram,FaInstagram],["YouTube",business.socialLinks?.youtube,FaYoutube],["X",business.socialLinks?.x,FaXTwitter]].filter(([,url])=>url);
   const activeOffers = (business.offers || []).filter(offer=>offer.isActive!==false && (!offer.validUntil || new Date(offer.validUntil)>=new Date()));
   const secondaryCategories = (business.secondaryCategories || []).filter(item => item && item.slug);
@@ -104,7 +104,6 @@ export default function BusinessProfileView({ business, related = [], preview = 
   const languages = business.languages || [];
   const serviceAreas = business.serviceAreas || [];
   const cityQuery = business.address?.city ? `&city=${encodeURIComponent(business.address.city)}` : "";
-  const hasBusinessDetails = paymentModes.length || languages.length || serviceAreas.length || secondaryCategories.length || business.homeDelivery || business.contactPerson?.name || business.videoUrl || business.brochureUrl;
   const breadcrumbs = [{label:"Home",href:"/"},business.address?.city&&{label:business.address.city,href:`/directory?city=${encodeURIComponent(business.address.city)}`},{label:categoryName,href:`/directory?category=${encodeURIComponent(categorySlug)}`},{label:business.name}].filter(Boolean);
 
   const status = openStatus(business);
@@ -198,7 +197,7 @@ export default function BusinessProfileView({ business, related = [], preview = 
 
           <Section id="overview" eyebrow="Overview" title={`About ${business.name}`}>
             <p className="whitespace-pre-line text-[18px] leading-7">{business.description || `${business.name} is a local ${categoryName.toLowerCase()} in ${business.address?.locality || business.address?.city || "your area"}. Contact the business directly for current information.`}</p>
-            {attributeList.length > 0 && <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{attributeList.slice(0, 12).map((item) => <li key={item} className="flex min-h-[50px] items-center gap-2.5 rounded-[12px] border border-[#dcdbd5] bg-white px-4 py-3 text-[15px] leading-5"><Sparkles size={18} className="shrink-0 text-[#002fa7]" aria-hidden="true" /><span className="min-w-0">{item}</span></li>)}</ul>}
+            {attributeList.length > 0 && <ul className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">{attributeList.slice(0, 12).map((item) => <li key={item} className="flex min-h-[50px] items-center gap-2.5 rounded-[12px] border border-[#dcdbd5] bg-white px-3 py-2.5 text-[14px] leading-5 sm:px-4 sm:py-3 sm:text-[15px]"><Sparkles size={18} className="shrink-0 text-[#002fa7]" aria-hidden="true" /><span className="min-w-0">{item}</span></li>)}</ul>}
             {facts.length > 0 && (
               <dl className="grid gap-x-10 gap-y-5 border-y border-[#dcdbd5] py-5 sm:grid-cols-2 lg:grid-cols-3">
                 {facts.map(([label, value]) => <div key={label} className="flex flex-col gap-1"><dt className="font-eyebrow text-[#6e7079]">{label}</dt><dd className="text-[16px] leading-6">{value}</dd></div>)}
@@ -260,8 +259,8 @@ export default function BusinessProfileView({ business, related = [], preview = 
               </div>
               <div className="flex flex-col gap-2.5 rounded-[16px] border border-[#dcdbd5] bg-white p-6">
                 <h3 className="font-display text-[16px] font-semibold leading-6">Something wrong?</h3>
-                <p className="text-[14px] leading-5 text-[#4a4c55]">{updated ? `Owner last updated this profile on ${updated}. ` : ""}If details are wrong or out of date, let us know, or claim this listing if it’s yours.</p>
-                <div className="flex flex-wrap gap-2"><Button type="secondary" size="s" href="/login">Report this listing</Button><Button type="ghost" size="s" href="/register">Claim this listing</Button></div>
+                <p className="text-[14px] leading-5 text-[#4a4c55]">{updated ? `Owner last updated this profile on ${updated}. ` : ""}If details are wrong or out of date, let us know. If it’s your business, use “Claim this listing” next to the contact details.</p>
+                {!preview && businessId && <div><ReportListingButton businessId={businessId} businessName={business.name} /></div>}
                 <p className="font-meta text-[#6e7079]">Listing ID {businessId.slice(-8).toUpperCase()}</p>
               </div>
             </div>

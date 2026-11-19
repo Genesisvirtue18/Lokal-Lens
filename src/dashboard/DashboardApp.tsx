@@ -201,6 +201,17 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
     showToast('Follow-up note added to CRM log');
   };
 
+  // An answer to a customer's inquiry (shown in their My account, and emailed when they gave an address).
+  const handleReplyToLead = async (leadId: string, text: string) => {
+    try {
+      await request(`/owner/leads/${leadId}/reply`, { method: 'POST', body: JSON.stringify({ text }) });
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Unable to send the reply'); throw error; }
+    const apply = (lead: Lead): Lead => lead.id === leadId ? { ...lead, status: lead.status === 'New' ? 'Contacted' : lead.status, replies: [...(lead.replies || []), { text }] } : lead;
+    setOwnerLeads((items) => items.map(apply));
+    setSelectedLead((current) => current && current.id === leadId ? apply(current) : current);
+    showToast('Reply sent to the customer.');
+  };
+
   const handleSubmitReply = (reviewId: string, replyText: string) => {
     setReviews((prev) =>
       prev.map((r) =>
@@ -358,7 +369,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
             ) : adminTab === 'people' ? (
               <AdminPeopleTab openId={adminPersonId} onCloseOpen={() => setAdminPersonId('')} onOpenBusiness={openBusiness} onListingsChanged={() => void reloadAdminList()} showToast={showToast} />
             ) : adminTab === 'reports' ? (
-              <AdminReportsTab openReports={adminStats?.openReports || 0} pendingClaims={adminStats?.pendingClaims || 0} onChanged={() => void loadAdminStats().then(setAdminStats).catch(() => {})} onOpenBusiness={openBusiness} onOpenPerson={openPerson} showToast={showToast} />
+              <AdminReportsTab openReports={adminStats?.openReports || 0} openListingReports={adminStats?.openListingReports || 0} pendingClaims={adminStats?.pendingClaims || 0} onChanged={() => void loadAdminStats().then(setAdminStats).catch(() => {})} onOpenBusiness={openBusiness} onOpenPerson={openPerson} showToast={showToast} />
             ) : adminTab === 'account' ? (
               <OwnerAccountTab user={ownerUser} onUserChange={setOwnerUser} onLogout={doLogout} showToast={showToast} />
             ) : adminTab === 'activity' ? (
@@ -399,6 +410,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
         onClose={() => setSelectedLead(null)}
         onUpdateStatus={handleUpdateLeadStatus}
         onAddNote={handleAddLeadNote}
+        onReply={role === 'owner' ? handleReplyToLead : undefined}
       />
 
       <ReplyReviewModal

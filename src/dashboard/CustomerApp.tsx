@@ -13,7 +13,7 @@ import { OwnerAccountTab, OwnerUser } from './components/OwnerAccountTab';
 type Tab = 'overview' | 'saved' | 'reviews' | 'inquiries' | 'account';
 type SavedBusiness = { _id: string; name: string; slug?: string; category?: { name?: string }; address?: { city?: string; locality?: string }; images?: string[]; logo?: string; averageRating?: number; reviewCount?: number; verificationStatus?: string; phone?: string };
 type MyReview = { id: string; businessId: string; businessName: string; slug?: string; live: boolean; area: string; rating: number; comment: string; createdAt?: string; reply: { text: string; createdAt?: string } | null };
-type MyInquiry = { id: string; service: string; message: string; status: 'new' | 'contacted' | 'converted'; createdAt?: string; business: { id: string; name: string; slug?: string; phone?: string; city?: string; live: boolean } | null };
+type MyInquiry = { id: string; service: string; message: string; status: 'new' | 'contacted' | 'converted'; withdrawn?: boolean; replies?: { text: string; createdAt?: string }[]; createdAt?: string; business: { id: string; name: string; slug?: string; phone?: string; city?: string; live: boolean } | null };
 
 const SAVED_KEY = 'lokal-lens-saved-businesses';
 const TABS: { id: Tab; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
@@ -123,6 +123,12 @@ export default function CustomerApp() {
     catch (error) { setSaved(before); mirrorSaved(before); showToast(error instanceof Error ? error.message : 'Unable to remove it'); }
   };
 
+  const withdrawInquiry = async (item: MyInquiry) => {
+    if (!(await confirm({ title: 'Withdraw this inquiry?', message: `${item.business?.name || 'The business'} will see that you withdrew it and can no longer reply.`, confirmLabel: 'Withdraw', tone: 'warning' }))) return;
+    try { await request(`/users/me/inquiries/${item.id}`, { method: 'DELETE' }); setInquiries((items) => items.map((row) => row.id === item.id ? { ...row, withdrawn: true } : row)); showToast('Inquiry withdrawn.'); }
+    catch (error) { showToast(error instanceof Error ? error.message : 'Unable to withdraw the inquiry'); }
+  };
+
   const deleteReview = async (review: MyReview) => {
     if (!(await confirm({ title: 'Delete your review?', message: `Your ${review.rating}-star review of “${review.businessName}” will be removed. You can write a new one later.`, confirmLabel: 'Delete review', tone: 'danger' }))) return;
     try { await request(`/users/me/reviews/${review.businessId}`, { method: 'DELETE' }); setReviews((items) => items.filter((item) => item.id !== review.id)); showToast('Your review was deleted.'); }
@@ -167,9 +173,11 @@ export default function CustomerApp() {
         <li key={item.id} className="flex flex-col gap-3 rounded-[16px] border border-[#dcdbd5] bg-white p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>{item.business ? <Link href={listingHref(item.business.slug)} className="text-[17px] font-semibold leading-6 hover:text-[#002fa7]">{item.business.name}</Link> : <span className="text-[17px] font-semibold">Business removed</span>}<p className="text-[14px] text-[#6e7079]">{[item.service, when(item.createdAt)].filter(Boolean).join(' · ')}</p></div>
-            <Badge tone={STATUS[item.status].tone}>{STATUS[item.status].label}</Badge>
+            {item.withdrawn ? <Badge tone="closed">Withdrawn</Badge> : <Badge tone={STATUS[item.status].tone}>{STATUS[item.status].label}</Badge>}
           </div>
           <p className="whitespace-pre-line rounded-[12px] bg-[#f7f7f4] p-3.5 text-[14px] leading-5">{item.message}</p>
+          {(item.replies || []).map((reply, index) => <div key={index} className="rounded-[12px] border border-[#cfd9f3] bg-[#f3f6fd] p-3.5"><p className="text-[13px] font-medium text-[#002fa7]">Reply from {item.business?.name || 'the business'}{reply.createdAt ? ` · ${when(reply.createdAt)}` : ''}</p><p className="mt-1 whitespace-pre-line text-[14px] leading-5">{reply.text}</p></div>)}
+          {!item.withdrawn && <div className="flex flex-wrap gap-2"><button type="button" onClick={() => void withdrawInquiry(item)} className="inline-flex h-9 items-center rounded-[10px] px-3 font-display text-[14px] font-medium text-[#b42318] hover:bg-[#fff6f5]">Withdraw</button></div>}
           {item.business?.live && item.business.phone && <div><a href={`tel:${item.business.phone}`} className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#bdbcb5] px-3.5 font-display text-[14px] font-medium hover:border-[#101115]"><Phone size={16} aria-hidden="true" />Call {item.business.name}</a></div>}
         </li>
       ))}</ul>;

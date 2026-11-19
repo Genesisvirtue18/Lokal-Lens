@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ChevronDown, ChevronRight, LayoutGrid, List, LocateFixed, Map as MapIcon, MapPin, SearchX, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, ChevronRight, LayoutGrid, List, LocateFixed, MapPin, SearchX, SlidersHorizontal, X } from "lucide-react";
 import { getBusinesses, getCategories, getBusinessCities, getFacets } from "@/lib/api";
 import { toDirectoryBusiness } from "@/lib/directory-data";
 import UseMyLocationButton from "@/components/UseMyLocationButton";
 import SiteHeader from "@/components/ds/SiteHeader";
+import { categoryCityParagraphs } from "@/lib/seo";
 import SiteFooter from "@/components/ds/SiteFooter";
 import BusinessCard from "@/components/ds/BusinessCard";
 import DirectoryMapView from "@/components/DirectoryMapView";
@@ -46,10 +47,12 @@ function Option({ type = "checkbox", disabled, children, ...props }) {
   return <label className={cx("flex min-h-9 items-center gap-3 text-[15px] leading-6", disabled ? "cursor-not-allowed text-[#6e7079]" : "cursor-pointer")}><input type={type} disabled={disabled} className={boxClass} {...props} />{children}</label>;
 }
 
+const displayCity = (value = "") => String(value).replace(/\b\w/g, (letter) => letter.toUpperCase());
+
 export default async function DirectoryPage({ searchParams, routeCity, routeCategory }) {
   const rawParams = await searchParams;
   const params = Object.fromEntries(Object.entries(rawParams || {}).map(([key, value]) => [key, Array.isArray(value) ? value.join(",") : value]));
-  const cityName = routeCity ? routeCity.replace(/-/g, " ") : params?.city;
+  const cityName = routeCity ? displayCity(routeCity.replace(/-/g, " ")) : params?.city;
   const categorySlug = routeCategory || params?.category;
   const page = Math.max(1, Number(params?.page) || 1);
   const limit = Math.min(100, Math.max(1, Number(params?.limit) || 24));
@@ -61,6 +64,9 @@ export default async function DirectoryPage({ searchParams, routeCity, routeCate
     getBusinesses({ page, limit, q: params?.q, city: hasCoordinates ? undefined : cityName, locality: hasCoordinates ? undefined : params?.locality, state: hasCoordinates ? undefined : params?.state, category: categorySlug, verified: params?.verified, amenity: params?.amenity, minimumRating: params?.rating, hasPhotos: params?.hasPhotos, hasWebsite: params?.hasWebsite, lat: params?.lat, lng: params?.lng, radiusMeters, openNow: params?.openNow, sort: params?.sort === "distance" && !hasCoordinates ? "relevance" : params?.sort }),
     getCategories({ limit: 100 }), getBusinessCities(), getFacets({ city: hasCoordinates ? undefined : cityName, category: categorySlug, q: params?.q }),
   ]);
+  // On a city + category landing page, describe it in words using all of its listings (not just this page of results).
+  const isLanding = Boolean(routeCity && routeCategory) && page === 1 && !params?.q && !hasCoordinates;
+  const landingItems = isLanding ? (await getBusinesses({ city: cityName, category: categorySlug, limit: 100 }).catch(() => ({ items: [] }))).items || [] : [];
   // Near-me search: if nothing is within the chosen distance, widen it step by step so the person never lands on an empty page.
   let nearbyItems = businessItems; let nearbyPagination = pagination; let usedRadius = radiusMeters;
   if (hasCoordinates && !params?.radiusLocked && nearbyItems.length === 0) {
@@ -217,6 +223,16 @@ export default async function DirectoryPage({ searchParams, routeCity, routeCate
         )}
       </section>
     </div>
+    {isLanding && landingItems.length > 0 && (() => {
+      const categoryLabel = landingItems[0]?.category?.name || (categoryItems.find((item) => item.slug === categorySlug)?.name) || "Businesses";
+      const paragraphs = categoryCityParagraphs({ cityName: displayCity(cityName), categoryName: categoryLabel, total: nearbyPagination.totalItems || landingItems.length, businesses: landingItems });
+      return paragraphs.length ? (
+        <section aria-labelledby="landing-about" className="mx-auto flex max-w-[1440px] flex-col gap-3 px-4 pb-14 md:px-8 lg:px-[72px]">
+          <h2 id="landing-about" className="text-[24px] font-semibold leading-8 tracking-[-0.0208em]">About {categoryLabel.toLowerCase()} in {displayCity(cityName)}</h2>
+          <div className="flex max-w-[860px] flex-col gap-3">{paragraphs.map((text) => <p key={text} className="text-[16px] leading-7 text-[#2d2f36]">{text}</p>)}</div>
+        </section>
+      ) : null;
+    })()}
     <SiteFooter />
   </main>;
 }

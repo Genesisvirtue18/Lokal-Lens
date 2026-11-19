@@ -78,7 +78,9 @@ export function TwoFactorSetup({ start, confirm, onDone, doneLabel = "Continue" 
         <li><span className="font-semibold">3.</span> Type the 6-digit code the app shows.</li>
       </ol>
       <div className="flex flex-wrap items-center gap-4">
-        <div className="grid h-[220px] w-[220px] shrink-0 place-items-center rounded-[12px] border border-[#dcdbd5] bg-white">{qr ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={qr} alt="QR code for your authenticator app" width={220} height={220} /> : <span className="text-[13px] text-[#6e7079]">Preparing…</span>}</div>
+        {/* The QR code is a generated data: image, so there is nothing for next/image to optimise. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <div className="grid h-[220px] w-[220px] shrink-0 place-items-center rounded-[12px] border border-[#dcdbd5] bg-white">{qr ? <img src={qr} alt="QR code for your authenticator app" width={220} height={220} /> : <span className="text-[13px] text-[#6e7079]">Preparing…</span>}</div>
         <div className="min-w-0 flex-1 text-[13px] leading-5 text-[#4a4c55]"><p>Can’t scan? Enter this key:</p><p className="mt-1 break-all rounded-[8px] bg-[#f7f7f4] px-3 py-2 font-mono text-[14px] text-[#101115] select-all">{setup?.secret || "…"}</p></div>
       </div>
       <Field label="6-digit code" error={state.error}><input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" maxLength={6} className={cx(fieldClass, "max-w-[220px] text-center font-mono text-[20px] tracking-[0.25em]", state.error && "!border-2 !border-[#b42318]")} /></Field>

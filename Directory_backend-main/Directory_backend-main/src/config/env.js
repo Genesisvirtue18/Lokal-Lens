@@ -49,8 +49,30 @@ const schema = z.object({
   path: ['CLIENT_URL'], message: 'CLIENT_URL must be https in production',
 });
 
+// Mail can be configured with SMTP_* or with the MAIL_* names (MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM).
+// MAIL_ENABLED=false switches it off. If a user name is given without a password (a Gmail App Password is needed), mail is treated as
+// not set up, so development keeps showing sign-in codes on screen instead of silently failing to send them.
+export function withMailAliases(source) {
+  const env = { ...source };
+  const pick = (...names) => names.map((name) => env[name]).find((value) => typeof value === 'string' && value.trim() !== '');
+  const host = pick('SMTP_HOST', 'MAIL_HOST');
+  const user = pick('SMTP_USER', 'MAIL_USERNAME');
+  const pass = String(pick('SMTP_PASS', 'MAIL_PASSWORD') || '').replace(/\s+/g, '');
+  const from = pick('EMAIL_FROM', 'MAIL_FROM');
+  const port = pick('SMTP_PORT', 'MAIL_PORT');
+  const enabled = String(env.MAIL_ENABLED ?? 'true').toLowerCase() !== 'false';
+  delete env.SMTP_HOST; delete env.SMTP_USER; delete env.SMTP_PASS; delete env.SMTP_PORT; delete env.EMAIL_FROM;
+  if (from) env.EMAIL_FROM = from.trim();
+  if (enabled && host && (!user || pass)) {
+    env.SMTP_HOST = host.trim(); if (port) env.SMTP_PORT = port; if (user) env.SMTP_USER = user.trim(); if (pass) env.SMTP_PASS = pass;
+  } else if (enabled && host && user && !pass) {
+    console.warn('Mail is set up but the password is empty (for Gmail use an App Password). Emails will be logged instead of sent.');
+  }
+  return env;
+}
+
 export function parseEnv(source = process.env) {
-  const result = schema.safeParse(source);
+  const result = schema.safeParse(withMailAliases(source));
   if (!result.success) {
     throw new Error(`Invalid environment configuration:\n${result.error.issues.map(issue => `- ${issue.path.join('.')}: ${issue.message}`).join('\n')}`);
   }

@@ -7,7 +7,7 @@ export default function NearbyCategoryLink({ category, fallbackHref, children, c
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
 
-    const fallback = () => window.location.assign(fallbackHref);
+    const fallback = () => window.location.href = fallbackHref;
     const goToNearby = ({ lat, lng }) => {
         const query = new URLSearchParams({
           category,
@@ -15,7 +15,7 @@ export default function NearbyCategoryLink({ category, fallbackHref, children, c
           lng: Number(lng).toFixed(6),
           sort: "distance",
         });
-        window.location.assign(`/directory?${query.toString()}`);
+        window.location.href = `/directory?${query.toString()}`;
     };
     const savedLocation = getSavedLocation();
     if (savedLocation) return goToNearby(savedLocation);

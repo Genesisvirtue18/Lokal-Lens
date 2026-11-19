@@ -72,6 +72,14 @@ export const deleteMyReview = () => async (req, res, next) => { try {
 // Only inquiries sent while signed in are linked to the account (matching by email would expose other people's messages).
 export const myInquiries = () => async (req, res, next) => { try {
   const leads = await Lead.find({ user: req.user.id }).sort({ createdAt: -1 }).limit(100).populate('business', 'name slug phone address.city listingStatus').lean();
-  const items = leads.map(lead => ({ id: String(lead._id), service: lead.service || '', message: lead.message, status: lead.status, createdAt: lead.createdAt, business: lead.business ? { id: String(lead.business._id), name: lead.business.name, slug: lead.business.slug, phone: lead.business.phone, city: lead.business.address?.city, live: lead.business.listingStatus === 'published' } : null }));
+  const items = leads.map(lead => ({ id: String(lead._id), service: lead.service || '', message: lead.message, status: lead.status, withdrawn: Boolean(lead.withdrawnAt), replies: (lead.replies || []).map(reply => ({ text: reply.text, createdAt: reply.createdAt })), createdAt: lead.createdAt, business: lead.business ? { id: String(lead.business._id), name: lead.business.name, slug: lead.business.slug, phone: lead.business.phone, city: lead.business.address?.city, live: lead.business.listingStatus === 'published' } : null }));
   sendSuccess(res, 'Your inquiries retrieved', { items });
+} catch (e) { next(e); } };
+
+// The customer takes an inquiry back. The business still sees it (marked withdrawn) but can no longer reply.
+export const withdrawInquiry = () => async (req, res, next) => { try {
+  const lead = await Lead.findOne({ _id: req.params.id, user: req.user.id });
+  if (!lead) throw new AppError('Inquiry not found', 404);
+  if (!lead.withdrawnAt) { lead.withdrawnAt = new Date(); await lead.save(); }
+  sendSuccess(res, 'Inquiry withdrawn', {});
 } catch (e) { next(e); } };

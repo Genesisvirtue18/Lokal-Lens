@@ -1,0 +1,11 @@
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+const HERE = path.dirname(fileURLToPath(import.meta.url)); const BACKEND = path.resolve(HERE, "../../..");
+const SEED = path.join(HERE, ".seed.json"); fs.rmSync(SEED, { force: true });
+const api = spawn(process.execPath, ["tests/e2e/server.mjs"], { cwd: BACKEND, stdio: "ignore", env: { ...process.env, E2E_SEED_FILE: SEED } });
+for (let i = 0; i < 60 && !fs.existsSync(SEED); i++) await new Promise((r) => setTimeout(r, 500));
+await new Promise((r) => setTimeout(r, 500));
+const child = spawn(process.execPath, [path.join("tests/e2e/browser", process.argv[2])], { cwd: BACKEND, stdio: "inherit", env: { ...process.env, E2E_SEED_FILE: SEED } });
+await new Promise((r) => child.on("exit", r)); api.kill(); process.exit(0);

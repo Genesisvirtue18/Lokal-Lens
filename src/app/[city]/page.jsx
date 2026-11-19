@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { getBusinessCities, getBusinesses, getCityCategories } from "@/lib/api";
 import { absoluteSiteUrl } from "@/lib/business-schema";
-import { buildCollectionJsonLd, groupByCity, snippet } from "@/lib/seo";
+import { buildCollectionJsonLd, cityParagraphs, groupByCity, snippet } from "@/lib/seo";
 import { businessDetailPath, categoryListingPath } from "@/lib/directory-data";
 import { CategoryIcon } from "@/lib/category-icons";
 import SiteHeader from "@/components/ds/SiteHeader";
@@ -34,7 +34,8 @@ export default async function CityPage({ params }) {
   const { city: slug } = await params;
   const city = await loadCity(slug);
   if (!city) notFound();
-  const [{ items: cities = [] }, { items: topBusinesses = [] }] = await Promise.all([getBusinessCities(), getBusinesses({ city: city.name, limit: 12, sort: "rating" })]);
+  const [{ items: cities = [] }, { items: topBusinesses = [] }, { items: allBusinesses = [] }] = await Promise.all([getBusinessCities(), getBusinesses({ city: city.name, limit: 12, sort: "rating" }), getBusinesses({ city: city.name, limit: 100 })]);
+  const about = cityParagraphs({ cityName: city.name, total: city.total, categories: city.categories, businesses: allBusinesses });
   const cityNames = [...new Set(cities.map((item) => (typeof item === "string" ? item : item.name)).filter(Boolean))];
   const path = `/${city.slug}`;
   const jsonLd = buildCollectionJsonLd({
@@ -72,6 +73,13 @@ export default async function CityPage({ params }) {
             ))}
           </ul>
         </section>
+
+        {about.length > 0 && (
+          <section aria-labelledby="city-about" className="flex max-w-[860px] flex-col gap-3">
+            <h2 id="city-about" className="text-[24px] font-semibold leading-8 tracking-[-0.0208em]">Local businesses in {city.name} at a glance</h2>
+            {about.map((text) => <p key={text} className="text-[16px] leading-7 text-[#2d2f36]">{text}</p>)}
+          </section>
+        )}
 
         {topBusinesses.length > 0 && (
           <section aria-labelledby="city-top" className="flex flex-col gap-5">

@@ -171,6 +171,7 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
   const [categories, setCategories] = useState([]);
   const [busy, setBusy] = useState(false);
   const [phase, setPhase] = useState("form"); // form | submitted | saved | failed
+  const [sentForReview, setSentForReview] = useState(false);
   const [failure, setFailure] = useState("");
   const [uploads, setUploads] = useState([]); // [{ id, name, progress, error, url, preview }]
   const [serviceDraft, setServiceDraft] = useState(null);
@@ -361,7 +362,7 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
       if (admin) {
         if (editing) await updateAdminBusiness(editId, payload);
         else await createAdminBusiness({ ...payload, ...(adminOwnerId ? { ownerId: adminOwnerId } : {}), publish: publishNow });
-      } else if (editing) await updateOwnerBusiness(editId, payload); else await createOwnerBusiness(payload); // new listings go straight into review
+      } else if (editing) { const saved = await updateOwnerBusiness(editId, payload); setSentForReview(saved?.status === "Pending"); } else await createOwnerBusiness(payload); // new listings go straight into review
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* nothing to clear */ }
       setPhase(editing ? "saved" : "submitted");
       onSaved?.();
@@ -397,6 +398,7 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
       <p className="font-eyebrow text-[#002fa7]">{phase === "saved" ? "Saved" : "Submitted"}</p>
       <h1 className="text-[34px] font-semibold leading-[42px] tracking-[-0.0294em]">{phase === "saved" ? (admin ? "Changes saved" : "Your changes are saved") : admin ? (publishNow ? "Listing published" : "Draft saved") : "Thanks — we’re reviewing your listing"}</h1>
       <p className="text-[16px] leading-6 text-[#4a4c55]">{admin ? (phase === "saved" ? "The listing now shows the new details." : publishNow ? "The listing is live in the directory." : "It is saved as a draft and not visible to customers.") : phase === "saved" ? "Your listing now shows the new details. Major changes may be checked by our team again." : <>Our team reviews new listings before they go live. You’ll get an email at <strong className="text-[#101115]">{data.email}</strong> once it’s approved. You can keep editing it from your dashboard.</>}</p>
+      {phase === "saved" && !admin && sentForReview && <p role="status" className="max-w-[520px] rounded-[12px] bg-[#fbf0d9] px-4 py-3 text-[15px] leading-6 text-[#5c3d00]">You changed the name, phone, category or city, so our team will check the listing again. It stays hidden from customers until it is approved. Other edits go live straight away.</p>}
       <div className="mt-3 flex flex-wrap justify-center gap-3">{embedded ? <Button type="primary" onClick={exit}>{admin ? "Back to businesses" : "Back to overview"}</Button> : <><Button type="primary" href="/business-owner">Go to dashboard</Button><Button type="secondary" href="/">Back to home</Button></>}</div>
     </section>,
   );

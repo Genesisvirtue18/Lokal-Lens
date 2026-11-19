@@ -2,16 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { ExternalLink, FileText, Star } from 'lucide-react';
 import { Badge, Button, cx } from '@/components/ds';
 import { useConfirm } from '@/components/ConfirmProvider';
+import { AdminListingReports } from './AdminListingReports';
 import { AdminClaim, AdminReport, decideAdminClaim, loadAdminClaims, loadAdminReports, resolveAdminReport } from '../api';
 
 const REASON: Record<string, string> = { spam: 'Spam', fake: 'Fake review', abusive: 'Abusive or hateful', irrelevant: 'Not about this business', personal_info: 'Shares personal information', other: 'Other' };
 const RELATION: Record<string, string> = { owner: 'The owner', manager: 'A manager', employee: 'An employee', agency: 'An agency working for them', other: 'Someone else' };
 const when = (value?: string) => (value ? new Date(value).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
-type Segment = 'reports' | 'claims';
+type Segment = 'reports' | 'claims' | 'listings';
 
-export const AdminReportsTab: React.FC<{ openReports: number; pendingClaims: number; onChanged: () => void; onOpenBusiness: (id: string) => void; onOpenPerson: (id: string) => void; showToast: (message: string) => void }> = ({ openReports, pendingClaims, onChanged, onOpenBusiness, onOpenPerson, showToast }) => {
-  const [segment, setSegment] = useState<Segment>(pendingClaims > openReports ? 'claims' : 'reports');
+export const AdminReportsTab: React.FC<{ openReports: number; openListingReports?: number; pendingClaims: number; onChanged: () => void; onOpenBusiness: (id: string) => void; onOpenPerson: (id: string) => void; showToast: (message: string) => void }> = ({ openReports: allOpenReports, openListingReports = 0, pendingClaims, onChanged, onOpenBusiness, onOpenPerson, showToast }) => {
+  const openReports = Math.max(0, allOpenReports - openListingReports);
+  const [segment, setSegment] = useState<Segment>(pendingClaims > openReports && pendingClaims >= openListingReports ? 'claims' : openListingReports > openReports ? 'listings' : 'reports');
   const [view, setView] = useState('open');
   const [version, setVersion] = useState(0);
   const [reports, setReports] = useState<{ key: string; items?: AdminReport[]; error?: string }>({ key: '' });
@@ -21,11 +23,11 @@ export const AdminReportsTab: React.FC<{ openReports: number; pendingClaims: num
   useEffect(() => {
     let live = true;
     if (segment === 'reports') loadAdminReports({ status: view === 'open' ? 'open' : 'all', limit: 50 }).then((data) => { if (live) setReports({ key, items: data.items }); }).catch((reason) => { if (live) setReports({ key, error: reason instanceof Error ? reason.message : 'Unable to load reports' }); });
-    else loadAdminClaims({ status: view === 'open' ? 'pending' : 'all', limit: 50 }).then((data) => { if (live) setClaims({ key, items: data.items }); }).catch((reason) => { if (live) setClaims({ key, error: reason instanceof Error ? reason.message : 'Unable to load claims' }); });
+    else if (segment === 'claims') loadAdminClaims({ status: view === 'open' ? 'pending' : 'all', limit: 50 }).then((data) => { if (live) setClaims({ key, items: data.items }); }).catch((reason) => { if (live) setClaims({ key, error: reason instanceof Error ? reason.message : 'Unable to load claims' }); });
     return () => { live = false; };
   }, [key, segment, view]);
   const refresh = () => { setVersion((value) => value + 1); onChanged(); };
-  const loading = (segment === 'reports' ? reports.key : claims.key) !== key;
+  const loading = segment === 'listings' ? false : (segment === 'reports' ? reports.key : claims.key) !== key;
 
   return (
     <main className="mx-auto flex w-full max-w-[1100px] flex-col gap-6 px-4 pb-24 pt-8 md:px-8 lg:pt-10">
@@ -33,12 +35,14 @@ export const AdminReportsTab: React.FC<{ openReports: number; pendingClaims: num
 
       <div className="flex flex-wrap items-center gap-3">
         <div role="tablist" aria-label="Type" className="flex rounded-[10px] border border-[#bdbcb5] bg-white p-1">
-          {([['reports', 'Reported reviews', openReports], ['claims', 'Listing claims', pendingClaims]] as const).map(([id, label, count]) => <button key={id} type="button" role="tab" aria-selected={segment === id} onClick={() => setSegment(id)} className={cx('inline-flex h-8 items-center gap-2 rounded-[8px] px-3 font-display text-[14px] font-medium', segment === id ? 'bg-[#002fa7] text-white' : 'text-[#4a4c55] hover:bg-[#f1f1ee]')}>{label}{count > 0 && <span className={cx('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[12px] font-semibold', segment === id ? 'bg-white/20 text-white' : 'bg-[#002fa7] text-white')}>{count}</span>}</button>)}
+          {([['reports', 'Reported reviews', openReports], ['listings', 'Reported listings', openListingReports], ['claims', 'Listing claims', pendingClaims]] as const).map(([id, label, count]) => <button key={id} type="button" role="tab" aria-selected={segment === id} onClick={() => setSegment(id)} className={cx('inline-flex h-8 items-center gap-2 rounded-[8px] px-3 font-display text-[14px] font-medium', segment === id ? 'bg-[#002fa7] text-white' : 'text-[#4a4c55] hover:bg-[#f1f1ee]')}>{label}{count > 0 && <span className={cx('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[12px] font-semibold', segment === id ? 'bg-white/20 text-white' : 'bg-[#002fa7] text-white')}>{count}</span>}</button>)}
         </div>
         <select aria-label="Show" value={view} onChange={(event) => setView(event.target.value)} className="h-10 rounded-[10px] border border-[#bdbcb5] bg-white px-3 text-[14px]"><option value="open">Needs a decision</option><option value="all">Everything, including decided</option></select>
       </div>
 
-      {segment === 'reports' ? (
+      {segment === 'listings' ? (
+        <AdminListingReports view={view} version={version} onDone={refresh} onOpenBusiness={onOpenBusiness} onOpenPerson={onOpenPerson} showToast={showToast} />
+      ) : segment === 'reports' ? (
         <section className={cx('flex flex-col gap-3 transition-opacity', loading && 'opacity-60')} aria-label="Reported reviews">
           {reports.error && <p role="alert" className="rounded-[10px] bg-[#fdecea] px-4 py-3 text-[14px] text-[#8c1d13]">{reports.error}</p>}
           {!loading && !reports.items?.length && <p className="rounded-[16px] border border-dashed border-[#bdbcb5] bg-white px-6 py-12 text-center text-[15px] text-[#4a4c55]">{view === 'open' ? 'No reported reviews waiting. Nice.' : 'No reports yet.'}</p>}

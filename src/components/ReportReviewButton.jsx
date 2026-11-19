@@ -25,7 +25,7 @@ export default function ReportReviewButton({ businessId, reviewId }) {
   function start() {
     let signedIn = false;
     try { signedIn = Boolean(localStorage.getItem("directflow_access_token")); } catch { /* treat as signed out */ }
-    if (!signedIn) { window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname)}`); return; }
+    if (!signedIn) { window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`; return; }
     setState({ busy: false, error: "", done: false }); setReason(""); setNote(""); setOpen(true);
   }
   async function send() {

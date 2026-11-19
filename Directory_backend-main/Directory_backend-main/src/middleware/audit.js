@@ -26,6 +26,7 @@ const RULES = [
   ['PATCH', /^\/admin\/users\/[^/]+\/role$/, 'user', (b) => `Changed role to ${b.role}`, []],
   ['POST', /^\/admin\/users$/, 'user', (b) => `Created a ${b.role} account`, ['email']],
   ['PATCH', /^\/admin\/reports\/[^/]+$/, 'report', (b) => (b.action === 'remove' ? 'Removed a reported review' : 'Dismissed a review report'), ['note']],
+  ['PATCH', /^\/admin\/listing-reports\/[^/]+$/, 'report', (b) => (b.action === 'suspend' ? 'Suspended a reported listing' : b.action === 'dismiss' ? 'Dismissed a listing report' : 'Handled a listing report'), ['note']],
   ['PATCH', /^\/admin\/claims\/[^/]+$/, 'claim', (b) => (b.decision === 'approve' ? 'Approved a claim' : 'Rejected a claim'), ['note']],
   ['POST', /^\/admin\/categories/, 'category', () => 'Added category or services', ['name']],
   ['PATCH', /^\/admin\/categories\/[^/]+$/, 'category', () => 'Edited category', ['name', 'icon', 'isActive']],

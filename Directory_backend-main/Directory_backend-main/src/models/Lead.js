@@ -11,6 +11,9 @@ const leadSchema = new mongoose.Schema({
   message: { type: String, required: true, trim: true, minlength: 5, maxlength: 2000 },
   status: { type: String, enum: ['new', 'contacted', 'converted'], default: 'new' },
   notes: [{ type: String, trim: true, maxlength: 1000 }],
+  // What the owner wrote back. Unlike notes (private to the owner), replies are shown to the customer.
+  replies: [new mongoose.Schema({ text: { type: String, required: true, trim: true, maxlength: 1500 }, createdAt: { type: Date, default: Date.now } }, { _id: true })],
+  withdrawnAt: Date,
 }, { timestamps: true });
 
 leadSchema.index({ business: 1, createdAt: -1 });

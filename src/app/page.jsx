@@ -180,7 +180,7 @@ export default async function Home({ searchParams }) {
         <section className="mx-auto max-w-[1440px] px-4 py-12 md:px-8 lg:px-[72px] lg:py-20">
           <SectionHeader eyebrow="By area" title="Discover by area" subtitle="Every neighbourhood has a few places worth knowing." />
           <div className="mt-10 grid grid-cols-[minmax(0,1fr)] gap-4 lg:h-[520px] lg:grid-cols-[520px_minmax(0,1fr)]">
-            {areas.slice(0, 6).map((city, index) => {
+            {areas.slice(0, 6).map((city) => {
               const key = city.toLowerCase().split(",")[0].trim();
               const cityBusiness = businesses.find((business) => (business.address?.city || business.city || "").toLowerCase() === city.toLowerCase() && business.image);
               const image = AREA_PHOTOS[key] || cityBusiness?.image || null;

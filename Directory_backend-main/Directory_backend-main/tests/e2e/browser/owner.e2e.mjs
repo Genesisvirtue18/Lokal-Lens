@@ -123,5 +123,24 @@ await check("delete the new listing by typing its name", async () => {
   return !(await ownerBiz(tok)).some((b) => b.name === "Browser Test Cafe");
 });
 
+console.log("\nRe-review after a sensitive edit");
+await check("changing the name of a live listing sends it back for review and tells the owner", async () => {
+  await t.goto("/business-owner", 4000);
+  const idx = await t.ev("[...document.querySelectorAll('li')].findIndex((l) => /Smile Dental/.test(l.innerText) && [...l.querySelectorAll('button,a')].some((b) => /^Edit$/.test(b.innerText.trim())))");
+  await t.ev(`(() => { const li = [...document.querySelectorAll('li')][${idx}]; [...li.querySelectorAll('button,a')].find((b) => /^Edit$/.test(b.innerText.trim())).click(); })()`); await sleep(3000);
+  await t.ev(`(() => { const el = [...document.querySelectorAll('input')].find((e) => /^Business name/.test(e.closest('label')?.innerText || '')); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, 'Smile Dental Studio'); el.dispatchEvent(new Event('input', { bubbles: true })); })()`); await sleep(400);
+  for (let i = 0; i < 8; i++) {
+    await t.ev(fillJs); await sleep(600);
+    const txt = await t.text();
+    if (/Save changes|Update listing|Submit for review|Save and exit/.test(txt) && /STEP 5 OF 5/.test(txt)) { await t.click("Save changes|Update listing|Submit for review|Save and exit", { scope: "body" }); await sleep(3000); break; }
+    await t.click("^Continue$", { scope: "body" }); await sleep(1500);
+  }
+  const notice = await t.has("our team will check the listing again");
+  const b = (await ownerBiz(tok)).find((x) => x._id === ids.smile);
+  const hidden = (await api("GET", "/businesses/smile-dental")).status === 404;
+  console.log("   status:", b?.listingStatus, "| note:", b?.reviewNote);
+  return notice && b?.listingStatus === "pending_review" && /Changed: name/.test(b?.reviewNote || "") && hidden;
+});
+
 console.log("\nconsole/native-dialog errors:", t.errors);
 t.close(); const f = summary(); process.exit(f ? 1 : 0);

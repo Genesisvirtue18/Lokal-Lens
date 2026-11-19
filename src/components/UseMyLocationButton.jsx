@@ -22,7 +22,7 @@ export default function UseMyLocationButton({ category, searchTerm, compact = fa
         query.set("lng", Number(lng).toFixed(6));
         query.set("radiusMeters", query.get("radiusMeters") || "10000");
         query.set("sort", "distance"); query.delete("page");
-        window.location.assign(`/directory?${query.toString()}`);
+        window.location.href = `/directory?${query.toString()}`;
     };
     const savedLocation = getSavedLocation();
     if (savedLocation) return continueWithLocation(savedLocation);

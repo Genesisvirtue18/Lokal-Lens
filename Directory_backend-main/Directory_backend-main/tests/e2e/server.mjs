@@ -38,7 +38,7 @@ const food = await Category.create({ name: 'Cafes & Restaurants', slug: 'cafes-r
 const cafes = await Category.create({ name: 'Cafes', slug: 'cafes', parentCategory: food._id, services: ['Coffee', 'Breakfast'] });
 
 const base = (name, slug, ownerDoc, extra = {}) => ({ name, slug, owner: ownerDoc._id, category: health._id, subCategory: dentists._id, services: ['Dental check-up'], description: `${name} is a friendly local business with experienced staff and clean rooms.`, phone: '9876543210', email: `${slug}@e2e.test`, address: { addressLine1: '12 Main Road', city: 'Ghaziabad', state: 'Uttar Pradesh', postalCode: '201001', locality: 'Indirapuram' }, listingStatus: 'published', verificationStatus: 'verified', ...extra });
-const ownersCafe = await Business.create(base('Smile Dental', 'smile-dental', owner, { reviews: [{ user: customer._id, reviewerName: 'E2E Customer', rating: 5, comment: 'Great dentist, very gentle.' }, { user: victim._id, reviewerName: 'Spammy Reviewer', rating: 1, comment: 'Buy cheap watches at spam.example' }] }));
+const ownersCafe = await Business.create(base('Smile Dental', 'smile-dental', owner, { whatsapp: '9876543210', amenities: ['Wheelchair accessible', 'Free parking', 'Air conditioned', 'Card payments', 'Waiting lounge'], reviews: [{ user: customer._id, reviewerName: 'E2E Customer', rating: 5, comment: 'Great dentist, very gentle.' }, { user: victim._id, reviewerName: 'Spammy Reviewer', rating: 1, comment: 'Buy cheap watches at spam.example' }] }));
 const pending = await Business.create(base('Waiting Clinic', 'waiting-clinic', owner2, { listingStatus: 'pending_review', verificationStatus: 'pending' }));
 const claimable = await Business.create(base('Team Added Salon', 'team-added-salon', platform, { category: food._id, subCategory: cafes._id, services: ['Coffee'] }));
 const owned2 = await Business.create(base('Other Dental', 'other-dental', owner2));
@@ -48,7 +48,7 @@ await ReviewReport.create({ business: ownersCafe._id, reviewId: spamReview._id, 
 await ListingClaim.create({ business: owned2._id, claimant: customer._id, relationship: 'owner', phone: '9811111111', message: 'I run this clinic and the owner left.', previousOwner: owner2._id });
 
 const server = createApp(config, { logging: false, rateLimitMax: 100000 }).listen(PORT, () => {
-  fs.writeFileSync(process.env.E2E_SEED_FILE || fileURLToPath(new URL('./browser/.seed.json', import.meta.url)), JSON.stringify({ port: PORT, secret, backupCodes: codes, ids: { admin: String(admin._id), owner: String(owner._id), owner2: String(owner2._id), customer: String(customer._id), victim: String(victim._id), smile: String(ownersCafe._id), pending: String(pending._id), claimable: String(claimable._id), owned2: String(owned2._id), lead: String(lead._id), spamReview: String(spamReview._id) } }, null, 2));
+  fs.writeFileSync(process.env.E2E_SEED_FILE || fileURLToPath(new URL('./browser/.seed.json', import.meta.url)), JSON.stringify({ port: PORT, secret, backupCodes: codes, ids: { admin: String(admin._id), owner: String(owner._id), owner2: String(owner2._id), customer: String(customer._id), victim: String(victim._id), smile: String(ownersCafe._id), pending: String(pending._id), claimable: String(claimable._id), owned2: String(owned2._id), lead: String(lead._id), spamReview: String(spamReview._id), health: String(health._id) } }, null, 2));
   console.log(`E2E API ready on :${PORT}`);
 });
 process.on('SIGTERM', () => { server.close(); mongo.stop().finally(() => process.exit(0)); });

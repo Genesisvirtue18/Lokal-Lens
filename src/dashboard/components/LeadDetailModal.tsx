@@ -8,6 +8,8 @@ interface LeadDetailModalProps {
   onClose: () => void;
   onUpdateStatus: (leadId: string, newStatus: Lead['status']) => void;
   onAddNote?: (leadId: string, note: string) => void;
+  // Sends a reply the customer can read in My account (and by email when they gave an address).
+  onReply?: (leadId: string, text: string) => Promise<void>;
 }
 
 export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
@@ -16,8 +18,11 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
   onClose,
   onUpdateStatus,
   onAddNote,
+  onReply,
 }) => {
   const [newNote, setNewNote] = useState('');
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
   const [showCallToast, setShowCallToast] = useState(false);
 
   if (!isOpen || !lead) return null;
@@ -31,6 +36,13 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
     if (!newNote.trim() || !onAddNote) return;
     onAddNote(lead.id, newNote.trim());
     setNewNote('');
+  };
+
+  const handleReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (reply.trim().length < 2 || !onReply || sending) return;
+    setSending(true);
+    try { await onReply(lead.id, reply.trim()); setReply(''); } finally { setSending(false); }
   };
 
   const handleCall = () => {
@@ -154,6 +166,31 @@ export const LeadDetailModal: React.FC<LeadDetailModalProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Reply to the customer */}
+          <div className="space-y-2 pt-2 border-t border-[#f1f1ee]">
+            <label htmlFor="lead-reply" className="text-[13px] font-semibold text-[#1b1b1e]">Reply to {lead.name}:</label>
+            {lead.withdrawn ? (
+              <p className="rounded-xl bg-[#f1f1ee] px-3 py-2 text-[13px] text-[#4a4c55]">The customer withdrew this inquiry, so you can’t reply.</p>
+            ) : (
+              <>
+                {lead.replies && lead.replies.length > 0 && (
+                  <ul className="space-y-1.5 max-h-32 overflow-y-auto">
+                    {lead.replies.map((item, index) => <li key={index} className="rounded-xl bg-[#e6ebf7] px-3 py-2 text-[13px] leading-5 text-[#1b1b1e]">{item.text}</li>)}
+                  </ul>
+                )}
+                {onReply && (
+                  <form onSubmit={handleReply} className="space-y-1.5">
+                    <textarea id="lead-reply" value={reply} onChange={(e) => setReply(e.target.value.slice(0, 1500))} rows={3} placeholder="Write an answer the customer can read, e.g. “Yes, we are open on Sunday from 10 to 2.”" className="w-full rounded-xl border border-[#dcdbd5] p-2.5 text-[13px] outline-none focus:border-[#002fa7]" />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[12px] text-[#6e7079]">Sent to the customer’s account{lead.email ? ' and email' : ''}.</span>
+                      <button type="submit" disabled={sending || reply.trim().length < 2} className="h-9 rounded-xl bg-[#002fa7] px-4 text-[13px] font-semibold text-white disabled:opacity-50">{sending ? 'Sending…' : 'Send reply'}</button>
+                    </div>
+                  </form>
+                )}
+              </>
+            )}
           </div>
 
           {/* Notes Log */}

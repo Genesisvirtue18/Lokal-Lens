@@ -11,6 +11,8 @@ type ApiReview = {
 };
 
 type ApiLead = {
+  replies?: { text: string; createdAt?: string }[];
+  withdrawnAt?: string;
   _id?: string;
   id?: string;
   name?: string;
@@ -26,6 +28,7 @@ type ApiLead = {
 
 type ApiBusiness = {
   rejectionReason?: string;
+  reviewNote?: string;
   kycRejectionReason?: string;
   _id?: string;
   id?: string;
@@ -89,7 +92,7 @@ export async function authedFetch(url: string, init: RequestInit & { headers?: R
   if (response.status !== 401 || !retry) return response;
   if (await refreshSession()) return authedFetch(url, init, false);
   clearSession();
-  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) window.location.assign('/login');
+  if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) window.location.href = '/login';
   return response;
 }
 export async function request(path: string, options: RequestInit = {}) {
@@ -101,7 +104,7 @@ export async function request(path: string, options: RequestInit = {}) {
 export async function logout() { try { await fetch(`${baseUrl}/auth/logout`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: '{}' }); } finally { clearSession(); } }
 const ago = (value?: string) => value ? new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(Math.round((new Date(value).getTime() - Date.now()) / 86400000), 'day') : 'Recently';
 const reviewStats = (item: ApiBusiness) => { const ratings = (item.reviews || []).map((review) => Number(review.rating)).filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5); return ratings.length ? { average: Number((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(2)), count: ratings.length } : { average: Number(item.averageRating || 0), count: Number(item.reviewCount || 0) }; };
-export const toDashboardBusiness = (item: ApiBusiness): BusinessListing => { const stats = reviewStats(item); return ({ id: item._id || item.id || '', name: item.name || 'Business', owner: item.owner?.name || 'Unassigned', ownerId: item.owner?._id, category: (item.category?.name || 'Services') as BusinessListing['category'], location: [item.address?.locality, item.address?.city, item.address?.state].filter(Boolean).join(', ') || 'Location not added', phone: item.phone || 'Not added', alternatePhone: item.alternatePhone, whatsapp: item.whatsapp, email: item.email, website: item.website, logo: item.logo, images: item.images || [], services: item.services || [], address: item.address || {}, workingHours: item.workingHours || [], status: item.listingStatus === 'published' ? 'Active' : item.listingStatus === 'rejected' ? 'Rejected' : item.listingStatus === 'pending_review' ? 'Pending' : item.listingStatus === 'suspended' ? 'Suspended' : item.listingStatus === 'paused' ? 'Paused' : 'Draft', slug: item.slug, rejectionReason: item.rejectionReason, kycRejectionReason: item.kycRejectionReason, offers: (item.offers || []).map((offer) => ({ id: offer._id || '', title: offer.title || '', description: offer.description || '', code: offer.code || '', occasion: offer.occasion || '', validUntil: offer.validUntil || '', isActive: offer.isActive !== false })), timeAgo: ago(item.createdAt), rating: stats.average, averageRating: stats.average, reviewsCount: stats.count, views: Number(item.viewCount || 0), enquiries: Number(item.leadCount || 0), verified: item.verificationStatus === 'verified', googlePlaceVerificationStatus: item.googlePlaceVerificationStatus || 'unverified', description: item.description || '', kycStatus: item.kycStatus || 'not_submitted', gstNumber: item.gstNumber, msmeNumber: item.msmeNumber, kycDocuments: item.kycDocuments || [], plan: item.plan || 'free', planExpiresAt: item.planExpiresAt }); };
+export const toDashboardBusiness = (item: ApiBusiness): BusinessListing => { const stats = reviewStats(item); return ({ id: item._id || item.id || '', name: item.name || 'Business', owner: item.owner?.name || 'Unassigned', ownerId: item.owner?._id, category: (item.category?.name || 'Services') as BusinessListing['category'], location: [item.address?.locality, item.address?.city, item.address?.state].filter(Boolean).join(', ') || 'Location not added', phone: item.phone || 'Not added', alternatePhone: item.alternatePhone, whatsapp: item.whatsapp, email: item.email, website: item.website, logo: item.logo, images: item.images || [], services: item.services || [], address: item.address || {}, workingHours: item.workingHours || [], status: item.listingStatus === 'published' ? 'Active' : item.listingStatus === 'rejected' ? 'Rejected' : item.listingStatus === 'pending_review' ? 'Pending' : item.listingStatus === 'suspended' ? 'Suspended' : item.listingStatus === 'paused' ? 'Paused' : 'Draft', slug: item.slug, rejectionReason: item.rejectionReason, reviewNote: item.reviewNote, kycRejectionReason: item.kycRejectionReason, offers: (item.offers || []).map((offer) => ({ id: offer._id || '', title: offer.title || '', description: offer.description || '', code: offer.code || '', occasion: offer.occasion || '', validUntil: offer.validUntil || '', isActive: offer.isActive !== false })), timeAgo: ago(item.createdAt), rating: stats.average, averageRating: stats.average, reviewsCount: stats.count, views: Number(item.viewCount || 0), enquiries: Number(item.leadCount || 0), verified: item.verificationStatus === 'verified', googlePlaceVerificationStatus: item.googlePlaceVerificationStatus || 'unverified', description: item.description || '', kycStatus: item.kycStatus || 'not_submitted', gstNumber: item.gstNumber, msmeNumber: item.msmeNumber, kycDocuments: item.kycDocuments || [], plan: item.plan || 'free', planExpiresAt: item.planExpiresAt }); };
 export async function loadOwnerDashboard(): Promise<{ businesses: BusinessListing[]; reviews: Review[]; leads: Lead[] }> {
   const [{ items: businesses = [] }, { items: leads = [] }] = await Promise.all([
     request('/owner/businesses?limit=100'),
@@ -120,6 +123,8 @@ export async function loadOwnerDashboard(): Promise<{ businesses: BusinessListin
       timestamp: ago(lead.createdAt),
       message: lead.message || '',
       notes: lead.notes || [],
+      replies: (lead.replies || []).map((reply) => ({ text: reply.text, createdAt: reply.createdAt })),
+      withdrawn: Boolean(lead.withdrawnAt),
       targetBusiness: lead.business?.name || 'Business',
       businessId: lead.business?._id,
       createdAt: lead.createdAt,
@@ -198,7 +203,7 @@ export type AdminUser = { _id: string; name: string; email?: string; phone?: str
 export type AdminUserDetail = { item: AdminUser; listings: { _id: string; name: string; listingStatus: string; kycStatus?: string; verificationStatus?: string; averageRating?: number; reviewCount?: number; viewCount?: number; leadCount?: number; address?: { city?: string; locality?: string }; category?: { name?: string }; createdAt?: string }[]; reviews: { id: string; businessId: string; businessName: string; rating: number; comment: string; createdAt?: string; reply?: string }[] };
 export type AdminReview = { id: string; businessId: string; businessName: string; rating: number; comment: string; createdAt?: string; reviewerName: string; reviewerId: string | null; reviewerEmail: string; source: 'member' | 'imported'; reply: string };
 export type AdminLead = { _id: string; name: string; phone: string; email?: string; service?: string; message: string; status: 'new' | 'contacted' | 'converted'; createdAt?: string; business?: { _id: string; name: string; owner?: { _id: string; name: string; email?: string } } };
-export type AdminStats = { customers: number; owners: number; admins: number; reviews: number; leads: number; leadsLast7Days: number; openReports?: number; pendingClaims?: number };
+export type AdminStats = { customers: number; owners: number; admins: number; reviews: number; leads: number; leadsLast7Days: number; openReports?: number; openListingReports?: number; pendingClaims?: number };
 const qs = (params: Record<string, string | number | undefined>) => { const search = new URLSearchParams(); Object.entries(params).forEach(([key, value]) => { if (value !== undefined && value !== '' && value !== 'all') search.set(key, String(value)); }); return search.toString(); };
 export const loadAdminStats = async (): Promise<AdminStats> => request('/admin/stats');
 export const loadAdminUsers = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminUser>> => request(`/admin/users?${qs(params)}`);
@@ -233,3 +238,7 @@ export async function downloadAdminExport(kind: 'businesses' | 'users') {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a'); link.href = url; link.download = `${kind === 'users' ? 'people' : kind}-${new Date().toISOString().slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
 }
+
+export type AdminListingReport = { _id: string; status: 'open' | 'resolved' | 'dismissed'; reason: string; note?: string; createdAt: string; decisionNote?: string; openOnListing: number; business?: { _id: string; name: string; listingStatus?: string; phone?: string; address?: { city?: string }; owner?: { _id: string; name: string; email?: string } | null }; reporter?: { _id: string; name: string; email?: string } };
+export const loadAdminListingReports = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminListingReport>> => request(`/admin/listing-reports?${qs(params)}`);
+export const decideAdminListingReport = async (id: string, action: 'dismiss' | 'resolve' | 'suspend', note?: string) => request(`/admin/listing-reports/${id}`, { method: 'PATCH', body: JSON.stringify({ action, ...(note ? { note } : {}) }) });

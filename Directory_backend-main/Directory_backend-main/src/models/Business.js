@@ -148,6 +148,8 @@ const businessSchema = new Schema({
   reviews: [reviewSchema],
   testimonials: { type: [testimonialSchema], default: [] },
   rejectionReason: { type: String, maxlength: 2000 },
+  // Set when a live listing goes back to review because the owner changed something sensitive (name, phone, category, city).
+  reviewNote: { type: String, maxlength: 400 },
   timeZone: { type: String, default: 'Asia/Kolkata' },
   verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
   listingStatus: { type: String, enum: ['draft', 'pending_review', 'published', 'paused', 'suspended', 'rejected', 'deleted'], default: 'draft' },

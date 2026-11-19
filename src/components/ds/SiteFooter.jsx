@@ -5,7 +5,7 @@ import { BarContainer, Logo } from "@/components/ds";
 const columns = [
   { title: "Explore", links: [["Explore businesses", "/directory"], ["All categories", "/categories"], ["Browse by area", "/directory"], ["Saved businesses", "/saved"]] },
   { title: "For businesses", links: [["Add your business", "/add-business"], ["Claim a listing", "/login"], ["Owner dashboard", "/business-owner"]] },
-  { title: "Lokal Lens", links: [["How it works", "/#how-it-works"], ["What “Verified” means", "/privacy"], ["Report a listing", "/privacy"], ["Help & contact", "/privacy"]] },
+  { title: "Lokal Lens", links: [["How it works", "/#how-it-works"], ["What “Verified” means", "/terms#verified"], ["Report a listing", "/terms#reporting"], ["Terms & contact", "/terms#contact"]] },
 ];
 
 export default function SiteFooter() {
@@ -29,7 +29,7 @@ export default function SiteFooter() {
           </div>
         </div>
         <div className="flex flex-col gap-3 text-[14px] leading-5 text-[#6e7079] md:flex-row md:items-start md:justify-between">
-          <p>© {new Date().getFullYear()} Lokal Lens · <Link href="/privacy" className="hover:text-[#002fa7]">Privacy</Link> · <Link href="/privacy" className="hover:text-[#002fa7]">Terms</Link></p>
+          <p>© {new Date().getFullYear()} Lokal Lens · <Link href="/privacy" className="hover:text-[#002fa7]">Privacy</Link> · <Link href="/terms" className="hover:text-[#002fa7]">Terms</Link></p>
           <p>Listings are submitted by businesses and reviewed before going live.</p>
         </div>
       </BarContainer>

@@ -142,7 +142,7 @@ export const businessList = () => async (req,res,next) => { try {
     const cat = await Category.findOne({ slug: q.category, isActive: true }).select('_id').lean();
     if (!cat) filter.category = null; else filter.$and = [...(filter.$and || []), { $or: [{ category: cat._id }, { secondaryCategories: cat._id }] }];
   }
-  if(q.city) filter['address.city']=q.q ? caseInsensitiveExact(q.city) : q.city;
+  if (q.city) filter['address.city'] = caseInsensitiveExact(q.city.trim());
   if(q.locality) filter['address.locality']=q.q ? caseInsensitiveExact(q.locality) : q.locality;
   if(q.state) filter['address.state']=q.q ? caseInsensitiveExact(q.state) : q.state;
   if(q.verified === 'true') filter.verificationStatus='verified';
@@ -243,6 +243,9 @@ export const createBusinessLead = (config, mailer) => async (req, res, next) => 
       const lines = [`${name} sent an inquiry about ${business.name}.`, '', `Phone: ${phone}`, ...(email ? [`Email: ${email}`] : []), ...(service ? [`Service: ${service}`] : []), '', message, '', `Open your dashboard to reply: ${config?.CLIENT_URL || ''}/business-owner`];
       mailer.send({ to: owner.email, subject: `New inquiry for ${business.name}`, text: lines.join('\n') }).catch(() => console.error('Inquiry email could not be sent'));
     }
+    // Tell the customer it went through (to the email they gave, else their signed-in account). A mail problem never blocks the inquiry.
+    const customerTo = email || req.user?.email;
+    if (mailer && customerTo) mailer.send({ to: customerTo, subject: `Your inquiry to ${business.name} was sent`, text: [`Hi ${name},`, '', `We sent your inquiry to ${business.name}. They will contact you on ${phone}.`, '', 'Your message:', message, '', req.user ? 'You can follow it in My account on Lokal Lens.' : 'Tip: create a free Lokal Lens account to follow your inquiries and save businesses.'].join('\n') }).catch(() => console.error('Inquiry confirmation email could not be sent'));
     sendSuccess(res, 'Your inquiry was sent to the business', { item: { id: String(lead._id), leadCount } }, 201);
   } catch (error) { next(error); }
 };

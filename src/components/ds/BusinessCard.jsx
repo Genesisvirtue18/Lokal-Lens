@@ -80,25 +80,6 @@ function SaveButton({ data, business }) {
   return <BusinessProfileActions compact business={{ id: data.id, name: data.name, href: data.href, category: data.categoryName, area: data.locality || data.city, city: data.city, address: business.address || {}, image: data.image || "", description: data.description, hasGooglePlaceId: business.hasGooglePlaceId, verified: data.verified, phone: data.phone, isFeatured: data.sponsored }} />;
 }
 
-function Meta({ data, inline, showVerified }) {
-  return (
-    <div className={cx("flex gap-[10px]", inline ? "flex-row flex-wrap items-center gap-x-2.5 gap-y-1.5" : "flex-col items-start")}>
-      <Rating value={data.rating} count={data.reviews} />
-      {data.open && <Badge tone={data.open.tone}>{data.open.text}</Badge>}
-      {showVerified && data.verified && <Badge tone="verified">Verified</Badge>}
-    </div>
-  );
-}
-
-function Actions({ data, className }) {
-  return (
-    <div className={cx("flex items-center gap-2", className)}>
-      <Button type="secondary" size="s" href={data.href}>View details</Button>
-      {data.phone && <Button type="ghost" size="s" href={`tel:${data.phone}`} icon={<Phone size={18} aria-hidden="true" />} aria-label={`Call ${data.name}`}>Call</Button>}
-    </div>
-  );
-}
-
 export default function BusinessCard({ business, layout = "grid", sponsored, className = "", selected = false }) {
   const data = cardData(business, sponsored);
   const shell = cx("overflow-hidden rounded-[16px] border bg-white", selected ? "border-[#002fa7] ring-2 ring-[#002fa7]/30" : "border-[#dcdbd5]");

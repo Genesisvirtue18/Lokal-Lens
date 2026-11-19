@@ -39,7 +39,7 @@ function MoreMenu({ active, signedIn }) {
     document.addEventListener("mousedown", close); document.addEventListener("keydown", key);
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", key); };
   }, [open]);
-  const logout = async () => { try { await endSession(); } catch { /* the local sign-in is cleared anyway */ } window.dispatchEvent(new Event("storage")); window.location.assign("/"); };
+  const logout = async () => { try { await endSession(); } catch { /* the local sign-in is cleared anyway */ } window.dispatchEvent(new Event("storage")); window.location.href = "/"; };
   const items = [...(signedIn ? [[role === "customer" ? "My account" : "Dashboard", dashboardHref(role), "dashboard", LayoutDashboard]] : []), ...moreItems, ...(signedIn ? [] : [["Sign in", "/login", "login", LogIn]])];
   const current = items.some(([, , key]) => key === active);
   const first = signedIn ? name.split(/\s+/)[0] : "";
@@ -83,7 +83,7 @@ function InlineSearch({ query = "", city = "" }) {
   );
 }
 
-export default function SiteHeader({ variant = "desktop", active = "", cities = [], city = "", cityBasePath = "/directory", query = "" }) {
+export default function SiteHeader({ active = "", cities = [], city = "", cityBasePath = "/directory", query = "" }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const signedIn = useSyncExternalStore(subscribe, readSignedIn, () => false);
   // One header for every page: logo, search with city, primary links, Add Your Business and the account menu.
@@ -107,7 +107,7 @@ export default function SiteHeader({ variant = "desktop", active = "", cities = 
         </div>
 
         <div className="ml-auto flex items-center gap-1 lg:hidden">
-          <IconButton label="Search businesses" className="border-transparent bg-transparent" onClick={() => { window.location.assign("/directory"); }}><Search size={22} aria-hidden="true" /></IconButton>
+          <IconButton label="Search businesses" className="border-transparent bg-transparent" onClick={() => { window.location.href = "/directory"; }}><Search size={22} aria-hidden="true" /></IconButton>
           <IconButton label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen} className="border-transparent bg-transparent" onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}</IconButton>
         </div>
       </BarContainer>

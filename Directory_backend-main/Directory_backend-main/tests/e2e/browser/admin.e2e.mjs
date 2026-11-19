@@ -46,6 +46,50 @@ await check("Delete listing: type its name, give an authenticator code, then it 
   const gone = (await api("GET", "/admin/businesses?limit=50", { token: tok })).data.items.every((b) => b.name !== name);
   return delBtnDisabledFirst === true && gone;
 });
+await check("a live listing whose owner changed its name comes back to review with a note saying what changed", async () => {
+  const ownerTok = (await api("POST", "/auth/login", { body: { email: "owner@e2e.test", password: "Test@12345" } })).data.accessToken;
+  const changed = await api("PATCH", `/owner/businesses/${ids.smile}`, { token: ownerTok, body: { name: "Smile Dental Care" } });
+  if (!changed.data?.sentForReview) throw new Error("the edit did not go to review");
+  await home("Businesses"); await sleep(800);
+  const idx = await t.ev("[...document.querySelectorAll('li')].findIndex((l) => /Smile Dental Care/.test(l.innerText) && [...l.querySelectorAll('button')].some((b) => /^Review$/.test(b.innerText.trim())))");
+  if (idx < 0) throw new Error("renamed listing is not in the waiting list");
+  await t.ev(`(() => { const li = [...document.querySelectorAll('li')][${idx}]; [...li.querySelectorAll('button')].find((b) => /^Review$/.test(b.innerText.trim())).click(); })()`); await sleep(1200);
+  const noteShown = await t.has("Sent back for review: Changed: name");
+  await t.click("Approve and publish"); await sleep(2500);
+  const b = await biz(ids.smile);
+  return noteShown && b.listingStatus === "published" && !b.reviewNote && (await api("GET", "/businesses/smile-dental")).status === 200;
+});
+await check("bulk actions: select two listings, suspend them together, then restore them", async () => {
+  await home("Businesses"); await sleep(800);
+  await t.ev("(() => { const boxes = [...document.querySelectorAll('input[type=checkbox][aria-label^=\"Select \"]')].filter((b) => !/Select all/.test(b.getAttribute('aria-label'))); boxes.slice(0, 2).forEach((b) => b.click()); })()"); await sleep(600);
+  const bar = await t.has("2 selected");
+  await t.click("^Suspend$", { scope: "body" }); await sleep(900);
+  if ((await t.ev("document.querySelectorAll('[role=alertdialog]').length")) > 0) { if (await t.has("authenticator")) await withCode("Suspend"); else await t.click("Suspend"); }
+  await sleep(2500);
+  const rows = (await api("GET", "/admin/businesses?limit=50", { token: tok })).data.items;
+  const suspended = rows.filter((x) => x.listingStatus === "suspended").length;
+  await t.ev("(() => { const boxes = [...document.querySelectorAll('input[type=checkbox][aria-label^=\"Select \"]')].filter((b) => !/Select all/.test(b.getAttribute('aria-label')) && !b.checked); boxes.slice(0, 0); })()");
+  await home("Businesses"); await sleep(800);
+  await t.ev("(() => { const boxes = [...document.querySelectorAll('input[type=checkbox][aria-label^=\"Select \"]')].filter((b) => !/Select all/.test(b.getAttribute('aria-label'))); boxes.forEach((b) => b.click()); })()"); await sleep(600);
+  await t.click("^Restore$", { scope: "body" }); await sleep(900);
+  if ((await t.ev("document.querySelectorAll('[role=alertdialog]').length")) > 0) { if (await t.has("authenticator")) await withCode("Restore"); else await t.click("Restore"); }
+  await sleep(2500);
+  const after = (await api("GET", "/admin/businesses?limit=50", { token: tok })).data.items.filter((x) => x.listingStatus === "suspended").length;
+  console.log("   suspended after bulk suspend:", suspended, "| after bulk restore:", after);
+  return bar && suspended >= 1 && after === 0;
+});
+await check("Edit all details: the admin changes a listing in the full form and saves it", async () => {
+  await home("Businesses"); await sleep(800);
+  await t.click("^Edit$", { scope: "body", nth: 0 }); await sleep(3500);
+  const NEW = "Edited by the admin in the full form: gentle family dentistry with clear pricing and friendly staff.";
+  await t.ev(`(() => { const ta = [...document.querySelectorAll('textarea')][0]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, ${JSON.stringify(NEW)}); ta.dispatchEvent(new Event('input', { bubbles: true })); })()`); await sleep(400);
+  for (let i = 0; i < 8; i++) {
+    if (/STEP 5 OF 5/.test(await t.text())) { await t.click("Save changes|Save and publish|Update listing|Publish|Save", { scope: "body" }); await sleep(3000); break; }
+    await t.click("^Continue$", { scope: "body" }); await sleep(1500);
+  }
+  const rows = (await api("GET", "/admin/businesses?limit=50", { token: tok })).data.items;
+  return rows.some((x) => (x.description || "").startsWith("Edited by the admin"));
+});
 await t.shot("admin_businesses");
 
 console.log("\nPeople");
@@ -95,6 +139,18 @@ await check("claim: Approve and hand over moves the listing (needs authenticator
   const owner = (await biz(ids.owned2)).owner; return String(owner?._id || owner) === ids.customer;
 });
 await check("claimant became a business owner", async () => (await user(ids.customer)).role === "business_owner");
+await check("claim: Reject sends no listing anywhere and tells the claimant", async () => {
+  const victim = (await api("POST", "/auth/login", { body: { email: "spam@e2e.test", password: "Test@12345" } })).data.accessToken;
+  const sent = await api("POST", `/businesses/${ids.smile}/claims`, { token: victim, body: { relationship: "owner", phone: "9811111111", message: "I think this listing is mine, please check." } });
+  if (sent.status !== 201) throw new Error("claim not created: " + sent.message);
+  await home("Reports"); await t.click("Listing claims"); await sleep(1500);
+  await t.click("^Reject$", { scope: "body", nth: 0 }); await sleep(900);
+  if ((await t.ev("document.querySelectorAll('[role=alertdialog]').length")) > 0) await t.click("Reject|Confirm", { nth: 0 });
+  await sleep(2500);
+  const claims = (await api("GET", "/admin/claims?status=all&limit=50", { token: tok })).data.items;
+  const mine = claims.find((c) => String(c.claimant?._id) === ids.victim);
+  return mine?.status === "rejected" && String((await biz(ids.smile)).owner?._id || (await biz(ids.smile)).owner) === ids.owner;
+});
 
 console.log("\nCategories");
 await home("Categories");

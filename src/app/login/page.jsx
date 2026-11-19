@@ -246,7 +246,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
               {registering && (
                 <div>
                   <label className="flex min-h-11 items-center gap-3 text-[16px] leading-6"><input type="checkbox" checked={terms} onChange={(event) => setTerms(event.target.checked)} className="h-[18px] w-[18px] shrink-0 accent-[#002fa7]" />
-                    <span>I agree to the <Link href="/privacy" className="text-[#002fa7] underline">Terms and Privacy Policy</Link></span></label>
+                    <span>I agree to the <Link href="/terms" className="text-[#002fa7] underline">Terms of Service</Link> and <Link href="/privacy" className="text-[#002fa7] underline">Privacy Policy</Link></span></label>
                   {fieldErrors.terms && <p role="alert" className="text-[14px] leading-5 text-[#b42318]">{fieldErrors.terms}</p>}
                 </div>
               )}

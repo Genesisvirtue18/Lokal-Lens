@@ -1,5 +1,6 @@
 import { Business } from '../models/Business.js';
 import { Category } from '../models/Category.js';
+import { User } from '../models/User.js';
 import { Lead } from '../models/Lead.js';
 import { BusinessDailyStat, dayKey } from '../models/BusinessDailyStat.js';
 import { AppError } from '../utils/AppError.js';
@@ -46,16 +47,35 @@ export const ownerLeads = () => async (req, res, next) => {
     sendSuccess(res, 'Business inquiries retrieved successfully', { items });
   } catch (error) { next(error); }
 };
-export const updateOwnerLead = () => async (req, res, next) => {
+// Where to write to the customer: the email on the inquiry, else the signed-in account it was sent from.
+const customerAddress = async (lead) => lead.email || (lead.user ? (await User.findById(lead.user).select('email notificationPreferences').lean())?.email : undefined);
+const tell = (mailer, to, subject, lines) => { if (mailer && to) mailer.send({ to, subject, text: lines.join('\n') }).catch(() => console.error('Customer email could not be sent')); };
+export const updateOwnerLead = (mailer) => async (req, res, next) => {
   try {
     const businessIds = await Business.find({ owner: req.user.id, deletedAt: null }).distinct('_id');
-    const item = await Lead.findOneAndUpdate(
-      { _id: req.params.id, business: { $in: businessIds } },
-      { $set: { status: req.validated.body.status } },
-      { new: true },
-    ).populate('business', 'name').lean();
-    if (!item) throw new AppError('Inquiry not found', 404);
+    const previous = await Lead.findOne({ _id: req.params.id, business: { $in: businessIds } }).select('status').lean();
+    if (!previous) throw new AppError('Inquiry not found', 404);
+    const item = await Lead.findOneAndUpdate({ _id: req.params.id }, { $set: { status: req.validated.body.status } }, { new: true }).populate('business', 'name').lean();
+    if (previous.status !== item.status && item.status !== 'new' && !item.withdrawnAt) {
+      const to = await customerAddress(item);
+      tell(mailer, to, item.status === 'converted' ? `${item.business?.name} marked your inquiry as completed` : `${item.business?.name} has seen your inquiry`, [`Hi ${item.name},`, '', item.status === 'converted' ? `${item.business?.name} marked your inquiry as completed.` : `${item.business?.name} has seen your inquiry and will contact you on ${item.phone}.`, '', 'You can follow your inquiries any time from My account on Lokal Lens.']);
+    }
     sendSuccess(res, 'Inquiry status updated', { item });
+  } catch (error) { next(error); }
+};
+export const replyToLead = (mailer) => async (req, res, next) => {
+  try {
+    const businessIds = await Business.find({ owner: req.user.id, deletedAt: null }).distinct('_id');
+    const item = await Lead.findOne({ _id: req.params.id, business: { $in: businessIds } });
+    if (!item) throw new AppError('Inquiry not found', 404);
+    if (item.withdrawnAt) throw new AppError('The customer withdrew this inquiry', 409);
+    if (item.replies.length >= 20) throw new AppError('An inquiry can have at most 20 replies', 422);
+    item.replies.push({ text: req.validated.body.text });
+    if (item.status === 'new') item.status = 'contacted';
+    await item.save(); await item.populate('business', 'name');
+    const to = await customerAddress(item);
+    tell(mailer, to, `${item.business?.name} replied to your inquiry`, [`Hi ${item.name},`, '', `${item.business?.name} wrote:`, '', req.validated.body.text, '', `You can also call them on ${item.business?.phone || 'the number on their listing'}. Your inquiries are in My account on Lokal Lens.`]);
+    sendSuccess(res, 'Reply saved', { item: item.toObject() });
   } catch (error) { next(error); }
 };
 export const addOwnerLeadNote = () => async (req, res, next) => {
@@ -85,7 +105,19 @@ export const updateBusiness = placesService => async (req, res, next) => {
     }
 
     stage = 'apply update';
+    const ids = (list) => (list || []).map(String).sort().join(',');
+    const before = { name: item.name, phone: item.phone, alternatePhone: item.alternatePhone || '', category: String(item.category || ''), subcategories: ids(item.subcategories), secondaryCategories: ids(item.secondaryCategories), city: item.address?.city || '' };
     Object.assign(item, body);
+    // A live listing that changes who it is (name, phone, category, city) is checked again before the change goes public.
+    const after = { name: item.name, phone: item.phone, alternatePhone: item.alternatePhone || '', category: String(item.category || ''), subcategories: ids(item.subcategories), secondaryCategories: ids(item.secondaryCategories), city: item.address?.city || '' };
+    const labels = { name: 'name', phone: 'phone', alternatePhone: 'alternate phone', category: 'category', subcategories: 'category', secondaryCategories: 'category', city: 'city' };
+    const changed = [...new Set(Object.keys(before).filter((key) => before[key] !== after[key]).map((key) => labels[key]))];
+    let sentForReview = false;
+    if (item.listingStatus === 'published' && changed.length) {
+      item.listingStatus = 'pending_review';
+      item.reviewNote = `Changed: ${changed.join(', ')}. Was "${before.name}"${before.phone !== after.phone ? `, phone ${before.phone}` : ''}.`.slice(0, 400);
+      sentForReview = true;
+    }
     if (['draft', 'rejected'].includes(item.listingStatus)) {
       if (!item.description || !item.phone || !item.address?.addressLine1 || !item.services?.length) {
         throw new AppError('Description, phone, address line 1, and at least one service are required before submission', 422);
@@ -99,7 +131,7 @@ export const updateBusiness = placesService => async (req, res, next) => {
     await item.save();
     stage = 'populate category';
     await item.populate('category', 'name');
-    sendSuccess(res, 'Business updated successfully', { item });
+    sendSuccess(res, sentForReview ? 'Saved. Because you changed the business details, our team will check the listing again. It stays hidden until then.' : 'Business updated successfully', { item, sentForReview, changed: sentForReview ? changed : [] });
   } catch (error) {
     if (!(error instanceof AppError)) {
       console.error('Owner business update failed', {
