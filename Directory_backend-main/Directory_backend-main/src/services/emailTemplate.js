@@ -8,7 +8,8 @@ const BODY = '#2d2f36';
 const MUTED = '#6e7079';
 const LINE = '#dcdbd5';
 const PAPER = '#f1f1ee';
-const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
+const FONT = "'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
+const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap';
 
 export const escapeHtml = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 const safeUrl = (value) => { try { const url = new URL(String(value)); return ['http:', 'https:'].includes(url.protocol) ? url.toString() : ''; } catch { return ''; } };
@@ -32,7 +33,7 @@ export function renderEmail(input) {
   for (const text of paragraphs) rows.push(paragraphHtml(text));
   if (code) {
     rows.push(`<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:8px 0 8px;"><tr><td align="center" style="background:#f3f6fd;border:1px solid #cfd9f3;border-radius:12px;padding:20px 12px;">
-      <div style="font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:34px;line-height:40px;font-weight:700;letter-spacing:10px;color:${BRAND};padding-left:10px;">${escapeHtml(code)}</div>
+      <div style="font-family:${FONT};font-size:34px;line-height:40px;font-weight:700;letter-spacing:10px;color:${BRAND};padding-left:10px;">${escapeHtml(code)}</div>
       ${codeNote ? `<div style="margin-top:8px;font-size:13px;line-height:18px;color:${MUTED};">${escapeHtml(codeNote)}</div>` : ''}
     </td></tr></table>`);
   }
@@ -49,10 +50,10 @@ export function renderEmail(input) {
   if (note) rows.push(`<p style="margin:0;padding-top:16px;border-top:1px solid ${LINE};font-size:13px;line-height:20px;color:${MUTED};">${escapeHtml(note)}</p>`);
 
   return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><title>${escapeHtml(heading || 'Lokal Lens')}</title></head>
-<body style="margin:0;padding:0;background:${PAPER};">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"><link href="${FONT_CSS}" rel="stylesheet"><style>@import url(${FONT_CSS});body,td,p,h1,div,a{font-family:${FONT};}</style><title>${escapeHtml(heading || 'Lokal Lens')}</title></head>
+<body style="margin:0;padding:0;background:${PAPER};font-family:${FONT};">
 ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${PAPER};font-size:1px;line-height:1px;">${escapeHtml(preheader)}</div>` : ''}
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${PAPER};"><tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${PAPER};font-family:${FONT};"><tr><td align="center" style="padding:28px 12px;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;">
     <tr><td style="padding:0 4px 16px;">
       <a href="${homeAttr}" style="text-decoration:none;"><table role="presentation" cellspacing="0" cellpadding="0"><tr>

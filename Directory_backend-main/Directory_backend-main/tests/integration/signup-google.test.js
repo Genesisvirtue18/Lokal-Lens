@@ -26,6 +26,11 @@ test('sign-up picks the role, validates the phone number, and Google sign-in fol
     assert.equal(owner.phone, '9876543210');
     await post('/auth/register', { name: 'Sneaky', email: 'sneaky@example.com', password: 'Passw0rd!x', role: 'admin' }).expect(400);
     await post('/auth/register', { name: 'Bad Phone', email: 'bad@example.com', password: 'Passw0rd!x', phone: '12345' }).expect(400);
+    // A number held by someone who never confirmed their email doesn't block anybody (no squatting by starting sign-ups)...
+    await post('/auth/register', { name: 'Takes It Over', email: 'takeover@example.com', password: 'Passw0rd!x', phone: '9876543210' }).expect(201);
+    assert.equal((await User.findOne({ email: 'own@example.com' })).phone, undefined, 'released from the unconfirmed account');
+    // ...but a confirmed account keeps its number.
+    await User.updateOne({ email: 'takeover@example.com' }, { emailVerified: true });
     const dup = await post('/auth/register', { name: 'Dup Phone', email: 'dup@example.com', password: 'Passw0rd!x', phone: '9876543210' }).expect(409);
     assert.match(dup.body.message, /mobile number/);
 

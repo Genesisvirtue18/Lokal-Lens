@@ -9,6 +9,8 @@ test('codes, buttons and details are rendered, and the plain-text version carrie
   assert.match(html, /Expires in 10 minutes/);
   assert.match(html, /<a href="https:\/\/lokallens\.example\/x\?a=1&amp;b=2"/, 'link attributes are escaped');
   assert.match(html, /Lokal Lens/);
+  assert.match(html, /family=Poppins/, 'Poppins is requested');
+  assert.match(html, /font-family:'Poppins',/, 'and comes first in the font list, with fallbacks after it');
   const text = renderText(input);
   assert.match(text, /482913/);
   assert.match(text, /Phone: 9812345678/);
