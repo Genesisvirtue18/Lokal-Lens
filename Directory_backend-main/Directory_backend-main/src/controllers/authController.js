@@ -18,11 +18,14 @@ const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 12);
 export const register = (config, mailer) => async (req, res, next) => { try {
   const { name, email, password, role, phone } = req.validated.body;
   if (isBlockedTestEmail(config, email)) throw new AppError('This address can’t be used here', 400);
-  if (await User.exists({ email })) throw new AppError('An account with this email already exists. Sign in instead.', 409);
+  const existing = await User.findOne({ email }).select('+passwordHash');
+  if (existing && !isRemoved(existing)) throw new AppError('An account with this email already exists. Sign in instead.', 409);
   const mobile = nationalPhone(phone);
-  if (mobile && await User.exists({ phone: mobile })) throw new AppError('This mobile number is already used by another account.', 409);
+  if (mobile && await User.exists({ phone: mobile, ...(existing ? { _id: { $ne: existing._id } } : {}) })) throw new AppError('This mobile number is already used by another account.', 409);
   const displayName = name || email.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 120) || 'Lokal Lens member';
-  const user = new User({ name: displayName.length >= 2 ? displayName : 'Lokal Lens member', email, role, ...(mobile ? { phone: mobile } : {}), passwordHash: await bcrypt.hash(password, 12), emailVerified: false });
+  const user = existing || new User({ email });
+  if (existing) startFresh(user);
+  Object.assign(user, { name: displayName.length >= 2 ? displayName : 'Lokal Lens member', role, ...(mobile ? { phone: mobile } : {}), passwordHash: await bcrypt.hash(password, 12), emailVerified: false });
   const devCode = await sendCode(user, email, config, mailer);
   sendSuccess(res, 'We sent a 6-digit code to your email. Enter it to finish creating your account.', { expiresInSeconds: 600, ...(devCode ? { devCode } : {}) }, 201);
 } catch (e) { next(e); } };
@@ -31,6 +34,14 @@ export const register = (config, mailer) => async (req, res, next) => { try {
 const nationalPhone = (value) => value ? String(value).replace(/[\s-]/g, '').replace(/^\+?91(?=[6-9]\d{9}$)/, '') : undefined;
 const isBlockedTestEmail = (config, email) => config.NODE_ENV === 'production' && /@lokallens\.test$/i.test(email);
 const isAdminRole = (user) => ['admin', 'super_admin'].includes(user.role);
+// An account that was removed (deleted by its owner, or cleaned up by us) can sign up again with the same email. The old profile is wiped
+// and starts fresh; the emailed code proves the person owns the address. Admin accounts are never revived this way.
+const isRemoved = (user) => Boolean(user) && user.status === 'deleted' && !isAdminRole(user);
+const startFresh = (user) => {
+  user.status = 'active'; user.deletedAt = null; user.emailVerified = false; user.passwordHash = undefined; user.googleId = undefined;
+  user.totpEnabled = false; user.totpSecretEnc = undefined; user.totpPendingEnc = undefined; user.totpRecovery = []; user.saved = []; user.platformManaged = false;
+  user.phone = undefined; user.avatar = undefined; user.failedLogins = 0; user.lockedUntil = undefined;
+};
 
 // Creates and emails a 6-digit code. Returns it only in development when no email service is set up.
 async function sendCode(user, email, config, mailer, subjectNote = 'Lokal Lens') {
@@ -215,15 +226,18 @@ export const requestOtp = (config, mailer) => async (req, res, next) => { try {
   const { email, name, role, phone } = req.validated.body;
   if (isBlockedTestEmail(config, email)) return sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600 });
   let user = await User.findOne({ email }).select('+otpHash +otpExpiresAt +otpSentAt');
-  if (user && user.status !== 'active') throw new AppError('This account is not active', 403);
+  const fresh = isRemoved(user);
+  if (fresh) startFresh(user);
+  else if (user && user.status !== 'active') throw new AppError('This account is not active', 403);
   if (user?.otpSentAt && Date.now() - user.otpSentAt.getTime() < 30 * 1000) throw new AppError('Please wait a few seconds before asking for another code.', 429);
   // Admins never sign in with a code alone. Answer the same way, send nothing.
   if (user && isAdminRole(user)) return sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600 });
-  if (!user) {
+  if (!user || fresh) {
     const displayName = name || email.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 120);
     const mobile = nationalPhone(phone);
-    if (mobile && await User.exists({ phone: mobile })) throw new AppError('This mobile number is already used by another account.', 409);
-    user = new User({ name: displayName.length >= 2 ? displayName : 'Lokal Lens member', email, role, ...(mobile ? { phone: mobile } : {}) });
+    if (mobile && await User.exists({ phone: mobile, ...(user ? { _id: { $ne: user._id } } : {}) })) throw new AppError('This mobile number is already used by another account.', 409);
+    const details = { name: displayName.length >= 2 ? displayName : 'Lokal Lens member', role, ...(mobile ? { phone: mobile } : {}) };
+    if (user) Object.assign(user, details); else user = new User({ email, ...details });
   }
   const devCode = await sendCode(user, email, config, mailer, 'Lokal Lens');
   sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600, ...(devCode ? { devCode } : {}) });
@@ -275,7 +289,8 @@ export const googleLogin = config => async (req, res, next) => { try {
   if (isBlockedTestEmail(config, profile.email)) throw new AppError('This address can’t be used here', 400);
 
   let user = await User.findOne({ email: profile.email }).select('+totpSecretEnc +totpPendingEnc +totpLastStep +totpRecovery +failedLogins +lockedUntil');
-  if (user) {
+  const removed = isRemoved(user);
+  if (user && !removed) {
     if (user.status !== 'active') throw new AppError('This account is not active', 403);
     if (isAdminRole(user)) throw new AppError('Admins sign in with a password and an authenticator code.', 403);
     if (user.googleId && user.googleId !== profile.sub) throw new AppError('This email is linked to a different Google account.', 409);
@@ -290,8 +305,9 @@ export const googleLogin = config => async (req, res, next) => { try {
     return sendSuccess(res, 'Choose how you will use Lokal Lens', { needsRole: true, signupToken: token, profile: { name: profile.name, email: profile.email } });
   }
   const mobile = nationalPhone(phone);
-  if (mobile && await User.exists({ phone: mobile })) throw new AppError('This mobile number is already used by another account.', 409);
+  if (mobile && await User.exists({ phone: mobile, ...(user ? { _id: { $ne: user._id } } : {}) })) throw new AppError('This mobile number is already used by another account.', 409);
   const display = profile.name.length >= 2 ? profile.name.slice(0, 120) : profile.email.split('@')[0].replace(/[._-]+/g, ' ').slice(0, 120);
-  user = new User({ name: display.length >= 2 ? display : 'Lokal Lens member', email: profile.email, role, googleId: profile.sub, emailVerified: true, ...(mobile ? { phone: mobile } : {}), ...(safePicture(profile.picture) ? { avatar: safePicture(profile.picture) } : {}) });
+  if (removed) startFresh(user); else user = new User({ email: profile.email });
+  Object.assign(user, { name: display.length >= 2 ? display : 'Lokal Lens member', role, googleId: profile.sub, emailVerified: true, ...(mobile ? { phone: mobile } : {}), ...(safePicture(profile.picture) ? { avatar: safePicture(profile.picture) } : {}) });
   await finishSignIn(res, user, config, req);
 } catch (e) { next(e); } };

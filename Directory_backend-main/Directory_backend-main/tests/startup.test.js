@@ -13,7 +13,7 @@ const base = {
 
 test('startup rejects missing configuration before opening HTTP listener', async () => {
   await assert.rejects(execute(process.execPath, [entry], {
-    env: { ...base, MONGODB_URI: '' }, timeout: 20000,
+    env: { ...base, MONGODB_URI: '' }, timeout: 45000,
   }), error => {
     assert.equal(error.code, 1);
     assert.match(error.stderr, /MONGODB_URI/);
@@ -22,11 +22,12 @@ test('startup rejects missing configuration before opening HTTP listener', async
   });
 });
 
-test('initial database failure exits nonzero and never logs URI credentials', async () => {
+// The server waits up to 10 s for the database before giving up, so on a busy machine this needs more than the default room.
+test('initial database failure exits nonzero and never logs URI credentials', { timeout: 60000 }, async () => {
   await assert.rejects(execute(process.execPath, [entry], {
     // Local closed port only: this cannot reach a configured or production database.
     env: { ...base, MONGODB_URI: 'mongodb://fixture-user:fixture-password@127.0.0.1:1/unavailable' },
-    timeout: 20000,
+    timeout: 45000,
   }), error => {
     assert.equal(error.code, 1);
     assert.match(error.stderr, /Server startup failed/);
