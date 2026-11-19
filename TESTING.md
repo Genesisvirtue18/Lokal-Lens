@@ -1,224 +1,190 @@
-# Lokal Lens: poora manual test (ek ek cheez)
+# Lokal Lens: poori kahaani, shuru se (test karne ka aasaan tareeka)
 
-Har item ka format: **kya karo → kya dikhna chahiye**. Jo item fail ho, uske saamne X lagao aur screenshot rakho.
-
-## 0. Pehle taiyari
-
-1. Backend aur frontend dono chalao (`npm run dev` dono folders mein). Backend `.env` mein MAIL_*, GOOGLE_SIGNIN_CLIENT_ID; frontend `.env.local` mein NEXT_PUBLIC_GOOGLE_CLIENT_ID hona chahiye.
-2. Mail check: backend folder se `node scripts/send-test-email.js aapka@gmail.com` → "Sent" aana chahiye.
-3. **Teen alag browser profile / incognito window** rakho: Customer, Owner, Admin. Ek hi browser mein ek saath do role login mat rakho.
-4. Test accounts (sirf local): `owner@lokallens.test`, `customer@lokallens.test` (password `Test@12345`).
-5. **Admin ke liye apna naya admin banao** (purana test admin ka authenticator mere paas tha):
-   `ADMIN_EMAIL=aapki@gmail.com ADMIN_NAME="Aapka Naam" ADMIN_PASSWORD='lamba-password' node scripts/create-admin.js`
-   Pehli baar login par QR dikhega, Google Authenticator se scan karo, backup codes **save** karo.
-6. Ek Gmail alag se rakho (Google login aur email test ke liye). Wo Google Console ke "Test users" mein honi chahiye.
+Ye guide ek **kahaani** ki tarah hai. Platform bilkul khali hai, phir ek-ek karke log aate hain, aur aakhir mein bahut saare businesses ho jaate hain.
+Har step mein likha hai: **kaun** hai, **kya karega**, aur **kya dikhna chahiye**.
 
 ---
 
-## 1. Public pages (bina login)
+## Kahan test karein? (local ya live)
 
-| # | Kya karo | Kya dikhna chahiye |
+| | Local (aapka computer) | Live (Vercel + Render) |
 |---|---|---|
-| 1.1 | `/` home kholo | Hero, search box, categories, featured listings, offers, "Discover by area". Koi error nahi, images dikhein |
-| 1.2 | Search box mein "dentist" likho, city chuno, Search | `/directory` par results, "Results for dentist" |
-| 1.3 | Search mein bakwaas "zzzqq" | "No results" wala saaf message, "Clear filters" button |
-| 1.4 | `/directory` par filters: Open now, Verified, Rating 4+, Area | Results badalte hain, count badalta hai, filter hataane par wapas |
-| 1.5 | Sort: Relevance / Rating | Order badalta hai |
-| 1.6 | Grid/List view | Dono chalte hain |
-| 1.7 | Load more / pagination | Agla page aata hai |
-| 1.8 | `/categories` | Saari categories icon ke saath, click karo → us category ki list |
-| 1.9 | `/ghaziabad` (city page) | "Lokal Lens lists N local businesses in Ghaziabad..." paragraph, categories ki list |
-| 1.10 | City page se category click | `/ghaziabad/healthcare/nct-...` par **listings dikhni chahiye** (0 results nahi), neeche "About healthcare in Ghaziabad" paragraph |
-| 1.11 | `/ghaziabad/healthcare` seedha kholo | Apne aap `/nct-...` wale address par chala jaye |
-| 1.12 | `/offers` | Live offers, city filter |
-| 1.13 | `/ask` | Sawaal likho, matching listings aaye |
-| 1.14 | `/terms`, `/privacy` | Dono khulein, footer aur sign-up se link ho |
-| 1.15 | Galat address `/kuch-nahi-hai` | "We couldn't find that page" (404), blank page nahi |
-| 1.16 | Footer ke saare links | Koi dead link nahi |
+| Kab | **Pehle yahan**, poori kahaani | Local pass hone ke baad, **sirf chhota check** |
+| Fayda | Kuch bhi galat ho jaye to database saaf kar do, koi nuksaan nahi | Asli users ki tarah, asli email, asli Google |
+| Dhyan | Email aur Google asli chalte hain (mail apni hi Gmail par aayegi) | Yahan test ka data (fake business) asli users ko dikhega. Test ke baad **delete** kar do |
 
-### Listing page (kisi bhi business par click karo)
-| # | Kya karo | Kya dikhna chahiye |
+**Rule:** Poori kahaani (chapter 1 se 8) **local par**. Live par sirf **chapter 0, 2, 3, 4 ka ek-ek chhota** test (neeche likha hai).
+
+### Local par "bilkul khali" platform kaise banayein
+Abhi aapke local database mein 165 business hain. "Shuru se" dekhne ke liye ek naya khali database lo:
+
+1. Backend ki `.env` mein `MONGODB_URI=mongodb://127.0.0.1:27017/business_directory` ko badal kar likho:
+   `MONGODB_URI=mongodb://127.0.0.1:27017/lokal_lens_fresh`
+2. Backend restart karo. Ab database khali hai (purana database bacha rehta hai, kuch delete nahi hota).
+3. Wapas purane data par aane ke liye wahi line pehle jaisi kar do.
+
+---
+
+## Chapter 0: tayyari (5 minute)
+
+1. Backend aur frontend dono chalao. Browser mein `http://localhost:3000` kholo.
+2. **Teen alag browser rakho** (ya Chrome ke teen profile / incognito):
+   - Browser A = **Admin**
+   - Browser B = **Owner** (business wala)
+   - Browser C = **Customer** (grahak)
+3. Teen alag email chahiye (Gmail ke `+` trick se ek hi Gmail kaam karti hai):
+   - admin: `aapki@gmail.com`
+   - owner: `aapki+owner@gmail.com`
+   - customer: `aapki+customer@gmail.com`
+   (sab mail aapki ek hi inbox mein aayegi)
+
+---
+
+## Chapter 1: khali platform, Admin ka pehla din (Browser A)
+
+**Admin banao** (terminal mein `Directory_backend-main\Directory_backend-main` folder ke andar):
+
+PowerShell (Windows) mein:
+```
+$env:ADMIN_EMAIL="aapki@gmail.com"; $env:ADMIN_NAME="Aapka Naam"; $env:ADMIN_PASSWORD="lamba-password-yahan"; node scripts/create-admin.js
+```
+Git Bash mein:
+```
+ADMIN_EMAIL=aapki@gmail.com ADMIN_NAME="Aapka Naam" ADMIN_PASSWORD='lamba-password-yahan' node scripts/create-admin.js
+```
+
+| # | Admin kya karega | Kya dikhna chahiye |
 |---|---|---|
-| 1.20 | Photos, naam, rating, "Open until", address, services, hours | Sab sahi aur poora |
-| 1.21 | Photos gallery "All photos" | Lightbox khule, band ho |
-| 1.22 | **Call** button | Confirm dialog, "Continue" par dialer khule |
-| 1.23 | **WhatsApp** button (jis listing mein WhatsApp number ho) | Dialog, phir wa.me khule aur message pehle se likha ho: "Hi, I found X on Lokal Lens..." |
-| 1.24 | Get directions / Website | Naya tab |
-| 1.25 | Save (heart) | Saved ho jaye, `/saved` mein dikhe |
-| 1.26 | Share | Link copy ho |
-| 1.27 | Inquiry form: bina login naam, phone, message bharo, **Send inquiry** | "Your inquiry was sent". Phone mein letters type nahi hone chahiye |
-| 1.28 | Inquiry form mein galat/chhota phone | Error, bheja na jaye |
-| 1.29 | Mobile par listing page (browser ko chhota karo / phone par kholo) | Sideways scroll nahi, neeche Call bar, amenities 2 column |
-| 1.30 | "Report this listing" (bina login) | Login page par bhejna chahiye |
-| 1.31 | Review "Write a review" (bina login) | Login maange |
+| 1.1 | `/login` → "Use password instead" → email + password → Sign in | "Set up two-step verification" ka QR |
+| 1.2 | Phone mein Google Authenticator se QR scan karo, 6 akshar ka code daalo | **8 backup codes** dikhein. Inhe kahin save karo, phir "I saved these" |
+| 1.3 | Admin dashboard khulta hai | Overview; businesses 0, sab khali, "No businesses yet" jaise saaf message |
+| 1.4 | **Categories** tab → "Add category" → naam likho "Healthcare" | Icon apne aap chun jata hai (stethoscope). Add dabao |
+| 1.5 | Healthcare ke andar subcategory "Dentists" aur uski services (Dental check-up, Teeth cleaning, Root canal) | Dikhe |
+| 1.6 | Ek aur category "Cafes & Restaurants" (subcategory "Cafes", services Coffee, Breakfast) | Dikhe |
+| 1.7 | Browser A mein naya tab: `http://localhost:3000` (bina login wala customer view) | Home khali dikhe: koi business nahi, **par page toota nahi** (khali message), categories dikhein |
 
 ---
 
-## 2. Sign-up, login (har tareeka)
+## Chapter 2: pehla Owner aata hai (Browser B)
 
-| # | Kya karo | Kya dikhna chahiye |
+| # | Owner kya karega | Kya dikhna chahiye |
 |---|---|---|
-| 2.1 | `/register` → "I'm looking for businesses" + naam + email + (phone) + terms tick → Create account & send code | Mail aaye (naye design mein, bada code). Code daalo → seedha `/account` |
-| 2.2 | `/register` → "I own a business": phone **zaroori** | Phone khali chhodo to error; sahi do to chale; login ke baad `/business-owner` |
-| 2.3 | Terms tick kiye bina | Error "Please agree..." |
-| 2.4 | Galat email / chhota naam | Field ke neeche saaf error |
-| 2.5 | Wahi email dobara register | "An account with this email already exists" |
-| 2.6 | Wahi phone doosre account se | "mobile number is already used" |
-| 2.7 | Galat code 3 baar | Error, 5 galat par naya code maange |
-| 2.8 | Code 10 min baad | "This code has expired" |
-| 2.9 | "Use password instead": password se register | Pehle email code se confirm, phir login |
-| 2.10 | Login: email + password | Sahi par andar; galat par "Invalid email or password" |
-| 2.11 | 8 baar galat password | "Too many wrong attempts" (lock), thodi der baad khule |
-| 2.12 | "Forgot password?" | Reset mail aaye (button wala), link se naya password lage, purana band |
-| 2.13 | **Continue with Google** (login tab, nayi Gmail) | Popup → Gmail chuno → "customer ya owner?" poochhe → account ban jaye |
-| 2.14 | Google (Create account tab, "owner" pehle se chuna) | Seedha account (owner), phone poochhe |
-| 2.15 | Wahi Gmail se dobara Google login | Seedha login, naya account nahi |
-| 2.16 | Pehle email se bana account, phir usi email ki Gmail se Google | Wahi account khule |
-| 2.17 | Admin ki email se Google try | "Admins sign in with a password and an authenticator" |
-| 2.18 | Log out | Login page, dobara dashboard kholo to login maange |
-| 2.19 | Token expire (15 min baad kuch karo) | Apne aap naya token ya login par bheje, error screen nahi |
+| 2.1 | `/register` → "I own a business" → naam, email, **phone (zaroori)**, terms tick → Create account | Email aaye (naye design mein bada code) |
+| 2.2 | Code daalo | Seedha owner dashboard; "Add your business" ka khali page |
+| 2.3 | **Add a business** dabao. Step 1: naam "Smile Dental", category Healthcare › Dentists, description 80+ akshar | Kuch khali chhodo to red error aaye; Continue na ho |
+| 2.4 | Step 2: address, city "Ghaziabad", state, PIN "201001" | PIN mein letters type na ho. "Find from address" se map par pin aaye |
+| 2.5 | Step 3: services add karo (naam + price), opening hours | Closing time opening se pehle ho to error aaye |
+| 2.6 | Step 4: phone, email, WhatsApp (alag number), photos | Galat email/phone par error |
+| 2.7 | Step 5: preview dekho → **Submit for review** | "Thanks, we're reviewing". Dashboard par business "In review" |
+| 2.8 | Owner ke browser mein `localhost:3000` par `Smile Dental` search karo | **Nahi dikhna chahiye** (abhi admin ne approve nahi kiya) |
 
 ---
 
-## 3. Customer (`/account`)
+## Chapter 3: Admin approve karta hai (Browser A)
 
-| # | Kya karo | Kya dikhna chahiye |
+| # | Admin kya karega | Kya dikhna chahiye |
 |---|---|---|
-| 3.1 | Login karke dashboard | Overview: Saved, Reviews, Inquiries ke counts |
-| 3.2 | Listing par heart | Saved tab mein dikhe, doosre device/browser mein login par bhi dikhe |
-| 3.3 | Saved se Remove | Hat jaye |
-| 3.4 | Listing par **inquiry bhejo** (login ke saath) | Naam/phone/email **pehle se bhare**; bhejne par "My inquiries" mein dikhe, status "Sent" |
-| 3.5 | Confirmation email | Mail aaye: details table, aapka message, "Follow my inquiries" button |
-| 3.6 | Owner reply kare (section 4) | "My inquiries" mein reply dikhe (neele box mein), mail bhi aaye |
-| 3.7 | **Withdraw** | "Withdrawn" badge, owner ab reply nahi kar paye |
-| 3.8 | Review likho (listing par, 1-5 star + comment) | "My reviews" mein dikhe |
-| 3.9 | Wahi listing par dobara review | Purana update ho, naya na bane |
-| 3.10 | My reviews → Edit review | Listing ke review section par le jaye |
-| 3.11 | My reviews → Delete | Confirm, hat jaye, rating dobara hisaab |
-| 3.12 | Kisi review par Report | Reason chuno, "Thanks" |
-| 3.13 | **Report this listing** (login ke saath) | Reason chuno → "Thanks for letting us know" |
-| 3.14 | Account: naam badlo (digits na jayein) | Save ho |
-| 3.15 | Password badlo (galat current → error, sahi → badle) | Doosre devices logout |
-| 3.16 | Account: Sessions list, "Sign out" kisi device ko | Wo device logout |
-| 3.17 | Two-step verification **Turn on** (authenticator scan) | Backup codes dikhein; ab login par code maange; Turn off bhi chale |
-| 3.18 | Delete my account ("DELETE" type) | Logout, dobara login na ho |
-| 3.19 | Mobile par `/account` | Neeche tab bar, sab tab khulein, sideways scroll nahi |
+| 3.1 | **Businesses** tab → "Smile Dental" par **Review** | Saari jaankari dikhe (naam, owner, photos, services, hours) |
+| 3.2 | **Approve and publish** | Listing live ho jaye |
+| 3.3 | Owner ke inbox mein mail | "Smile Dental is now live" |
+| 3.4 | Browser C (customer, bina login) par `localhost:3000` | Home par Smile Dental dikhe |
 
 ---
 
-## 4. Business Owner (`/business-owner`)
+## Chapter 4: Customer aata hai (Browser C)
 
-| # | Kya karo | Kya dikhna chahiye |
+**Bina login:**
+
+| # | Customer kya karega | Kya dikhna chahiye |
 |---|---|---|
-| 4.1 | Login → Overview | Listings, views, inquiries, rating ke cards, profile % complete |
-| 4.2 | **Add a business**: Step 1 (naam, category → subcategory, description 80+ akshar) | Galat/khali par red error, Continue na ho |
-| 4.3 | Step 2 Location: address, city, state, PIN | PIN sirf 6 digit (letters na jayein); "Use my live location" / "Find from address" se map pin |
-| 4.4 | Step 3: services add (naam, price), hours | Opening time ke baad closing; closing pehle ho to error; koi minute chuna ja sake |
-| 4.5 | Step 4: phone, email, WhatsApp, website, photos | Phone mein letters nahi; galat email/website par error; alternate phone = main phone par error |
-| 4.6 | Step 5 Preview → **Submit for review** | "Thanks, we're reviewing"; listing "In review"; public par nahi dikhti |
-| 4.7 | Admin approve kare (section 5) | Mail aaye "now live"; listing public ho |
-| 4.8 | **Edit** (sirf description badlo) | Turant live, review mein nahi jati |
-| 4.9 | **Edit: naam / phone / category / city badlo** | Save ke baad "our team will check again" message; listing "In review", public se hat jaye; admin ko "Changed: name" note dikhe |
-| 4.10 | Pause / Resume | Public se hat/aa jaye |
-| 4.11 | Delete (naam type karo) | Hat jaye |
-| 4.12 | Verified badge: email confirm + GST/document | Admin approve kare to badge |
-| 4.13 | **Inquiries** tab | Nayi inquiry dikhe (naam, phone, message), status New |
-| 4.14 | Status Contacted/Converted | Badle; customer ko mail jaye |
-| 4.15 | Lead kholo → **Reply to customer** likho, Send | Customer ke My inquiries mein dikhe; status Contacted; "Replied" badge |
-| 4.16 | Follow-up note | Sirf owner ko dikhe, customer ko nahi |
-| 4.17 | Customer ne withdraw kiya ho | "Withdrawn by customer", reply box ki jagah message |
-| 4.18 | Inquiry Export CSV | File download |
-| 4.19 | **Reviews** tab: Reply, Report | Reply listing page par dikhe |
-| 4.20 | **Offers**: naya offer (title, valid until, code) | `/offers` aur listing par dikhe; expire ke baad hat jaye |
-| 4.21 | **Analytics**: 7/30/90 din | Views, calls, WhatsApp, directions ke asli numbers; listing par kuch click karo to badhein |
-| 4.22 | Account: naam, password, 2FA, notification toggle | Sab chale |
-| 4.23 | Kisi listing par "Claim this listing" (doosre owner ki) | Owner ko mail + dashboard par "Someone asked to claim" |
-| 4.24 | Us claim par "This isn't right" | Admin ko dikhe |
-| 4.25 | Mobile par owner dashboard | Neeche 6 tab, har tab fit, reply/pause kaam kare |
+| 4.1 | Search "dentist" | Smile Dental dikhe |
+| 4.2 | `/ghaziabad` aur `/categories` kholo | City aur category pages, upar likha hua summary ("Lokal Lens lists 1 local business...") |
+| 4.3 | Smile Dental kholo | Photos, address, services, hours, "Open until..." |
+| 4.4 | **WhatsApp** dabao | Dialog → WhatsApp khule, message pehle se likha |
+| 4.5 | Inquiry form bharo (naam, phone, message) → Send | "Your inquiry was sent". Phone mein letters na jayein |
 
----
+**Phir account banake:**
 
-## 5. Admin (`/admin`)
-
-| # | Kya karo | Kya dikhna chahiye |
+| # | Customer kya karega | Kya dikhna chahiye |
 |---|---|---|
-| 5.1 | Login: password → authenticator code | Dashboard; galat code par error; same code dobara (30 sec ke andar) na chale |
-| 5.2 | Backup code se login | Chale, wo code dobara na chale |
-| 5.3 | Overview | Counts, waiting listings |
-| 5.4 | **Businesses**: search, filter, "Review" waiting listing → **Approve and publish** | Public ho, owner ko mail |
-| 5.5 | Reject (reason likho) | Owner ko reason ke saath mail |
-| 5.6 | Waiting listing jo "Sent back for review" ho | Note dikhe: "Changed: name. Was ..." |
-| 5.7 | Manage → **Suspend listing** | Public se hat, owner ko mail; **Restore** se wapas |
-| 5.8 | Delete (naam type + authenticator code) | Hat jaye; bina code ke na ho |
-| 5.9 | Bulk: kuch listings select → Suspend / Restore / Delete / Assign to owner | Sab ek saath badle |
-| 5.10 | **Edit all details** (admin form) | Owner jaisa form, save ho |
-| 5.11 | Add business / Bulk upload CSV | Naya listing / invalid rows ki list |
-| 5.12 | Export CSV | File download |
-| 5.13 | **People**: kisi ko kholo (listings, reviews dikhe) | Sahi jaankari |
-| 5.14 | Suspend account (code chahiye) | Wo login na kar paye; Reactivate se wapas |
-| 5.15 | Role badlo (admin banane par code) | Bina code ke na badle |
-| 5.16 | Owner ki saari listings Pause/Delete | Sab par laage |
-| 5.17 | **Reviews** tab: Delete review | Rating dobara hisaab |
-| 5.18 | **Reports & claims**: Reported reviews (Remove / Dismiss) | Chale |
-| 5.19 | **Reported listings** (customer ne report ki): Suspend / Handled / Dismiss | Chale; suspend par saari open reports band |
-| 5.20 | **Listing claims**: dekho proof ("verified by email" badge, owner ka dispute) | Sab dikhe |
-| 5.21 | Claim Approve and hand over (code chahiye) / Reject | Listing claimant ke paas / mail |
-| 5.22 | **Inquiries** tab: saari inquiries | Business, owner dikhe |
-| 5.23 | **Categories**: Add (naam likho) | Icon apne aap chune ("Pharmacy" → pill); bekaar naam par icon khud chunna padta hai |
-| 5.24 | Category rename / hide / delete (code) | Chale |
-| 5.25 | **Activity** | Har admin action ki line (kisne, kya) |
-| 5.26 | Account & security: 2FA band nahi ho sakta | "Admin accounts must keep this on" |
-| 5.27 | Mobile par admin | Neeche scroll hone wali tab bar, Manage drawer, Suspend/Restore chale |
+| 4.6 | `/register` → "I'm looking for businesses" → **Continue with Google** (apni Gmail) | Popup, Gmail chuno, seedha `/account` |
+| 4.7 | Smile Dental par ❤ (Save) | Account → Saved mein dikhe |
+| 4.8 | Dobara inquiry bhejo (ab naam/phone **pehle se bhare** honge) | Bhejo. Account → My inquiries mein dikhe, status "Sent". Confirmation mail aaye |
+| 4.9 | Review likho: 5 star + comment | Listing par dikhe, rating 5.0, "My reviews" mein bhi |
 
 ---
 
-## 6. Emails (har ek ka design dekho)
+## Chapter 5: Owner ka din (Browser B)
 
-`node scripts/preview-emails.js` chalao aur `tmp/email-previews/index.html` kholo. Phir asli test:
-
-| # | Kab aati hai | Dekho |
+| # | Owner kya karega | Kya dikhna chahiye |
 |---|---|---|
-| 6.1 | Sign-up / login code | Bada code, "Expires in 10 minutes" |
-| 6.2 | Password reset | "Choose a new password" button |
-| 6.3 | Claim code (listing ke email par) | Code, listing ka naam |
-| 6.4 | Owner ko nayi inquiry | Details table, message, "Open your dashboard" |
-| 6.5 | Owner ko naya review | Stars, comment |
-| 6.6 | Customer ko inquiry confirmation | "Follow my inquiries" ya "Create a free account" |
-| 6.7 | Owner ka reply | Reply quote mein |
-| 6.8 | Listing approve / reject / suspend / claim approve | Sahi subject aur button |
-| 6.9 | Gmail mein **Spam** folder bhi dekho | Inbox mein aani chahiye |
-| 6.10 | Phone ke Gmail app mein khol kar dekho | Layout tuta nahi, button dabta hai |
+| 5.1 | Dashboard khole | Views, **2 inquiries**, 1 review, rating 5.0 |
+| 5.2 | **Inquiries** tab | Dono inquiry dikhein (ek bina login wali, ek customer wali) |
+| 5.3 | Customer wali inquiry kholo → **Reply to customer** likho → Send | "Replied" badge. Status "Contacted" |
+| 5.4 | Customer (Browser C) → My inquiries | Owner ka **reply dikhe** (neele box mein). Mail bhi aaye |
+| 5.5 | Customer **Withdraw** dabaye | "Withdrawn". Owner ke paas "Withdrawn by customer", reply na ho |
+| 5.6 | Owner → **Reviews** → review par Reply | Listing page par owner ka reply dikhe |
+| 5.7 | Owner → **Offers** → naya offer (20% off, code, valid until) | `/offers` page aur listing par dikhe |
+| 5.8 | Owner → **Analytics** | Views, WhatsApp clicks, inquiries ke **asli numbers** (jo customer ne kiya wahi) |
+| 5.9 | Owner → Edit → **sirf description** badlo, save | Turant live, review mein nahi jata |
+| 5.10 | Owner → Edit → **naam badlo**, save | "Our team will check again". Listing "In review", public se hat jaye |
+| 5.11 | Admin ko dikhe: "Sent back for review: Changed: name" | Admin approve kare, phir wapas live |
 
 ---
 
-## 7. Security (ek baar zaroor)
+## Chapter 6: gadbad hoti hai (spam, claim, report): Admin ka kaam
 
-| # | Kya karo | Kya dikhna chahiye |
+| # | Kya hota hai | Kya dikhna chahiye |
 |---|---|---|
-| 7.1 | Customer login karke `/admin` kholo | Admin nahi dikhta (login/ghar par bheje) |
-| 7.2 | Customer `/business-owner` kholo | `/account` par chala jaye |
-| 7.3 | Owner A ki listing ka `?edit=<id>` URL owner B ke login se kholo | Nahi khule |
-| 7.4 | Owner apni listing "published" ya "verified" kar sake? (form mein aisa option nahi) | Nahi |
-| 7.5 | Phone/naam mein `<script>alert(1)</script>` daalo | Text dikhe, script na chale |
-| 7.6 | Logout ke baad browser Back dabao | Dashboard ka data na dikhe |
-| 7.7 | Login ke 15 min baad (ya token mita kar) refresh | Dobara login/refresh, crash nahi |
-| 7.8 | Admin ka koi destructive kaam bina authenticator code | Nahi hota |
-| 7.9 | Website ko `https` par kholo (live) | Padlock, mixed-content warning nahi |
+| 6.1 | Customer ek gande review par **Report** kare | Admin → Reports & claims → Reported reviews mein dikhe → Remove / Dismiss |
+| 6.2 | Customer listing par **Report this listing** (reason "closed") | Admin → Reported listings → Suspend / Handled / Dismiss |
+| 6.3 | Doosra owner usi listing par "Claim this listing" kare | Asli owner ko mail aur dashboard par "Someone asked to claim". Admin → Listing claims mein dikhe, owner ka "This isn't right" bhi |
+| 6.4 | Admin claim **Reject** kare | Listing asli owner ke paas hi rahe |
+| 6.5 | Admin listing **Suspend** kare | Public se hat jaye, owner ko mail. **Restore** se wapas |
+| 6.6 | Admin kisi ko **admin banaye** ya listing **delete** kare | **Authenticator code zaroor maange** |
+| 6.7 | Admin → **Activity** | Har kaam ki line: kisne, kya kiya |
 
 ---
 
-## 8. Live (Vercel + Render) par ek baar ye sab
+## Chapter 7: ab bahut saare businesses (growth)
 
-- [ ] Render: CLIENT_URL = Vercel URL, MAIL_*, GOOGLE_SIGNIN_CLIENT_ID, TRUST_PROXY, naye JWT secrets, Atlas MONGODB_URI, Cloudinary
-- [ ] Vercel: NEXT_PUBLIC_API_URL, NEXT_PUBLIC_SITE_URL, NEXT_PUBLIC_GOOGLE_CLIENT_ID
-- [ ] Live par `create-admin.js` chalao, `assign-listings-to-owner.js` chalao
-- [ ] Section 1, 2 (Google sahit), 3, 4, 5 ek baar live par bhi
-- [ ] `/sitemap.xml` aur `/robots.txt` khulte hain; Search Console mein sitemap daala
-- [ ] Render pehli request mein dheere (so jata hai): paid plan ya ping lagao
+Ab dekhna hai ki jab 50-200 business hon to sab theek chalta hai.
+
+1. **Demo data daalo:** backend folder se `npm run seed:demo` (kuch fake business aur accounts banata hai).
+   Ya Admin → Businesses → **Bulk upload** mein "Download template" se sample CSV lo, usme 10-20 rows bharo aur upload karo.
+2. Dekho:
+   - Home, `/directory`: sab jaldi khulta hai (3 second se kam).
+   - **Pagination / Load more** chalta hai (24 ke baad agla page).
+   - **Filters** (rating, verified, area) aur **search** sahi results dete hain.
+   - City page par ab likha aaye: "Lokal Lens lists 52 local businesses... Areas with the most listings include..."
+   - Category page par "About healthcare in Ghaziabad" mein services aur sabse achhi rating.
+   - Admin → Businesses: search, filter, **bulk select** (10 listing ek saath Suspend/Restore).
+   - Admin → Export CSV chalta hai.
+3. Ek owner ke paas 5 listing ho to Overview mein sab dikhein, "Profile setup" mein ek ek chuna ja sake.
 
 ---
 
-## Automated tests (code ko khud jaanchne ke liye)
+## Chapter 8: phone par sab dekho (Browser ko chhota karo ya asli phone par)
 
-- Backend: `cd Directory_backend-main && npm test` → sab pass.
-- Browser suites (alag test API par, aapka data nahi chhuta): `tests/e2e/README.md` dekho. Ek frontend `next dev -p 3100` alag se chalta hai, phir `node tests/e2e/browser/run-all.mjs`.
+Customer account, Owner dashboard, Admin: **neeche tab bar** dikhna chahiye. Kuch bhi **side mein khiskana** (horizontal scroll) nahi chahiye. Listing page par neeche "Call" bar aur amenities **2 column** mein.
+
+---
+
+## Live par kya karein (chhota check, 10 minute)
+
+Local par sab pass hone ke baad, live (Vercel) par sirf ye:
+
+1. Site kholo (`https://local-lens-olive.vercel.app`): home khula.
+2. **Chapter 1.1-1.2**: admin login + authenticator.
+3. **Chapter 2.1-2.2**: owner sign-up, mail aayi (live Render se).
+4. **Chapter 4.6**: **Google login** live par chala.
+5. Ek test business add karo → approve → dikha → **phir delete kar do** (taaki asli users ko test data na dikhe).
+6. `/sitemap.xml` aur `/robots.txt` khulte hain.
+
+Agar live par kuch alag behave kare to usually wajah ye hoti hai: Render ki `CLIENT_URL` galat, Vercel ki `NEXT_PUBLIC_API_URL` galat, ya redeploy nahi hua.
+
+---
+
+## Jo main pehle hi test kar chuka hoon (aapko dobara nahi karna)
+
+Computer se automatically test hota hai: admin ke saare button, owner ka poora flow, forms ki validation, phone ka screen, security, emails ka design. Ye sab pass hai. Aap sirf **aankh se dekhna** aur **Google/Gmail wali cheezein** karo.
