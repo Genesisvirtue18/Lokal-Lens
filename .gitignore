@@ -57,3 +57,6 @@ next-env.d.ts
 /Directory_backend-main/Directory_backend-main/node_modules/
 /Directory_backend-main/Directory_backend-main/uploads/
 /Directory_backend-main/Directory_backend-main/.env
+
+# isolated browser-test build
+/.next-e2e/
