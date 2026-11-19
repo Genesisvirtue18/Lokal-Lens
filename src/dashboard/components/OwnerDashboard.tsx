@@ -75,7 +75,7 @@ function EmailVerification() {
     try {
       const data = await request('/auth/otp/request', { method: 'POST', body: JSON.stringify({ email }) });
       setStep('code'); setCode(data.devCode || '');
-      setMessage(data.devCode ? `Test mode: email isn’t set up yet, so your code is ${data.devCode}.` : `We sent a 6-digit code to ${email}.`);
+      setMessage(data.devCode ? `Test mode: the email could not be sent (or isn’t set up), so your code is ${data.devCode}.` : `We sent a 6-digit code to ${email}.`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to send the code.'); }
     finally { setBusy(false); }
   }

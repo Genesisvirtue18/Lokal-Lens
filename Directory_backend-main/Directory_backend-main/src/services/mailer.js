@@ -26,8 +26,15 @@ export function createMailer(config) {
         console.info(`[mail:dev] To: ${to}\nSubject: ${subject}\n${plain}`);
         return { delivered: false };
       }
-      await transport.sendMail({ from: config.EMAIL_FROM ? `Lokal Lens <${config.EMAIL_FROM}>` : config.SMTP_USER, to, subject, text: plain, html: body });
-      return { delivered: true };
+      const shown = String(to).replace(/^(.).*(@.*)$/, '$1***$2');
+      try {
+        const info = await transport.sendMail({ from: config.EMAIL_FROM ? `Lokal Lens <${config.EMAIL_FROM}>` : config.SMTP_USER, to, subject, text: plain, html: body });
+        console.info(`[mail] handed to the mail server for ${shown}: ${String(info.response || '').slice(0, 70)}${info.rejected?.length ? ` | REJECTED: ${info.rejected.join(',')}` : ''}`);
+        return { delivered: true };
+      } catch (error) {
+        console.error(`[mail] NOT sent to ${shown}: ${error.code || ''} ${error.responseCode || ''} ${String(error.response || error.message).split('\n')[0].slice(0, 160)}`);
+        throw error;
+      }
     },
   };
 }

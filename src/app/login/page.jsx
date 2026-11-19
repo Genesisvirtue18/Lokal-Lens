@@ -106,7 +106,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
     const result = await call("/auth/otp/request", { email: email.trim().toLowerCase(), ...(registering ? { role, ...(name.trim() ? { name: name.trim() } : {}), ...(phone.trim() ? { phone: cleanPhone(phone) } : {}) } : {}) });
     const devCode = result.data?.devCode;
     setStep("code"); setCode(devCode || ""); setCooldown(30);
-    setNotice(devCode ? `Test mode: email isn’t set up yet, so your code is ${devCode}. It is filled in for you.` : result.message || "We sent a 6-digit code to your email.");
+    setNotice(devCode ? `Test mode: the email could not be sent (or isn’t set up), so your code is ${devCode}. It is filled in for you.` : result.message || "We sent a 6-digit code to your email.");
   }
 
   async function submit(event) {
@@ -119,7 +119,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
       else {
         const body = await call(`/auth/${registering ? "register" : "login"}`, { ...(registering ? { name: name.trim(), role, ...(phone.trim() ? { phone: cleanPhone(phone) } : {}) } : {}), email: email.trim().toLowerCase(), password });
         if (body.data?.requires2fa) startSecondFactor(body.data);
-        else if (registering) { setStep("code"); setCode(body.data?.devCode || ""); setCooldown(30); setNotice(body.data?.devCode ? `Test mode: email isn’t set up yet, so your code is ${body.data.devCode}.` : body.message || "We sent a 6-digit code to your email."); }
+        else if (registering) { setStep("code"); setCode(body.data?.devCode || ""); setCooldown(30); setNotice(body.data?.devCode ? `Test mode: the email could not be sent (or isn’t set up), so your code is ${body.data.devCode}.` : body.message || "We sent a 6-digit code to your email."); }
         else finish(body.data);
       }
     } catch (reason) { setError(reason.message); }

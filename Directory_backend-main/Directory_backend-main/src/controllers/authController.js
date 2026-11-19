@@ -59,9 +59,11 @@ async function sendCode(user, email, config, mailer, subjectNote = 'Lokal Lens')
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
   user.otpHash = otpHash(email, code); user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); user.otpAttempts = 0; user.otpSentAt = new Date();
   await user.save();
+  let mailFailed = false;
   try { await mailer.send({ to: email, subject: `${code} is your ${subjectNote} code`, template: { heading: 'Your Lokal Lens code', preheader: `${code} is your code. It expires in 10 minutes.`, paragraphs: ['Enter this code to finish signing in or creating your account.'], code, codeNote: 'Expires in 10 minutes', note: 'Didn’t ask for this? You can ignore this email, nobody can get in without the code. If you keep getting codes you didn’t ask for, change your password.' } }); }
-  catch { console.error('Sign-in code email could not be sent'); }
-  return !config.SMTP_HOST && config.NODE_ENV !== 'production' ? code : undefined;
+  catch { mailFailed = true; }
+  // In development the code is also returned when no mail server is set up or the mail could not be sent, so you are never stuck.
+  return config.NODE_ENV !== 'production' && (!config.SMTP_HOST || mailFailed) ? code : undefined;
 }
 
 // Checks a code with the same rules everywhere: expires in 10 minutes, 5 wrong tries, constant-time comparison.
