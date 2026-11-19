@@ -65,7 +65,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
       setLoading(true); setLoadError('');
       if (role === 'admin') { loadAdminStats().then((value) => { if (live) setAdminStats(value); }).catch(() => {}); const items = await loadAdminDashboard(); if (live) { setPendingBusinesses(items.filter((item) => item.status === 'Pending')); setActiveBusinesses(items.filter((item) => item.status !== 'Pending')); } }
       else { const data = await loadOwnerDashboard(); if (live) { setActiveBusinesses(data.businesses); setReviews(data.reviews); setOwnerLeads(data.leads); } }
-    } catch (error) { const message = error instanceof Error ? error.message : 'Unable to load dashboard data'; if (role === 'owner' && /not authorized|forbidden|permission/i.test(message)) { window.location.replace('/account'); return; } if (live) setLoadError(message); } finally { if (live) setLoading(false); } })();
+    } catch (error) { const message = error instanceof Error ? error.message : 'Unable to load dashboard data'; if (/not authorized|forbidden|permission/i.test(message)) { if (role === 'owner') { window.location.replace('/account'); return; } try { const me = await request('/auth/me'); window.location.replace(me.user?.role === 'business_owner' ? '/business-owner' : '/account'); return; } catch { /* fall through to the message */ } } if (live) setLoadError(message); } finally { if (live) setLoading(false); } })();
     return () => { live = false; };
   }, [role]);
 
