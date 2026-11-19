@@ -62,7 +62,7 @@ export default async function CityPage({ params }) {
           <h2 id="city-categories" className="text-[24px] font-semibold leading-8 tracking-[-0.0208em]">Browse {city.name} by category</h2>
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {city.categories.map((item) => (
-              <li key={item.categoryId}>
+              <li key={item.categoryId} className="min-w-0">
                 <Link href={categoryListingPath(city.name, { slug: item.categorySlug, _id: item.categoryId })} className="group flex items-center gap-4 rounded-[16px] border border-[#dcdbd5] bg-white p-5 transition-colors hover:border-[#002fa7]">
                   <span className="grid h-12 w-12 shrink-0 place-items-center rounded-[12px] bg-[#f1f1ee] text-[#002fa7]"><CategoryIcon icon={item.icon} name={item.categoryName} size={24} /></span>
                   <span className="min-w-0 flex-1"><span className="block truncate font-display text-[17px] font-semibold leading-6">{item.categoryName} in {city.name}</span><span className="block text-[14px] leading-5 text-[#6e7079]">{item.count} {item.count === 1 ? "listing" : "listings"}</span></span>

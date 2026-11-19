@@ -7,7 +7,7 @@ export default function robots() {
         userAgent: "*",
         allow: "/",
         // Private areas, and the endless search/filter variations of the directory (clean category and city pages stay open).
-        disallow: ["/admin", "/business-owner", "/login", "/register", "/saved", "/forgot-password", "/reset-password", "/add-business", "/design-check", "/ask", "/api/", "/directory?*", "/*?lat=", "/*?lng="],
+        disallow: ["/admin", "/business-owner", "/account", "/login", "/register", "/saved", "/forgot-password", "/reset-password", "/add-business", "/design-check", "/ask", "/api/", "/directory?*", "/*?lat=", "/*?lng="],
       },
     ],
     sitemap: absoluteSiteUrl("/sitemap.xml"),
