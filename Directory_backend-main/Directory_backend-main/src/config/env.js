@@ -35,6 +35,8 @@ const schema = z.object({
   GOOGLE_PLACES_REVIEW_MODE: z.enum(['rating', 'reviews']).default('reviews'),
   GOOGLE_PLACES_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(1000).default(20),
   GOOGLE_CLIENT_ID: z.string().trim().optional(),
+  // "Continue with Google" on the sign-in page. A Web client ID from Google Cloud (no secret needed).
+  GOOGLE_SIGNIN_CLIENT_ID: z.string().trim().optional(),
   GOOGLE_CLIENT_SECRET: z.string().trim().optional(),
   GOOGLE_REDIRECT_URI: z.union([z.literal(''), z.url()]).optional(),
   GOOGLE_TOKEN_ENCRYPTION_KEY: z.union([z.literal(''), z.string().regex(/^[a-fA-F0-9]{64}$/)]).optional(),

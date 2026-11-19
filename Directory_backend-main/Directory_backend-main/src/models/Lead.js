@@ -3,6 +3,7 @@ import { emailField, phoneField } from './fields.js';
 
 const leadSchema = new mongoose.Schema({
   business: { type: mongoose.Schema.Types.ObjectId, ref: 'Business', required: true, index: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   name: { type: String, required: true, trim: true, minlength: 2, maxlength: 120 },
   phone: { ...phoneField, required: true },
   email: emailField,

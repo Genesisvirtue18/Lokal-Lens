@@ -1,4 +1,4 @@
-// Creates a business-owner account (signs in with an email code, no password needed) and gives it every listing that has no owner yet.
+// Creates a business-owner account (marked platform-managed, so the real businesses can claim their listings from it) (signs in with an email code, no password needed) and gives it every listing that has no owner yet.
 //   OWNER_EMAIL=gmb@genesisvirtue.com OWNER_NAME="Genesis Virtue" node scripts/assign-listings-to-owner.js
 // Add DRY_RUN=1 to only count. It is safe to run twice: listings that already have an owner are never touched.
 import dotenv from 'dotenv';
@@ -23,7 +23,8 @@ let user = await User.findOne({ email });
 if (user && user.role !== 'business_owner') { console.error(`${email} already exists as "${user.role}". Use a different email, or change that account first.`); process.exit(1); }
 if (dryRun) { console.log(user ? `Account exists (${user.email}).` : `Would create the owner account ${email}.`); console.log('Dry run: nothing was changed.'); await mongoose.disconnect(); process.exit(0); }
 
-if (!user) user = await User.create({ name, email, role: 'business_owner', status: 'active', emailVerified: false });
+if (!user) user = await User.create({ name, email, role: 'business_owner', status: 'active', emailVerified: false, platformManaged: true });
+if (!user.platformManaged) { user.platformManaged = true; await user.save(); } // listings held by this account can be claimed by the real business
 const result = await Business.updateMany(unowned, { $set: { owner: user._id } });
 const total = await Business.countDocuments({ owner: user._id, deletedAt: null });
 console.log(`Owner account: ${user.email} (${user.role}, ${user.status})`);

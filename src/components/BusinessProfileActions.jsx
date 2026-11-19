@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { authedFetch } from "@/dashboard/api";
 import { Check, Copy, Heart, Share2 } from "lucide-react";
 
 export const SAVED_BUSINESSES_KEY = "lokal-lens-saved-businesses";
@@ -20,6 +21,15 @@ export function subscribeSaved(callback) {
   };
 }
 
+const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
+// Signed-in people also keep their saved list on the account, so it follows them to other devices. Best-effort: the local list always works.
+function syncToAccount(id, save) {
+  try {
+    if (!localStorage.getItem("directflow_access_token") || !/^[a-f0-9]{24}$/i.test(String(id))) return;
+    authedFetch(`${apiUrl}/users/me/saved/${id}`, { method: save ? "PUT" : "DELETE" }).catch(() => {});
+  } catch { /* ignore */ }
+}
+
 export default function BusinessProfileActions({ business, compact = false }) {
   const saved = useSyncExternalStore(subscribeSaved, () => isSavedBusiness(business.id), () => false);
   const [copied, setCopied] = useState(false);
@@ -33,6 +43,7 @@ export default function BusinessProfileActions({ business, compact = false }) {
       const next = saved ? stored.filter(item => item.id !== business.id) : [...stored.filter(item => item.id !== business.id), savedRecord];
       localStorage.setItem(SAVED_BUSINESSES_KEY, JSON.stringify(next));
       window.dispatchEvent(new Event("lokal-saved-businesses-change"));
+      syncToAccount(business.id, !saved);
       if (!compact) flash(saved ? { icon: "heart", text: "Removed from saved", undo: true } : { icon: "check", text: "Saved to your list", href: "/saved", action: "View saved" });
     } catch { /* Storage can be unavailable in private browsing modes. */ }
   }

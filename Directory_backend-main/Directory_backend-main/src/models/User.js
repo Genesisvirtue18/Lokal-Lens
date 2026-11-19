@@ -12,6 +12,9 @@ const userSchema = new mongoose.Schema({
     message: 'passwordHash must be a bcrypt or Argon2 encoded hash',
   } },
   avatar: urlField,
+  googleId: { type: String, trim: true, maxlength: 64 },
+  // Holds listings the team added on behalf of businesses that haven't claimed them yet. Those listings can be claimed with a quick check.
+  platformManaged: { type: Boolean, default: false },
   role: { type: String, enum: ['customer', 'business_owner', 'admin', 'super_admin'], default: 'customer' },
   emailVerified: { type: Boolean, default: false },
   phoneVerified: { type: Boolean, default: false },
@@ -29,6 +32,7 @@ const userSchema = new mongoose.Schema({
   totpPendingEnc: { type: String, select: false },
   totpLastStep: { type: Number, default: 0, select: false },
   totpRecovery: { type: [String], default: [], select: false },
+  saved: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Business' }], default: [] },
   lockedUntil: { type: Date, select: false },
   otpSentAt: { type: Date, select: false },
   deletedAt: { type: Date, default: null },
@@ -36,10 +40,11 @@ const userSchema = new mongoose.Schema({
   lastLoginAt: Date,
 }, {
   timestamps: true,
-  toJSON: { transform(doc, ret) { delete ret.passwordHash; delete ret.totpSecretEnc; delete ret.totpPendingEnc; delete ret.totpLastStep; delete ret.totpRecovery; delete ret.passwordResetTokenHash; delete ret.passwordResetExpiresAt; delete ret.otpHash; delete ret.otpExpiresAt; delete ret.otpAttempts; delete ret.otpSentAt; return ret; } },
-  toObject: { transform(doc, ret) { delete ret.passwordHash; delete ret.totpSecretEnc; delete ret.totpPendingEnc; delete ret.totpLastStep; delete ret.totpRecovery; delete ret.passwordResetTokenHash; delete ret.passwordResetExpiresAt; delete ret.otpHash; delete ret.otpExpiresAt; delete ret.otpAttempts; delete ret.otpSentAt; return ret; } },
+  toJSON: { transform(doc, ret) { delete ret.passwordHash; delete ret.googleId; delete ret.totpSecretEnc; delete ret.totpPendingEnc; delete ret.totpLastStep; delete ret.totpRecovery; delete ret.passwordResetTokenHash; delete ret.passwordResetExpiresAt; delete ret.otpHash; delete ret.otpExpiresAt; delete ret.otpAttempts; delete ret.otpSentAt; return ret; } },
+  toObject: { transform(doc, ret) { delete ret.passwordHash; delete ret.googleId; delete ret.totpSecretEnc; delete ret.totpPendingEnc; delete ret.totpLastStep; delete ret.totpRecovery; delete ret.passwordResetTokenHash; delete ret.passwordResetExpiresAt; delete ret.otpHash; delete ret.otpExpiresAt; delete ret.otpAttempts; delete ret.otpSentAt; return ret; } },
 });
 userSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
+userSchema.index({ googleId: 1 }, { unique: true, partialFilterExpression: { googleId: { $type: 'string' } } });
 userSchema.index({ phone: 1 }, { unique: true, partialFilterExpression: { phone: { $type: 'string' } } });
 
 export const User = mongoose.model('User', userSchema);

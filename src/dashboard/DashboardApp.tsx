@@ -65,7 +65,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
       setLoading(true); setLoadError('');
       if (role === 'admin') { loadAdminStats().then((value) => { if (live) setAdminStats(value); }).catch(() => {}); const items = await loadAdminDashboard(); if (live) { setPendingBusinesses(items.filter((item) => item.status === 'Pending')); setActiveBusinesses(items.filter((item) => item.status !== 'Pending')); } }
       else { const data = await loadOwnerDashboard(); if (live) { setActiveBusinesses(data.businesses); setReviews(data.reviews); setOwnerLeads(data.leads); } }
-    } catch (error) { if (live) setLoadError(error instanceof Error ? error.message : 'Unable to load dashboard data'); } finally { if (live) setLoading(false); } })();
+    } catch (error) { const message = error instanceof Error ? error.message : 'Unable to load dashboard data'; if (role === 'owner' && /not authorized|forbidden|permission/i.test(message)) { window.location.replace('/account'); return; } if (live) setLoadError(message); } finally { if (live) setLoading(false); } })();
     return () => { live = false; };
   }, [role]);
 
@@ -293,6 +293,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
                 onSelectLead={(l) => setSelectedLead(l)}
                 onOpenReplyReview={(r) => setSelectedReview(r)}
                 onViewAllLeads={() => setOwnerTab('leads')}
+                showToast={showToast}
               />
             ) : ownerTab === 'leads' ? (
               <OwnerLeadsTab

@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { Flag } from "lucide-react";
 import { Button } from "@/components/ds";
@@ -36,7 +37,7 @@ export default function ReportReviewButton({ businessId, reviewId }) {
   return (
     <>
       <button type="button" onClick={start} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#6e7079] hover:text-[#b42318]"><Flag size={13} aria-hidden="true" />Report</button>
-      {open && (
+      {open && createPortal(
         <div role="dialog" aria-modal="true" aria-label="Report this review" className="fixed inset-0 z-50 grid place-items-center bg-[#101115]/50 p-4" onClick={() => !state.busy && setOpen(false)}>
           <div className="flex w-full max-w-[440px] flex-col gap-4 rounded-[20px] bg-white p-6 shadow-xl" onClick={(event) => event.stopPropagation()}>
             {state.done ? (
@@ -55,7 +56,8 @@ export default function ReportReviewButton({ businessId, reviewId }) {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

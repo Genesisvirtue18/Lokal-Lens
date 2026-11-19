@@ -17,17 +17,19 @@ const moreItems = [["Offers near you", "/offers", "offers", Tag], ["Ask Lokal", 
 const subscribe = (callback) => { window.addEventListener("storage", callback); return () => window.removeEventListener("storage", callback); };
 const readSignedIn = () => { try { return Boolean(localStorage.getItem("directflow_access_token")); } catch { return false; } };
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
+const dashboardHref = (role) => role === "customer" ? "/account" : ["admin", "super_admin"].includes(role) ? "/admin" : "/business-owner";
 const initials = (name = "") => name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "?";
 
 // Account / More menu. Signed out: "More" (Saved, Offers, Ask Lokal, Sign in). Signed in: the person's name, with Dashboard and Log out too.
 function MoreMenu({ active, signedIn }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [role, setRole] = useState("");
   const box = useRef(null);
   useEffect(() => {
     if (!signedIn) return undefined;
     let live = true;
-    authedFetch(`${apiUrl}/auth/me`).then(async (res) => { if (!res.ok) return; const body = await res.json(); if (live) setName(body.data?.user?.name || ""); }).catch(() => {});
+    authedFetch(`${apiUrl}/auth/me`).then(async (res) => { if (!res.ok) return; const body = await res.json(); if (live) { setName(body.data?.user?.name || ""); setRole(body.data?.user?.role || ""); } }).catch(() => {});
     return () => { live = false; };
   }, [signedIn]);
   useEffect(() => {
@@ -38,7 +40,7 @@ function MoreMenu({ active, signedIn }) {
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", key); };
   }, [open]);
   const logout = async () => { try { await endSession(); } catch { /* the local sign-in is cleared anyway */ } window.dispatchEvent(new Event("storage")); window.location.assign("/"); };
-  const items = [...(signedIn ? [["Dashboard", "/business-owner", "dashboard", LayoutDashboard]] : []), ...moreItems, ...(signedIn ? [] : [["Sign in", "/login", "login", LogIn]])];
+  const items = [...(signedIn ? [[role === "customer" ? "My account" : "Dashboard", dashboardHref(role), "dashboard", LayoutDashboard]] : []), ...moreItems, ...(signedIn ? [] : [["Sign in", "/login", "login", LogIn]])];
   const current = items.some(([, , key]) => key === active);
   const first = signedIn ? name.split(/\s+/)[0] : "";
   return (
@@ -114,7 +116,7 @@ export default function SiteHeader({ variant = "desktop", active = "", cities = 
         <div className="border-t border-[#dcdbd5] bg-[#f1f1ee] lg:hidden">
           <BarContainer className="flex flex-col gap-1 py-4">
             {cities.length > 0 && <div className="pb-2"><CitySelector cities={cities} current={city} basePath={cityBasePath} className="w-fit" /></div>}
-            {[...navItems, ...moreItems.map(([label, href, key]) => [label, href, key]), signedIn ? ["Owner dashboard", "/business-owner", "dashboard"] : ["Sign in", "/login", "login"]].map(([label, href]) => <Link key={label} href={href} onClick={() => setMenuOpen(false)} className="flex min-h-11 items-center font-display text-[15px] font-medium text-[#101115]">{label}</Link>)}
+            {[...navItems, ...moreItems.map(([label, href, key]) => [label, href, key]), signedIn ? ["Dashboard", "/business-owner", "dashboard"] : ["Sign in", "/login", "login"]].map(([label, href]) => <Link key={label} href={href} onClick={() => setMenuOpen(false)} className="flex min-h-11 items-center font-display text-[15px] font-medium text-[#101115]">{label}</Link>)}
             <div className="flex flex-wrap gap-3 pt-3">
               <Button type="secondary" size="s" href="/add-business" icon={<Plus size={18} aria-hidden="true" />}>Add Your Business</Button>
             </div>

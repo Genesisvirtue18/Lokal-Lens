@@ -93,17 +93,6 @@ export const resolveReport = () => async (req, res, next) => { try {
 } catch (error) { next(error); } };
 
 // ---- Listing claims -----------------------------------------------------------------------------
-export const createClaim = () => async (req, res, next) => { try {
-  if (req.user.role !== 'business_owner') throw new AppError('Sign in with a business owner account to claim a listing', 403);
-  const business = await Business.findOne({ _id: req.params.id, deletedAt: null, listingStatus: 'published' }).select('name owner');
-  if (!business) throw new AppError('Business not found', 404);
-  if (business.owner && String(business.owner) === String(req.user.id)) throw new AppError('This listing is already yours', 409);
-  if (await ListingClaim.exists({ business: business._id, claimant: req.user.id, status: 'pending' })) throw new AppError('You already sent a claim for this listing. We’ll email you once it is checked.', 409);
-  const { relationship, phone, message, documentUrl } = req.validated.body;
-  const claim = await ListingClaim.create({ business: business._id, claimant: req.user.id, relationship, phone, message, ...(documentUrl ? { documentUrl } : {}), ...(business.owner ? { previousOwner: business.owner } : {}) });
-  sendSuccess(res, 'Claim sent. Our team will check it and email you.', { item: { _id: claim._id, status: claim.status } }, 201);
-} catch (error) { next(error); } };
-
 export const myClaims = () => async (req, res, next) => { try {
   const items = await ListingClaim.find({ claimant: req.user.id }).populate('business', 'name slug address.city').sort('-createdAt').limit(50).lean();
   sendSuccess(res, 'Claims retrieved successfully', { items });
@@ -126,12 +115,13 @@ export const decideClaim = (config, mailer) => async (req, res, next) => { try {
   const { decision, note } = req.validated.body;
   const business = await Business.findOne({ _id: claim.business, deletedAt: null }).populate('owner', 'name email notificationPreferences');
   if (!business) throw new AppError('The business no longer exists', 404);
-  const claimant = await User.findById(claim.claimant).select('name email notificationPreferences status');
+  const claimant = await User.findById(claim.claimant).select('name email notificationPreferences status role');
   if (decision === 'approve' && (!claimant || claimant.status !== 'active')) throw new AppError('The claimant’s account isn’t active', 422);
   const previous = business.owner;
   claim.status = decision === 'approve' ? 'approved' : 'rejected'; claim.decidedBy = req.user.id; claim.decidedAt = new Date(); if (note) claim.decisionNote = note; if (previous) claim.previousOwner = previous._id;
   await claim.save();
   if (decision === 'approve') {
+    if (claimant.role === 'customer') await User.updateOne({ _id: claimant._id }, { $set: { role: 'business_owner' } });
     business.owner = claimant._id;
     await business.save();
     await ListingClaim.updateMany({ business: business._id, status: 'pending', _id: { $ne: claim._id } }, { $set: { status: 'rejected', decisionNote: 'Another claim for this listing was approved.', decidedBy: req.user.id, decidedAt: new Date() } });

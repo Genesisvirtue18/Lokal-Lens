@@ -6,8 +6,10 @@ import { loadMyClaims, MyClaim, request, saveSession } from '../api';
 import { completenessPercent, completenessSections, CompletenessInput } from '../completeness';
 import { BusinessListing, Lead, Review } from '../types';
 import { ShareListing } from './ShareListing';
+import { IncomingClaims } from './IncomingClaims';
 
 interface OwnerDashboardProps {
+  showToast?: (message: string) => void;
   businesses: BusinessListing[];
   leads: Lead[];
   reviews: Review[];
@@ -104,7 +106,7 @@ function EmailVerification() {
 
 const leadTone: Record<Lead['status'], string> = { New: 'bg-[#e6ebf7] text-[#002fa7]', Contacted: 'bg-[#fbf0d9] text-[#8a5a00]', Converted: 'bg-[#e7f4e5] text-[#2b7a26]' };
 
-export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, leads, reviews, onOpenPublicProfile, onOpenCompleteProfile, onEditAtStep, onToggleVisibility, onDeleteBusiness, onAddBusiness, onSelectLead, onViewAllLeads }) => {
+export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, leads, reviews, onOpenPublicProfile, onOpenCompleteProfile, onEditAtStep, onToggleVisibility, onDeleteBusiness, onAddBusiness, onSelectLead, onViewAllLeads, showToast }) => {
   const [claims, setClaims] = useState<MyClaim[]>([]);
   useEffect(() => { let live = true; loadMyClaims().then((items) => { if (live) setClaims(items); }).catch(() => {}); return () => { live = false; }; }, []);
   const [toDelete, setToDelete] = useState<BusinessListing | null>(null);
@@ -133,6 +135,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({ businesses, lead
         </div>
         <Button type="secondary" onClick={onAddBusiness} icon={<Plus size={18} aria-hidden="true" />}>Add another business</Button>
       </div>
+
+      {showToast && <IncomingClaims showToast={showToast} />}
 
       {businesses.length > 0 && (
         <section aria-label="Summary" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">

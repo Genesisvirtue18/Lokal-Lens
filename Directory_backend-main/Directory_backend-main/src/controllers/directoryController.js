@@ -235,7 +235,7 @@ export const createBusinessLead = (config, mailer) => async (req, res, next) => 
     if (!business) throw new AppError('Business not found', 404);
     const { name, phone, email, service, message } = req.validated.body;
     if (service && !business.services.includes(service)) throw new AppError('Select a service offered by this business', 422);
-    const lead = await Lead.create({ business: business._id, name, phone, ...(email ? { email } : {}), ...(service ? { service } : {}), message });
+    const lead = await Lead.create({ business: business._id, ...(req.user?.id ? { user: req.user.id } : {}), name, phone, ...(email ? { email } : {}), ...(service ? { service } : {}), message });
     const leadCount = await Lead.countDocuments({ business: business._id });
     // Tell the owner by email (if they haven't turned it off). A mail problem never blocks the customer's inquiry.
     const owner = business.owner;

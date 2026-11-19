@@ -7,12 +7,12 @@ const apiOrigin = (() => { try { return new URL(process.env.NEXT_PUBLIC_API_URL 
 // Scripts and styles keep 'unsafe-inline' because Next.js writes small inline bootstrap scripts; everything else is locked down.
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client${isDev ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
   "img-src 'self' data: blob: https: http://localhost:5000", // listing photos come from Cloudinary, Google and map tiles
   "font-src 'self' data:",
-  `connect-src 'self' ${apiOrigin}${isDev ? " ws://localhost:3000" : ""}`.trim(),
-  "frame-src https://www.google.com https://maps.google.com", // Google Maps embeds on listing pages
+  `connect-src 'self' https://accounts.google.com/gsi/ ${apiOrigin}${isDev ? " ws://localhost:3000" : ""}`.trim(),
+  "frame-src https://www.google.com https://maps.google.com https://accounts.google.com/gsi/", // Google Maps embeds on listing pages
   "frame-ancestors 'none'", // nobody can put the site inside their own page (clickjacking)
   "object-src 'none'",
   "base-uri 'self'",

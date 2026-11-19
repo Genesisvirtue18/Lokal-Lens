@@ -9,21 +9,26 @@ import { findAnyRefreshToken, findRefreshToken, revokeAllFor, revokeRefreshToken
 import { clearRefreshCookie, readRefreshCookie } from '../utils/cookies.js';
 import { newRecoveryCodes, newTotpSecret, openSecret, otpauthUrl, sealSecret, verifyTotp } from '../utils/totp.js';
 import { checkSecondFactor } from '../utils/secondFactor.js';
+import { OAuth2Client } from 'google-auth-library';
 const publicUser = user => user.toJSON();
 // Compared against when the email is unknown, so a wrong email and a wrong password take the same time.
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 12);
 // Public sign-up with a password. The account can't be used until the email address is confirmed with a code,
 // so nobody can register with someone else's address.
 export const register = (config, mailer) => async (req, res, next) => { try {
-  const { name, email, password } = req.validated.body;
+  const { name, email, password, role, phone } = req.validated.body;
   if (isBlockedTestEmail(config, email)) throw new AppError('This address can’t be used here', 400);
   if (await User.exists({ email })) throw new AppError('An account with this email already exists. Sign in instead.', 409);
-  const displayName = name || email.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 120) || 'Business Owner';
-  const user = new User({ name: displayName.length >= 2 ? displayName : 'Business Owner', email, role: 'business_owner', passwordHash: await bcrypt.hash(password, 12), emailVerified: false });
+  const mobile = nationalPhone(phone);
+  if (mobile && await User.exists({ phone: mobile })) throw new AppError('This mobile number is already used by another account.', 409);
+  const displayName = name || email.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 120) || 'Lokal Lens member';
+  const user = new User({ name: displayName.length >= 2 ? displayName : 'Lokal Lens member', email, role, ...(mobile ? { phone: mobile } : {}), passwordHash: await bcrypt.hash(password, 12), emailVerified: false });
   const devCode = await sendCode(user, email, config, mailer);
   sendSuccess(res, 'We sent a 6-digit code to your email. Enter it to finish creating your account.', { expiresInSeconds: 600, ...(devCode ? { devCode } : {}) }, 201);
 } catch (e) { next(e); } };
 
+// "+91 98765 43210" -> "9876543210"
+const nationalPhone = (value) => value ? String(value).replace(/[\s-]/g, '').replace(/^\+?91(?=[6-9]\d{9}$)/, '') : undefined;
 const isBlockedTestEmail = (config, email) => config.NODE_ENV === 'production' && /@lokallens\.test$/i.test(email);
 const isAdminRole = (user) => ['admin', 'super_admin'].includes(user.role);
 
@@ -212,7 +217,7 @@ export const resetPassword = () => async (req, res, next) => { try {
 // The code is 6 digits, valid for 10 minutes and allows 5 wrong attempts. Only a hash is stored.
 const otpHash = (email, code) => crypto.createHash('sha256').update(`${email}:${code}`).digest('hex');
 export const requestOtp = (config, mailer) => async (req, res, next) => { try {
-  const { email, name } = req.validated.body;
+  const { email, name, role, phone } = req.validated.body;
   if (isBlockedTestEmail(config, email)) return sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600 });
   let user = await User.findOne({ email }).select('+otpHash +otpExpiresAt +otpSentAt');
   if (user && user.status !== 'active') throw new AppError('This account is not active', 403);
@@ -221,7 +226,9 @@ export const requestOtp = (config, mailer) => async (req, res, next) => { try {
   if (user && isAdminRole(user)) return sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600 });
   if (!user) {
     const displayName = name || email.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 120);
-    user = new User({ name: displayName.length >= 2 ? displayName : 'Business Owner', email, role: 'business_owner' });
+    const mobile = nationalPhone(phone);
+    if (mobile && await User.exists({ phone: mobile })) throw new AppError('This mobile number is already used by another account.', 409);
+    user = new User({ name: displayName.length >= 2 ? displayName : 'Lokal Lens member', email, role, ...(mobile ? { phone: mobile } : {}) });
   }
   const devCode = await sendCode(user, email, config, mailer, 'Lokal Lens');
   sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600, ...(devCode ? { devCode } : {}) });
@@ -247,4 +254,49 @@ export const changePassword = config => async (req, res, next) => { try {
   await user.save();
   await RefreshToken.updateMany({ user: user.id, revokedAt: null }, { $set: { revokedAt: new Date() } });
   sendSuccess(res, hadPassword ? 'Password updated' : 'Password set', await startSession(res, user, config, req));
+} catch (e) { next(e); } };
+
+
+// "Continue with Google". The browser gets a signed ID token from Google; we check its signature, audience and expiry,
+// and only trust the email when Google says it is verified. Admins never sign in this way (password + authenticator only).
+let googleClient;
+const verifyGoogleToken = async (config, credential) => {
+  if (!config.GOOGLE_SIGNIN_CLIENT_ID) throw new AppError('Google sign-in isn’t set up yet.', 503);
+  googleClient ??= new OAuth2Client(config.GOOGLE_SIGNIN_CLIENT_ID);
+  let payload;
+  try { payload = (await googleClient.verifyIdToken({ idToken: credential, audience: config.GOOGLE_SIGNIN_CLIENT_ID })).getPayload(); }
+  catch { throw new AppError('We couldn’t verify your Google sign-in. Please try again.', 401); }
+  if (!payload?.sub || !payload.email || payload.email_verified !== true) throw new AppError('Your Google email isn’t verified.', 401);
+  return { sub: String(payload.sub), email: String(payload.email).trim().toLowerCase(), name: String(payload.name || '').trim(), picture: payload.picture };
+};
+const safePicture = (value) => typeof value === 'string' && /^https:\/\//.test(value) && value.length <= 2048 ? value : undefined;
+export const googleLogin = config => async (req, res, next) => { try {
+  const { credential, signupToken, role, phone } = req.validated.body;
+  let profile;
+  if (signupToken) {
+    try { const payload = jwt.verify(signupToken, config.JWT_ACCESS_SECRET); if (payload.purpose !== 'google-signup') throw new Error('purpose'); profile = { sub: payload.gid, email: payload.email, name: payload.name || '', picture: payload.picture }; }
+    catch { throw new AppError('This sign-in expired. Start again.', 401); }
+  } else profile = await verifyGoogleToken(config, credential);
+  if (isBlockedTestEmail(config, profile.email)) throw new AppError('This address can’t be used here', 400);
+
+  let user = await User.findOne({ email: profile.email }).select('+totpSecretEnc +totpPendingEnc +totpLastStep +totpRecovery +failedLogins +lockedUntil');
+  if (user) {
+    if (user.status !== 'active') throw new AppError('This account is not active', 403);
+    if (isAdminRole(user)) throw new AppError('Admins sign in with a password and an authenticator code.', 403);
+    if (user.googleId && user.googleId !== profile.sub) throw new AppError('This email is linked to a different Google account.', 409);
+    user.googleId = profile.sub; user.emailVerified = true;
+    if (!user.avatar && safePicture(profile.picture)) user.avatar = safePicture(profile.picture);
+    if (needsSecondFactor(user)) { await user.save(); return secondFactorStep(res, user, config); }
+    return await finishSignIn(res, user, config, req);
+  }
+  // First time here: we need to know whether they are a customer or a business owner.
+  if (!role) {
+    const token = jwt.sign({ purpose: 'google-signup', gid: profile.sub, email: profile.email, name: profile.name, picture: profile.picture }, config.JWT_ACCESS_SECRET, { expiresIn: '10m' });
+    return sendSuccess(res, 'Choose how you will use Lokal Lens', { needsRole: true, signupToken: token, profile: { name: profile.name, email: profile.email } });
+  }
+  const mobile = nationalPhone(phone);
+  if (mobile && await User.exists({ phone: mobile })) throw new AppError('This mobile number is already used by another account.', 409);
+  const display = profile.name.length >= 2 ? profile.name.slice(0, 120) : profile.email.split('@')[0].replace(/[._-]+/g, ' ').slice(0, 120);
+  user = new User({ name: display.length >= 2 ? display : 'Lokal Lens member', email: profile.email, role, googleId: profile.sub, emailVerified: true, ...(mobile ? { phone: mobile } : {}), ...(safePicture(profile.picture) ? { avatar: safePicture(profile.picture) } : {}) });
+  await finishSignIn(res, user, config, req);
 } catch (e) { next(e); } };

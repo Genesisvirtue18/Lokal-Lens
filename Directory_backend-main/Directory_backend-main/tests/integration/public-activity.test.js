@@ -49,7 +49,7 @@ test('public business views and inquiries persist and appear in owner data', { t
 
     const publicListing = await request(app).get('/api/v1/businesses/example-services').expect(200);
     assert.equal(publicListing.body.data.item.viewCount, 2);
-    assert.equal(publicListing.body.data.item.leadCount, 1);
+    assert.equal(publicListing.body.data.item.leadCount, undefined, 'lead counts are private to the owner');
 
     const ownerListing = await request(app).get('/api/v1/owner/businesses?limit=100').set('Authorization', `Bearer ${ownerToken}`).expect(200);
     assert.equal(ownerListing.body.data.items[0].leadCount, 1);

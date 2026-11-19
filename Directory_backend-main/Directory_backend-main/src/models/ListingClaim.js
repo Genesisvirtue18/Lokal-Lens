@@ -10,6 +10,12 @@ const listingClaimSchema = new mongoose.Schema({
   message: { type: String, required: true, trim: true, minlength: 10, maxlength: 1500 },
   documentUrl: urlField,
   previousOwner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  // How we know the claimant is connected to the business: an emailed code to the address on the listing, or an email on the business's own website domain.
+  verifiedVia: { type: String, enum: ['none', 'listing_email', 'website_domain'], default: 'none' },
+  autoApproved: { type: Boolean, default: false },
+  ownerNotifiedAt: Date,
+  ownerDispute: { type: String, trim: true, maxlength: 800 },
+  ownerDisputedAt: Date,
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending', index: true },
   decisionNote: { type: String, trim: true, maxlength: 600 },
   decidedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

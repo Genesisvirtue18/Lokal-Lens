@@ -112,9 +112,10 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
     </Field>
   );
 
+  const isCustomer = user?.role === 'customer';
   return (
     <main className="mx-auto flex w-full max-w-[860px] flex-col gap-6 px-4 pb-24 pt-8 md:px-8 lg:pt-10">
-      <div className="flex flex-col gap-2"><p className="font-eyebrow text-[#002fa7]">Account</p><h1 className="text-[28px] font-semibold leading-9 tracking-[-0.0294em] md:text-[34px] md:leading-[42px]">Account settings</h1><p className="text-[16px] leading-6 text-[#4a4c55]">Your own details and sign-in. Your business details are under Overview.</p></div>
+      {!isCustomer && <div className="flex flex-col gap-2"><p className="font-eyebrow text-[#002fa7]">Account</p><h1 className="text-[28px] font-semibold leading-9 tracking-[-0.0294em] md:text-[34px] md:leading-[42px]">Account settings</h1><p className="text-[16px] leading-6 text-[#4a4c55]">Your own details and sign-in. Your business details are under Overview.</p></div>}
 
       <Card title="Your profile">
         <form onSubmit={saveProfile} className="flex flex-col gap-4" noValidate>
@@ -147,12 +148,12 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
 
       <TwoFactorCard enabled={Boolean(user?.hasTotp)} isAdmin={user?.role === 'admin' || user?.role === 'super_admin'} onChange={(hasTotp) => onUserChange({ ...(user as OwnerUser), hasTotp })} showToast={showToast} />
 
-      <Card title="Notifications">
+      {!isCustomer && <Card title="Notifications">
         <label className="flex cursor-pointer items-start gap-3">
           <input type="checkbox" checked={emailAlerts} onChange={(event) => toggleEmailAlerts(event.target.checked)} className="mt-1 h-[18px] w-[18px] shrink-0 accent-[#002fa7]" />
           <span><span className="block text-[16px] font-medium leading-6">Email me when a customer sends an inquiry</span><span className="block text-[14px] leading-5 text-[#6e7079]">Sent to {user?.email}.</span></span>
         </label>
-      </Card>
+      </Card>}
 
       <Card title="Where you’re signed in" hint="If you don’t recognise a device, sign out everywhere and change your password.">
         {sessions.length ? <ul className="flex flex-col divide-y divide-[#ecebe7]">{sessions.slice(0, 6).map((session) => <li key={session._id} className="flex items-center gap-3 py-3"><Laptop size={20} className="shrink-0 text-[#6e7079]" /><div className="min-w-0 flex-1"><p className="text-[15px] font-medium leading-5">{device(session.userAgent)}{session.current && <span className="ml-2 rounded-full bg-[#e7f4e5] px-2 py-0.5 align-middle font-display text-[12px] font-semibold text-[#2b7a26]">This device</span>}</p><p className="text-[13px] leading-[18px] text-[#6e7079]">{[session.ip && !/^(::1|127.)/.test(session.ip) ? session.ip : '', when(session.createdAt)].filter(Boolean).join(' · ')}</p></div>{!session.current && <button type="button" onClick={async () => { try { await request(`/auth/sessions/${session._id}`, { method: 'DELETE' }); setSessions((list) => list.filter((item) => item._id !== session._id)); } catch { /* leave it listed */ } }} className="h-9 shrink-0 rounded-[8px] px-3 text-[14px] font-medium text-[#b42318] hover:bg-[#fdecea]">Sign out</button>}</li>)}</ul> : <p className="text-[14px] text-[#6e7079]">No other sessions to show.</p>}
@@ -160,13 +161,13 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
       </Card>
 
       <section className="flex flex-col gap-4 rounded-[20px] border border-[#f1c9c4] bg-[#fff8f7] p-6">
-        <div><h2 className="flex items-center gap-2 text-[18px] font-semibold leading-[26px] text-[#b42318]"><Trash2 size={20} aria-hidden="true" />Delete my account</h2><p className="text-[14px] leading-5 text-[#4a4c55]">You’ll be signed out and can’t sign in again. Your listings stay with our team until you ask us to remove them. This can’t be undone.</p></div>
+        <div><h2 className="flex items-center gap-2 text-[18px] font-semibold leading-[26px] text-[#b42318]"><Trash2 size={20} aria-hidden="true" />Delete my account</h2><p className="text-[14px] leading-5 text-[#4a4c55]">You’ll be signed out and can’t sign in again. {isCustomer ? 'Your saved list and inquiries will no longer be reachable. This can’t be undone.' : 'Your listings stay with our team until you ask us to remove them. This can’t be undone.'}</p></div>
         <div className="flex max-w-[420px] flex-col gap-3"><Field label="Type DELETE to confirm"><input value={confirmText} onChange={(event) => { setConfirmText(event.target.value.slice(0, 10)); setDeleteError(''); }} className={fieldClass} placeholder="DELETE" /></Field>
           {deleteError && <p role="alert" className="text-[14px] text-[#b42318]">{deleteError}</p>}
           <div><button type="button" onClick={deleteAccount} disabled={deleting || confirmText !== 'DELETE'} className="inline-flex h-11 items-center rounded-[12px] bg-[#b42318] px-4 font-display text-[14px] font-medium text-white transition-colors hover:bg-[#8f1b12] disabled:cursor-not-allowed disabled:bg-[#e4e3de] disabled:text-[#9a9ba1]">{deleting ? 'Deleting…' : 'Delete my account'}</button></div>
         </div>
       </section>
-      <p className="flex items-center gap-2 text-[13px] text-[#6e7079]"><BadgeCheck size={16} aria-hidden="true" />Your email and phone are never shown on your public listing unless you add them as contact details.</p>
+      {!isCustomer && <p className="flex items-center gap-2 text-[13px] text-[#6e7079]"><BadgeCheck size={16} aria-hidden="true" />Your email and phone are never shown on your public listing unless you add them as contact details.</p>}
     </main>
   );
 };

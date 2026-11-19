@@ -42,9 +42,12 @@ export async function recordBusinessView(id) {
   return body.data;
 }
 export async function submitBusinessLead(id, payload) {
+  // Anyone can send an inquiry. When signed in, it is also linked to the account so it shows under "My inquiries".
+  let token = "";
+  try { token = localStorage.getItem("directflow_access_token") || ""; } catch { /* no token */ }
   const response = await fetch(`${baseUrl}/businesses/${encodeURIComponent(id)}/leads`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(10000),
   });

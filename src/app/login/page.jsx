@@ -4,13 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Briefcase, Eye, EyeOff, Search } from "lucide-react";
 import { Button, Field, Logo, cx, fieldClass } from "@/components/ds";
 import { saveSession } from "@/dashboard/api";
 import { TwoFactorSetup, TwoFactorVerify } from "@/components/TwoFactor";
+import GoogleSignIn, { GOOGLE_CLIENT_ID } from "@/components/GoogleSignIn";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const phonePattern = /^(?:\+?91)?[6-9]\d{9}$/;
+const cleanPhone = (value) => value.replace(/[\s-]/g, "");
+const ROLES = [
+  ["customer", "I’m looking for businesses", "Find places, save favourites, write reviews.", Search],
+  ["business_owner", "I own a business", "List it for free and get customer inquiries.", Briefcase],
+];
 
 async function call(path, payload) {
   const response = await fetch(`${apiUrl}${path}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -21,12 +28,33 @@ async function call(path, payload) {
 
 // Sign in / Create account. Figma "Desktop / Sign in" and "Create account — Validation error".
 // Default method is a one-time code sent to the email address; password sign-in stays available for existing accounts.
-export default function LoginPage({ initialRegistering = false }) {
+function RoleChoice({ value, onChange }) {
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-1 font-display text-[14px] font-medium leading-5">How will you use Lokal Lens?</legend>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {ROLES.map(([id, title, hint, Icon]) => (
+          <label key={id} className={cx("flex cursor-pointer flex-col gap-1.5 rounded-[12px] border bg-white p-3.5 transition-colors focus-within:ring-2 focus-within:ring-[#002fa7] focus-within:ring-offset-2", value === id ? "border-2 border-[#002fa7] bg-[#f3f6fd] p-[13px]" : "border-[#bdbcb5] hover:border-[#101115]")}>
+            <input type="radio" name="role" value={id} checked={value === id} onChange={() => onChange(id)} className="sr-only" />
+            <span className={cx("grid h-8 w-8 place-items-center rounded-[8px]", value === id ? "bg-[#002fa7] text-white" : "bg-[#f1f1ee] text-[#4a4c55]")}><Icon size={18} aria-hidden="true" /></span>
+            <span className="font-display text-[14px] font-semibold leading-5">{title}</span>
+            <span className="text-[13px] leading-[18px] text-[#6e7079]">{hint}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+export default function LoginPage({ initialRegistering = false, initialRole = "customer" }) {
   const router = useRouter();
   const [registering, setRegistering] = useState(initialRegistering);
   const [method, setMethod] = useState("code"); // code | password
-  const [step, setStep] = useState("form"); // form | code
+  const [step, setStep] = useState("form"); // form | code | role | 2fa
   const [name, setName] = useState("");
+  const [role, setRole] = useState(initialRole === "business_owner" ? "business_owner" : "customer");
+  const [phone, setPhone] = useState("");
+  const [signupToken, setSignupToken] = useState(""); // set when Google confirmed the person but we still need their role
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -50,12 +78,14 @@ export default function LoginPage({ initialRegistering = false }) {
 
   function switchMode(next) {
     router.replace(`${next ? "/register" : "/login"}${window.location.search}`);
-    setRegistering(next); setStep("form"); setChallenge(""); setFieldErrors({}); setError(""); setNotice(""); setCode("");
+    setRegistering(next); setStep("form"); setChallenge(""); setSignupToken(""); setFieldErrors({}); setError(""); setNotice(""); setCode("");
   }
 
   function validate() {
     const errors = {};
     if (registering && name.trim().length < 2) errors.name = "Enter your full name.";
+    if (registering && role === "business_owner" && !phone.trim()) errors.phone = "Enter your mobile number. Customers use it to reach you.";
+    else if (registering && phone.trim() && !phonePattern.test(cleanPhone(phone))) errors.phone = "Enter a valid 10-digit mobile number.";
     if (!emailPattern.test(email.trim())) errors.email = "Enter a valid email address, like name@example.com.";
     if (method === "password" && password.length < 8) errors.password = "Password must be at least 8 characters.";
     if (registering && !terms) errors.terms = "Please agree to the Terms and Privacy Policy.";
@@ -69,11 +99,11 @@ export default function LoginPage({ initialRegistering = false }) {
     saveSession(data.accessToken);
     window.dispatchEvent(new Event("storage"));
     const next = new URLSearchParams(window.location.search).get("next");
-    router.push(["admin", "super_admin"].includes(data.user.role) ? "/admin" : next && next.startsWith("/") && !next.startsWith("//") ? next : "/business-owner");
+    router.push(["admin", "super_admin"].includes(data.user.role) ? "/admin" : next && next.startsWith("/") && !next.startsWith("//") ? next : data.user.role === "business_owner" ? "/business-owner" : "/account");
   }
 
   async function sendCode() {
-    const result = await call("/auth/otp/request", { email: email.trim().toLowerCase(), ...(registering && name.trim() ? { name: name.trim() } : {}) });
+    const result = await call("/auth/otp/request", { email: email.trim().toLowerCase(), ...(registering ? { role, ...(name.trim() ? { name: name.trim() } : {}), ...(phone.trim() ? { phone: cleanPhone(phone) } : {}) } : {}) });
     const devCode = result.data?.devCode;
     setStep("code"); setCode(devCode || ""); setCooldown(30);
     setNotice(devCode ? `Test mode: email isn’t set up yet, so your code is ${devCode}. It is filled in for you.` : result.message || "We sent a 6-digit code to your email.");
@@ -87,7 +117,7 @@ export default function LoginPage({ initialRegistering = false }) {
     try {
       if (method === "code") await sendCode();
       else {
-        const body = await call(`/auth/${registering ? "register" : "login"}`, { ...(registering ? { name: name.trim() } : {}), email: email.trim().toLowerCase(), password });
+        const body = await call(`/auth/${registering ? "register" : "login"}`, { ...(registering ? { name: name.trim(), role, ...(phone.trim() ? { phone: cleanPhone(phone) } : {}) } : {}), email: email.trim().toLowerCase(), password });
         if (body.data?.requires2fa) startSecondFactor(body.data);
         else if (registering) { setStep("code"); setCode(body.data?.devCode || ""); setCooldown(30); setNotice(body.data?.devCode ? `Test mode: email isn’t set up yet, so your code is ${body.data.devCode}.` : body.message || "We sent a 6-digit code to your email."); }
         else finish(body.data);
@@ -101,6 +131,28 @@ export default function LoginPage({ initialRegistering = false }) {
     if (code.length !== 6) { setError("Enter the 6-digit code from your email."); return; }
     setBusy(true); setError("");
     try { const body = await call("/auth/otp/verify", { email: email.trim().toLowerCase(), code }); if (body.data?.requires2fa) startSecondFactor(body.data); else finish(body.data); }
+    catch (reason) { setError(reason.message); }
+    finally { setBusy(false); }
+  }
+
+  // Google gave us a signed token. Existing accounts sign in straight away; new ones on the "Create account" tab use the role already
+  // chosen; a brand-new person on "Sign in" is asked who they are first.
+  async function onGoogle(credential) {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const body = await call("/auth/google", { credential, ...(registering ? { role, ...(phone.trim() && phonePattern.test(cleanPhone(phone)) ? { phone: cleanPhone(phone) } : {}) } : {}) });
+      if (body.data?.needsRole) { setSignupToken(body.data.signupToken); setName(body.data.profile?.name || ""); setEmail(body.data.profile?.email || ""); setStep("role"); }
+      else if (body.data?.requires2fa) startSecondFactor(body.data);
+      else finish(body.data);
+    } catch (reason) { setError(reason.message); }
+    finally { setBusy(false); }
+  }
+  async function finishGoogleSignup(event) {
+    event.preventDefault();
+    if (role === "business_owner" && !phone.trim()) { setFieldErrors({ phone: "Enter your mobile number. Customers use it to reach you." }); return; }
+    if (phone.trim() && !phonePattern.test(cleanPhone(phone))) { setFieldErrors({ phone: "Enter a valid 10-digit mobile number." }); return; }
+    setBusy(true); setError(""); setFieldErrors({});
+    try { const body = await call("/auth/google", { signupToken, role, ...(phone.trim() ? { phone: cleanPhone(phone) } : {}) }); finish(body.data); }
     catch (reason) { setError(reason.message); }
     finally { setBusy(false); }
   }
@@ -121,7 +173,7 @@ export default function LoginPage({ initialRegistering = false }) {
     finally { setBusy(false); }
   }
 
-  const title = step === "2fa" ? (enroll ? "Set up two-step verification" : "Two-step verification") : step === "code" ? "Check your email" : registering ? "Create your account" : "Sign in to Lokal Lens";
+  const title = step === "role" ? "One last step" : step === "2fa" ? (enroll ? "Set up two-step verification" : "Two-step verification") : step === "code" ? "Check your email" : registering ? "Create your account" : "Sign in to Lokal Lens";
 
   return (
     <main className="min-h-screen bg-[#f1f1ee] text-[#101115] grid grid-cols-[minmax(0,1fr)] lg:h-screen lg:grid-cols-[440px_minmax(0,1fr)] xl:grid-cols-[560px_minmax(0,1fr)]">
@@ -157,8 +209,19 @@ export default function LoginPage({ initialRegistering = false }) {
             enroll
               ? <div className="flex flex-col gap-4"><p className="text-[15px] leading-6 text-[#4a4c55]">Admin accounts need a second check. It takes a minute, and you only do it once.</p><TwoFactorSetup start={beginSetup} confirm={confirmSetup} onDone={finish} doneLabel="Finish signing in" /></div>
               : <TwoFactorVerify onSubmit={verifyAuthenticator} busy={busy} error="" onBack={() => { setStep("form"); setChallenge(""); setError(""); }} />
+          ) : step === "role" ? (
+            <form onSubmit={finishGoogleSignup} noValidate className="flex flex-col gap-4">
+              <p className="text-[15px] leading-6 text-[#4a4c55]">Welcome{name ? `, ${name.split(" ")[0]}` : ""}. Your Google account <strong className="text-[#101115]">{email}</strong> is verified. Tell us how you’ll use Lokal Lens.</p>
+              <RoleChoice value={role} onChange={setRole} />
+              <Field label="Mobile number" optional={role !== "business_owner"} error={fieldErrors.phone} helper={role === "business_owner" ? "Customers and our team use it to reach you." : "Only used by our team to reach you."}>
+                <input value={phone} onChange={(event) => setPhone(event.target.value.replace(/[^\d+\s-]/g, "").slice(0, 16))} type="tel" inputMode="tel" autoComplete="tel" placeholder="10-digit mobile number" aria-invalid={Boolean(fieldErrors.phone)} className={cx(fieldClass, fieldErrors.phone && "!border-2 !border-[#b42318]")} />
+              </Field>
+              <Button type="primary" htmlType="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : "Create my account"}</Button>
+              <button type="button" onClick={() => { setStep("form"); setSignupToken(""); setError(""); setFieldErrors({}); }} className="self-start text-[14px] font-medium text-[#002fa7] hover:underline">Cancel</button>
+            </form>
           ) : step === "form" ? (
             <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+              {registering && <RoleChoice value={role} onChange={setRole} />}
               {registering && (
                 <Field label="Full name" error={fieldErrors.name}>
                   <input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="Your name" maxLength={120} aria-invalid={Boolean(fieldErrors.name)} className={cx(fieldClass, fieldErrors.name && "!border-2 !border-[#b42318]")} />
@@ -167,6 +230,11 @@ export default function LoginPage({ initialRegistering = false }) {
               <Field label="Email address" error={fieldErrors.email} helper={registering ? "Email is not shown publicly." : undefined}>
                 <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="name@example.com" aria-invalid={Boolean(fieldErrors.email)} className={cx(fieldClass, fieldErrors.email && "!border-2 !border-[#b42318]")} />
               </Field>
+              {registering && (
+                <Field label="Mobile number" optional={role !== "business_owner"} error={fieldErrors.phone} helper={role === "business_owner" ? "Customers and our team use it to reach you." : "Only used by our team to reach you."}>
+                  <input value={phone} onChange={(event) => setPhone(event.target.value.replace(/[^\d+\s-]/g, "").slice(0, 16))} type="tel" inputMode="tel" autoComplete="tel" placeholder="10-digit mobile number" aria-invalid={Boolean(fieldErrors.phone)} className={cx(fieldClass, fieldErrors.phone && "!border-2 !border-[#b42318]")} />
+                </Field>
+              )}
               {method === "password" && (
                 <Field label="Password" error={fieldErrors.password}>
                   <span className="relative block">
@@ -188,6 +256,12 @@ export default function LoginPage({ initialRegistering = false }) {
                 <button type="button" onClick={() => { setMethod(method === "code" ? "password" : "code"); setError(""); setFieldErrors({}); }} className="font-medium text-[#002fa7] hover:underline">{method === "code" ? "Use password instead" : "Email me a code instead"}</button>
               </div>
               {method === "password" && !registering && <p className="-mt-2 text-[14px]"><Link href="/forgot-password" className="font-medium text-[#002fa7] hover:underline">Forgot password?</Link></p>}
+              {GOOGLE_CLIENT_ID && (
+                <>
+                  <div className="flex items-center gap-3 text-[13px] text-[#6e7079]"><span className="h-px flex-1 bg-[#dcdbd5]" />or<span className="h-px flex-1 bg-[#dcdbd5]" /></div>
+                  <GoogleSignIn onCredential={onGoogle} text={registering ? "signup_with" : "signin_with"} disabled={busy} />
+                </>
+              )}
             </form>
           ) : (
             <form onSubmit={verify} className="flex flex-col gap-5">

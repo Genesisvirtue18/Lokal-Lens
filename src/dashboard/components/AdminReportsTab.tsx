@@ -110,6 +110,14 @@ function ClaimCard({ claim, onDone, onOpenBusiness, onOpenPerson, showToast }: {
         <div><dt className="text-[#6e7079]">Listing’s own contact</dt><dd>{[business?.phone, business?.email].filter(Boolean).join(' · ') || 'None on the listing'}</dd></div>
         <div><dt className="text-[#6e7079]">Currently managed by</dt><dd>{business?.owner ? `${business.owner.name}${business.owner.email ? ` · ${business.owner.email}` : ''}` : <span className="font-medium text-[#8a5a00]">No one</span>}</dd></div>
       </dl>
+      <div className="flex flex-wrap gap-2">
+        {claim.verifiedVia === 'listing_email' && <Badge tone="verified">Verified: code sent to the listing’s email</Badge>}
+        {claim.verifiedVia === 'website_domain' && <Badge tone="verified">Verified: email on the business’s own domain</Badge>}
+        {(!claim.verifiedVia || claim.verifiedVia === 'none') && <Badge tone="pending">No automatic proof, check the document</Badge>}
+        {claim.autoApproved && <Badge tone="live">Approved automatically</Badge>}
+        {claim.ownerNotifiedAt && <Badge tone="pending">Current owner was told</Badge>}
+      </div>
+      {claim.ownerDispute && <p className="rounded-[10px] border border-[#f1c9c4] bg-[#fff6f5] px-4 py-3 text-[14px] leading-5 text-[#8c1d13]"><span className="font-semibold">The current owner disputes this:</span> {claim.ownerDispute}</p>}
       <p className="whitespace-pre-line rounded-[10px] bg-[#f7f7f4] px-4 py-3 text-[15px] leading-6">{claim.message}</p>
       {claim.documentUrl && <a href={claim.documentUrl} target="_blank" rel="noreferrer" className="inline-flex w-fit items-center gap-1.5 text-[14px] font-medium text-[#002fa7] hover:underline"><FileText size={16} aria-hidden="true" />View the proof they uploaded<ExternalLink size={13} aria-hidden="true" /></a>}
       {claim.decisionNote && claim.status !== 'pending' && <p className="text-[14px] text-[#4a4c55]"><span className="font-semibold">Decision note:</span> {claim.decisionNote}</p>}
