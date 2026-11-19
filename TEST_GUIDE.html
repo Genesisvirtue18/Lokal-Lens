@@ -44,6 +44,51 @@
   .toast.show { opacity:1; }
   @media print { header.top .tools, .acts button, pre button { display:none; } header.top { position:static; } .row { break-inside:avoid; } }
 </style>
+
+<style>
+  /* Bada aur saaf font */
+  body { font-size:19px; line-height:1.75; font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif; color:#0b0c10; }
+  .wrap { max-width:1000px; }
+  h2 { font-size:28px; margin:40px 0 6px; }
+  h2 small { font-size:15px; }
+  p.intro { font-size:18px; }
+  button, select { font-size:17px; padding:10px 16px; border-radius:12px; font-weight:500; }
+  .bar h1 { font-size:21px; }
+  .stats { font-size:15px; }
+  .row { padding:16px 18px; grid-template-columns:44px 1fr; gap:6px 14px; }
+  .row .do { font-size:19px; font-weight:600; line-height:1.55; }
+  .see { font-size:18px; color:#1f2937; margin-top:6px; }
+  .see::before { font-weight:700; color:#475569; }
+  .who { font-size:14px; padding:2px 10px; vertical-align:2px; }
+  .id { font-size:14px; }
+  .tick { display:flex; flex-direction:column; align-items:center; gap:4px; padding-top:2px; }
+  .tick input { width:30px; height:30px; accent-color:#1f7a3a; cursor:pointer; margin:0; }
+  .tick span { font:600 12px Consolas,monospace; color:var(--muted); }
+  .acts { margin-top:10px; }
+  .acts input[type=text] { font-size:17px; padding:10px 12px; }
+  .acts button.fail.on { background:var(--badbg); }
+  pre { font-size:16px; line-height:1.6; padding:14px 16px; }
+  code { font:16px Consolas,monospace; background:#e9e8e2; padding:1px 6px; border-radius:6px; }
+  /* Ek ek step ka card */
+  #focus { margin:20px 0; }
+  .fc { background:#fff; border:2px solid var(--brand); border-radius:20px; padding:24px 26px; box-shadow:0 6px 24px rgba(0,47,167,.10); }
+  .fc .meta { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:16px; font-weight:600; }
+  .fc .where { margin:14px 0 6px; font-size:18px; }
+  .fc .big { font-size:26px; line-height:1.45; font-weight:700; margin:6px 0 14px; letter-spacing:-.2px; }
+  .fc .exp { background:#eef3ff; border-radius:14px; padding:14px 16px; font-size:20px; line-height:1.6; }
+  .fc .exp b { display:block; font-size:14px; letter-spacing:.5px; text-transform:uppercase; color:#334155; margin-bottom:2px; }
+  .fc .btns { display:flex; gap:12px; flex-wrap:wrap; margin-top:18px; }
+  .fc .btns button { font-size:19px; padding:14px 22px; font-weight:700; }
+  .fc .ok { background:var(--ok); color:#fff; border-color:var(--ok); }
+  .fc .no { background:#fff; color:var(--bad); border-color:var(--bad); }
+  .fc .quiet { font-weight:500 !important; }
+  .fc textarea { width:100%; margin-top:12px; font:inherit; font-size:18px; padding:12px; border:1px solid #bdbcb5; border-radius:12px; min-height:64px; }
+  .fc .done { text-align:center; padding:10px 0; font-size:22px; }
+  .fc pre { margin:10px 0 0; }
+  .next { margin-top:14px; color:var(--muted); font-size:16px; }
+  .modebar { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  .modebar button.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+</style>
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -54,7 +99,8 @@
       <div class="stats" id="stats"></div>
     </div>
   </div>
-  <div class="tools">
+  <div class="modebar"><button id="modeFocus" class="active">Ek ek step (aasaan)</button><button id="modeList">Poori list</button></div>
+  <div class="tools" id="listTools">
     <select id="who" aria-label="Kiska kaam dikhao"><option value="all">Sab dikhao</option><option value="Admin">Sirf Admin</option><option value="Owner">Sirf Owner</option><option value="Customer">Sirf Customer</option></select>
     <select id="show" aria-label="Kaunse steps"><option value="all">Saare steps</option><option value="todo">Jo baaki hain</option><option value="fail">Jo fail hue</option></select>
     <button class="primary" id="copyFail">Fail ki list copy karo</button>
@@ -64,35 +110,21 @@
 
 <main class="wrap">
 
-<section class="howto">
-  <strong>Isse kaise use karein (30 second)</strong>
+<details class="howto">
+  <summary style="font-weight:700;cursor:pointer;font-size:18px">Kaise use karein? (padhne ke liye dabao)</summary>
   <ol>
-    <li>Neeche ke steps <b>upar se neeche, order mein</b> karo. Har step mein likha hai kya karna hai aur kya dikhna chahiye.</li>
-    <li>Jo dikhna chahiye wahi dikha to <b>Pass</b> dabao. Alag dikha ya error aaya to <b>Fail</b> dabao aur saamne ek line likh do ki kya dikha.</li>
+    <li>Neeche <b>"Ab ye karo"</b> card mein main bata deta hoon ki <b>agla kaam kya hai</b>. Aapko sochna nahi hai, bas ek ek karke karte jao.</li>
+    <li>Jo dikhna chahiye wahi dikha to <b>"Ho gaya"</b> dabao (ya list mein tick lagao). Alag dikha ya error aaya to <b>"Nahi hua"</b> dabao aur ek line likho ki kya dikha.</li>
     <li>Ye page aapka progress khud yaad rakhta hai (is computer ke browser mein). Band karke dobara khol sakte ho.</li>
     <li>Sab ho jaye to upar <b>"Fail ki list copy karo"</b> dabao aur wo text mujhe chat mein paste kar do. Main sab theek kar dunga.</li>
   </ol>
   <p style="margin:10px 0 0"><b>Teen role teen alag browser mein:</b> <span class="who Admin">Admin</span> Chrome, <span class="who Owner">Owner</span> Edge (ya Chrome ka doosra profile), <span class="who Customer">Customer</span> Incognito window. Ek hi browser mein do role mat rakhna.</p>
-</section>
+</details>
 
-<section class="setup" id="setup">
-  <h2 style="margin-top:0">Tayyari (pehle ye karo)</h2>
-  <p class="intro">Terminal mein ye commands chalani hain. Har box ke "Copy" se copy karke paste karo.</p>
-  <b>1. Backend chalao</b> (terminal 1)
-  <pre>cd Directory_backend-main\Directory_backend-main
-npm run dev</pre>
-  <b>2. Frontend chalao</b> (terminal 2, main project folder mein)
-  <pre>npm run dev</pre>
-  <b>3. Mail chalti hai ya nahi</b> (terminal 3, backend folder mein) apna email daalo:
-  <pre>cd Directory_backend-main\Directory_backend-main
-node scripts/send-test-email.js aapki@gmail.com</pre>
-  <b>4. Apna admin banao</b> (terminal 3, ek hi line mein, naam/email/password apne daalo):
-  <pre>$env:ADMIN_EMAIL="aapki@gmail.com"; $env:ADMIN_NAME="Aapka Naam"; $env:ADMIN_PASSWORD="koi-lamba-password-123"; node scripts/create-admin.js</pre>
-  <b>5. (Sirf "shuru se khali platform" dekhna ho to)</b> backend ki <code>.env</code> mein <code>MONGODB_URI</code> ka naam <code>business_directory</code> se <code>lokal_lens_fresh</code> kar do aur backend restart karo. Purana data bacha rehta hai.
-  <p style="margin:10px 0 0"><b>Teen email:</b> Gmail ka <code>+</code> trick: <code>aapki@gmail.com</code> (admin), <code>aapki+owner@gmail.com</code> (owner), <code>aapki+customer@gmail.com</code> (customer). Teeno ki mail ek hi inbox mein aati hai.</p>
-</section>
 
-<div id="chapters"></div>
+
+<section id="focus"></section>
+<div id="listWrap" class="hidden"><div id="chapters"></div></div>
 
 <footer>
   Local par poori kahaani (chapter 1 se 11). Live par sirf chapter 12 ka chhota check. Computer se automatic tests (admin, owner, forms, phone screen, security) pehle hi pass hain, ye guide sirf aankh se dekhne aur Google/Gmail wali cheezon ke liye hai.
@@ -103,6 +135,15 @@ node scripts/send-test-email.js aapki@gmail.com</pre>
 <script>
 // [id, kaun, kya karo, kya dikhna chahiye]
 const CH = [
+{ t:"Chapter 0: tayyari (pehle ye karo)", i:"Ye sab ek baar karna hai. Isme 7 chhote kaam hain.", r:[
+ ["0.1","Sab","(Sujhaya hua, \"shuru se khali platform\" dekhna ho to) backend ki .env file kholo aur MONGODB_URI wali line badal do. Ye ek naya khali database banata hai, purana data bacha rehta hai. File save karo (Ctrl+S).","Line aisi dikhe: MONGODB_URI=mongodb://127.0.0.1:27017/lokal_lens_fresh","MONGODB_URI=mongodb://127.0.0.1:27017/lokal_lens_fresh"],
+ ["0.2","Sab","VS Code mein Terminal > New Terminal kholo. Backend chalao (neeche ki dono lines ek ke baad ek).","Likha aaye ki server port 5000 par chal raha hai. Terminal band mat karo.","cd Directory_backend-main\\Directory_backend-main\nnpm run dev"],
+ ["0.3","Sab","Doosra naya terminal kholo (Terminal > New Terminal). Main project folder mein frontend chalao.","Likha aaye \"Ready\" aur localhost:3000. Terminal band mat karo.","npm run dev"],
+ ["0.4","Sab","Browser mein http://localhost:3000 kholo.","Lokal Lens ka home page dikhe (khali database ho to businesses nahi dikhenge, wo theek hai).","http://localhost:3000"],
+ ["0.5","Sab","Teesra naya terminal kholo. Mail chalti hai ya nahi dekho (apna email daalo).","Terminal mein \"Sent\" likha aaye, aur us Gmail mein test mail aaye.","cd Directory_backend-main\\Directory_backend-main\nnode scripts/send-test-email.js aapki@gmail.com"],
+ ["0.6","Admin","Usi teesre terminal mein apna admin banao. Ek hi line hai. Naam, email aur password apne daalo (password 12 akshar se bada).","Bina error ke khatam ho. Ab is email aur password se admin login hoga.","$env:ADMIN_EMAIL=\"aapki@gmail.com\"; $env:ADMIN_NAME=\"Aapka Naam\"; $env:ADMIN_PASSWORD=\"koi-lamba-password-123\"; node scripts/create-admin.js"],
+ ["0.7","Sab","Teen alag browser taiyar rakho: Admin ke liye Chrome, Owner ke liye Edge (ya Chrome ka doosra profile), Customer ke liye Incognito window. Teen alag email bhi: aapki@gmail.com (admin), aapki+owner@gmail.com (owner), aapki+customer@gmail.com (customer). Teeno ki mail ek hi inbox mein aati hai.","Teeno browser khule hon, sabme localhost:3000 khula ho."],
+]},
 { t:"Chapter 1: khali platform, Admin ka pehla din", i:"Pehle sirf Admin hai. Koi business nahi.", r:[
  ["1.1","Admin","/login kholo, \"Use password instead\" dabao, email aur password daalo, Sign in.","Authenticator ka QR code dikhe."],
  ["1.2","Admin","Phone ke Google Authenticator se QR scan karo, 6 akshar ka code daalo.","8 backup codes dikhein. Inhe kahin save karo, phir \"I saved these\" dabao."],
@@ -251,23 +292,22 @@ let state = {};
 try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { state = {}; }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
-const all = CH.flatMap((c) => c.r.map((x) => ({ id:x[0], who:x[1], act:x[2], see:x[3], ch:c.t })));
+const all = CH.flatMap((c) => c.r.map((x) => ({ id:x[0], who:x[1], act:x[2], see:x[3], cmd:x[4] || "", ch:c.t, intro:c.i })));
 
-function render() {
+var render = function() {
   const root = document.getElementById("chapters");
   root.innerHTML = CH.map((c) => `<h2>${esc(c.t)} <small>${c.r.length} steps</small></h2><p class="intro">${esc(c.i)}</p>` + c.r.map((x) => {
     const s = state[x[0]] || {};
     return `<div class="row ${s.v || ""}" id="r-${x[0]}" data-who="${x[1]}" data-v="${s.v || ""}">
-      <div class="id">${x[0]}</div>
-      <div><span class="who ${x[1]}">${x[1] === "Sab" ? "Sab" : x[1]}</span><span class="do">${esc(x[2])}</span><div class="see">${esc(x[3])}</div></div>
+      <div class="tick"><input type="checkbox" data-tick="${x[0]}" ${s.v === "pass" ? "checked" : ""} aria-label="Ho gaya ${x[0]}"><span>${x[0]}</span></div>
+      <div><span class="who ${x[1]}">${x[1] === "Sab" ? "Sab" : x[1]}</span><span class="do">${esc(x[2])}</span>${x[4] ? `<pre>${esc(x[4])}</pre>` : ""}<div class="see">${esc(x[3])}</div></div>
       <div class="acts">
-        <button class="pass ${s.v === "pass" ? "on" : ""}" data-id="${x[0]}" data-v="pass">Pass</button>
-        <button class="fail ${s.v === "fail" ? "on" : ""}" data-id="${x[0]}" data-v="fail">Fail</button>
+        <button class="fail ${s.v === "fail" ? "on" : ""}" data-id="${x[0]}" data-v="fail">Nahi hua (Fail)</button>
         <input type="text" placeholder="Kya dikha? (fail par zaroor likho)" value="${esc(s.n || "")}" data-note="${x[0]}">
       </div></div>`;
   }).join("")).join("");
   update();
-}
+};
 
 function update() {
   const total = all.length;
@@ -299,7 +339,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   const c = e.target.closest("pre button");
-  if (c) { navigator.clipboard.writeText(c.parentElement.innerText.replace(/^Copy\n?/, "").trim()).then(() => toast("Copy ho gaya")); }
+  if (c) { navigator.clipboard.writeText(c.parentElement.innerText.replace(/^Copy\s*/, "").trim()).then(() => toast("Copy ho gaya, ab paste karo")); }
 });
 document.addEventListener("input", (e) => {
   const id = e.target.dataset && e.target.dataset.note;
@@ -315,9 +355,77 @@ document.getElementById("copyFail").onclick = () => {
   navigator.clipboard.writeText(text).then(() => toast(`${fails.length} fail ki list copy ho gayi. Chat mein paste karo`), () => { prompt("Ye copy karo:", text); });
 };
 
-// copy buttons on the setup commands
-document.querySelectorAll("#setup pre").forEach((p) => { const b = document.createElement("button"); b.textContent = "Copy"; p.prepend(b); });
+
+// ---------- "Ab ye karo": ek ek step, order main chunta hoon
+let mode = "focus", cur = -1;
+const nextTodo = (from) => { for (let k = 1; k <= all.length; k++) { const i = (from + k) % all.length; if (!(state[all[i].id] || {}).v) return i; } return -1; };
+const firstTodo = () => all.findIndex((x) => !(state[x.id] || {}).v);
+
+function renderFocus() {
+  const f = document.getElementById("focus");
+  if (cur < 0) cur = firstTodo();
+  if (cur < 0) {
+    const fails = all.filter((x) => (state[x.id] || {}).v === "fail").length;
+    f.innerHTML = `<div class="fc"><div class="done"><b>Saare ${all.length} steps ho gaye.</b><br>${fails ? `${fails} fail hue. Upar "Poori list" mein dekho ya` : "Sab pass."} <br><br>Neeche wala button dabao aur list mujhe chat mein paste kar do.<br><br><button class="ok" id="copyFail2">Fail ki list copy karo</button></div></div>`;
+    document.getElementById("copyFail2").onclick = () => document.getElementById("copyFail").click();
+    return;
+  }
+  const x = all[cur], s = state[x.id] || {};
+  const who = x.who === "Sab" ? "Kisi bhi browser mein / terminal mein" : `${x.who} wale browser mein`;
+  const done = all.filter((y) => (state[y.id] || {}).v).length;
+  const nx = nextTodo(cur);
+  f.innerHTML = `<div class="fc">
+    <div class="meta"><span>${esc(x.ch)}</span><span>Step ${x.id} &nbsp;|&nbsp; ${done} ho chuke, ${all.length - done} baaki</span></div>
+    <div class="where"><span class="who ${x.who}">${x.who}</span> <b>${who}</b> ye karo:</div>
+    <div class="big">${esc(x.act)}</div>
+    ${x.cmd ? `<pre><button data-copy="1">Copy</button>${esc(x.cmd)}</pre>` : ""}
+    <div class="exp"><b>Kya dikhna chahiye</b>${esc(x.see)}</div>
+    <textarea id="fnote" placeholder="Agar alag dikha ya error aaya to yahan likho kya dikha (fail par zaroor)">${esc(s.n || "")}</textarea>
+    <div class="btns">
+      <button class="ok" id="fpass">Ho gaya, sahi dikha</button>
+      <button class="no" id="ffail">Nahi hua / alag dikha</button>
+      <button class="quiet" id="fskip">Abhi chhodo, agla</button>
+      <button class="quiet" id="fback">Pichhla step</button>
+    </div>
+    <div class="next">${nx >= 0 && nx !== cur ? `Uske baad: <b>${esc(all[nx].id)}</b> (${esc(all[nx].who)}) ${esc(all[nx].act.slice(0, 80))}${all[nx].act.length > 80 ? "..." : ""}` : "Ye aakhri step hai."}</div>
+  </div>`;
+  const note = () => document.getElementById("fnote").value;
+  const mark = (v) => { state[x.id] = { ...(state[x.id] || {}), v, n: note() }; save(); const n = nextTodo(cur); cur = n < 0 ? -1 : n; render(); };
+  document.getElementById("fpass").onclick = () => mark("pass");
+  document.getElementById("ffail").onclick = () => { if (!note().trim() && !confirm("Kya dikha wo likha nahi. Phir bhi fail mark karein?")) return; mark("fail"); };
+  document.getElementById("fskip").onclick = () => { state[x.id] = { ...(state[x.id] || {}), n: note() }; save(); const n = nextTodo(cur); cur = n < 0 ? cur : n; renderFocus(); };
+  document.getElementById("fback").onclick = () => { cur = (cur - 1 + all.length) % all.length; renderFocus(); };
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById("focus").classList.toggle("hidden", m !== "focus");
+  document.getElementById("listWrap").classList.toggle("hidden", m !== "list");
+  document.getElementById("listTools").classList.toggle("hidden", m !== "list");
+  document.getElementById("modeFocus").classList.toggle("active", m === "focus");
+  document.getElementById("modeList").classList.toggle("active", m === "list");
+  if (m === "focus") renderFocus();
+  window.scrollTo({ top: 0 });
+}
+document.getElementById("modeFocus").onclick = () => { cur = -1; setMode("focus"); };
+document.getElementById("modeList").onclick = () => setMode("list");
+
+// tick box in the list = Pass
+document.addEventListener("change", (e) => {
+  const id = e.target.dataset && e.target.dataset.tick;
+  if (!id) return;
+  state[id] = { ...(state[id] || {}), v: e.target.checked ? "pass" : "" };
+  save();
+  const row = document.getElementById("r-" + id);
+  row.dataset.v = state[id].v; row.className = "row " + (state[id].v || "");
+  row.querySelector(".fail").classList.remove("on");
+  update();
+});
+
+const _render = render;
+render = function () { _render(); if (mode === "focus") renderFocus(); };
 render();
+setMode("focus");
 </script>
 </body>
 </html>
