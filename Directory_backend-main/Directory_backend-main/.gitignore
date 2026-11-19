@@ -12,3 +12,6 @@ uploads/businesses/
 # browser tests
 tests/e2e/browser/.seed.json
 tests/e2e/browser/out/
+
+# generated email previews
+tmp/

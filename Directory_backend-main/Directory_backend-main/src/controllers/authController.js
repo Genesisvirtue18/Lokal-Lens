@@ -37,7 +37,7 @@ async function sendCode(user, email, config, mailer, subjectNote = 'Lokal Lens')
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
   user.otpHash = otpHash(email, code); user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); user.otpAttempts = 0; user.otpSentAt = new Date();
   await user.save();
-  try { await mailer.send({ to: email, subject: `${code} is your ${subjectNote} code`, text: `Your Lokal Lens code is ${code}.\n\nIt expires in 10 minutes. If you did not ask for it, someone may be trying to use your account. You can ignore this email and change your password.`, html: `<p>Your Lokal Lens code is</p><p style="font-size:28px;font-weight:600;letter-spacing:4px">${code}</p><p>It expires in 10 minutes. If you did not ask for it, you can ignore this email.</p>` }); }
+  try { await mailer.send({ to: email, subject: `${code} is your ${subjectNote} code`, template: { heading: 'Your Lokal Lens code', preheader: `${code} is your code. It expires in 10 minutes.`, paragraphs: ['Enter this code to finish signing in or creating your account.'], code, codeNote: 'Expires in 10 minutes', note: 'Didn’t ask for this? You can ignore this email, nobody can get in without the code. If you keep getting codes you didn’t ask for, change your password.' } }); }
   catch { console.error('Sign-in code email could not be sent'); }
   return !config.SMTP_HOST && config.NODE_ENV !== 'production' ? code : undefined;
 }
@@ -191,12 +191,7 @@ export const forgotPassword = (config, mailer) => async (req, res, next) => { tr
     await user.save();
     const link = `${config.CLIENT_URL}/reset-password?token=${token}`;
     try {
-      await mailer.send({ to: email, subject: 'Reset your Lokal Lens password', text: `We received a request to reset your password.
-
-Open this link within 1 hour to choose a new one:
-${link}
-
-If you did not ask for this, you can ignore this email.`, html: `<p>We received a request to reset your Lokal Lens password.</p><p><a href="${link}">Choose a new password</a> (valid for 1 hour).</p><p>If you did not ask for this, you can ignore this email.</p>` });
+      await mailer.send({ to: email, subject: 'Reset your Lokal Lens password', template: { heading: 'Reset your password', preheader: 'Use this link within 1 hour to choose a new password.', paragraphs: ['We received a request to reset the password of your Lokal Lens account. The link works for 1 hour.'], button: { label: 'Choose a new password', url: link }, note: 'Didn’t ask for this? Ignore this email and your password stays as it is.' } });
     } catch { console.error('Password reset email could not be sent'); }
   }
   sendSuccess(res, 'If an account exists for this email, a reset link has been sent.');

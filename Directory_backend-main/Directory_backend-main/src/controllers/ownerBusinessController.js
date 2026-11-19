@@ -49,7 +49,8 @@ export const ownerLeads = () => async (req, res, next) => {
 };
 // Where to write to the customer: the email on the inquiry, else the signed-in account it was sent from.
 const customerAddress = async (lead) => lead.email || (lead.user ? (await User.findById(lead.user).select('email notificationPreferences').lean())?.email : undefined);
-const tell = (mailer, to, subject, lines) => { if (mailer && to) mailer.send({ to, subject, text: lines.join('\n') }).catch(() => console.error('Customer email could not be sent')); };
+const tell = (mailer, to, subject, template) => { if (mailer && to) mailer.send({ to, subject, template }).catch(() => console.error('Customer email could not be sent')); };
+const myInquiries = (mailer) => ({ label: 'View my inquiries', url: `${mailer?.appUrl || ''}/account?tab=inquiries` });
 export const updateOwnerLead = (mailer) => async (req, res, next) => {
   try {
     const businessIds = await Business.find({ owner: req.user.id, deletedAt: null }).distinct('_id');
@@ -58,7 +59,7 @@ export const updateOwnerLead = (mailer) => async (req, res, next) => {
     const item = await Lead.findOneAndUpdate({ _id: req.params.id }, { $set: { status: req.validated.body.status } }, { new: true }).populate('business', 'name').lean();
     if (previous.status !== item.status && item.status !== 'new' && !item.withdrawnAt) {
       const to = await customerAddress(item);
-      tell(mailer, to, item.status === 'converted' ? `${item.business?.name} marked your inquiry as completed` : `${item.business?.name} has seen your inquiry`, [`Hi ${item.name},`, '', item.status === 'converted' ? `${item.business?.name} marked your inquiry as completed.` : `${item.business?.name} has seen your inquiry and will contact you on ${item.phone}.`, '', 'You can follow your inquiries any time from My account on Lokal Lens.']);
+      tell(mailer, to, item.status === 'converted' ? `${item.business?.name} marked your inquiry as completed` : `${item.business?.name} has seen your inquiry`, { heading: item.status === 'converted' ? 'Your inquiry is marked completed' : 'Your inquiry was seen', greeting: `Hi ${item.name},`, paragraphs: [item.status === 'converted' ? `${item.business?.name} marked your inquiry as completed.` : `${item.business?.name} has seen your inquiry and will contact you on ${item.phone}.`], button: myInquiries(mailer), note: 'You get this because you sent an inquiry on Lokal Lens.' });
     }
     sendSuccess(res, 'Inquiry status updated', { item });
   } catch (error) { next(error); }
@@ -74,7 +75,7 @@ export const replyToLead = (mailer) => async (req, res, next) => {
     if (item.status === 'new') item.status = 'contacted';
     await item.save(); await item.populate('business', 'name');
     const to = await customerAddress(item);
-    tell(mailer, to, `${item.business?.name} replied to your inquiry`, [`Hi ${item.name},`, '', `${item.business?.name} wrote:`, '', req.validated.body.text, '', `You can also call them on ${item.business?.phone || 'the number on their listing'}. Your inquiries are in My account on Lokal Lens.`]);
+    tell(mailer, to, `${item.business?.name} replied to your inquiry`, { heading: `${item.business?.name} replied`, greeting: `Hi ${item.name},`, preheader: req.validated.body.text.slice(0, 90), paragraphs: [`${item.business?.name} answered your inquiry.`], quote: req.validated.body.text, quoteLabel: 'Their reply', details: item.business?.phone ? [['Call them', item.business.phone]] : [], button: myInquiries(mailer), note: 'Reply by calling the business, or send a new inquiry from their page.' });
     sendSuccess(res, 'Reply saved', { item: item.toObject() });
   } catch (error) { next(error); }
 };
