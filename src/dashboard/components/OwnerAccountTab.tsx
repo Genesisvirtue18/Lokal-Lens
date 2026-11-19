@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { TwoFactorCard } from './TwoFactorCard';
 import { BadgeCheck, Eye, EyeOff, Laptop, LogOut, Trash2 } from 'lucide-react';
 import { Badge, Button, Field, cx, fieldClass } from '@/components/ds';
 import { saveSession, request } from '../api';
 
-export type OwnerUser = { name: string; email: string; phone?: string; emailVerified?: boolean; hasPassword?: boolean; notificationPreferences?: { email?: boolean } };
+export type OwnerUser = { name: string; email: string; phone?: string; emailVerified?: boolean; hasPassword?: boolean; hasTotp?: boolean; role?: string; notificationPreferences?: { email?: boolean } };
 type Session = { current?: boolean; _id: string; userAgent?: string; ip?: string; createdAt?: string };
 
 interface Props { user: OwnerUser | null; onUserChange: (user: OwnerUser) => void; onLogout: () => void; showToast: (message: string) => void }
@@ -143,6 +144,8 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
           {resetNote && <p role="status" className="text-[14px] leading-5 text-[#2b7a26]">{resetNote}</p>}
         </form>
       </Card>
+
+      <TwoFactorCard enabled={Boolean(user?.hasTotp)} isAdmin={user?.role === 'admin' || user?.role === 'super_admin'} onChange={(hasTotp) => onUserChange({ ...(user as OwnerUser), hasTotp })} showToast={showToast} />
 
       <Card title="Notifications">
         <label className="flex cursor-pointer items-start gap-3">

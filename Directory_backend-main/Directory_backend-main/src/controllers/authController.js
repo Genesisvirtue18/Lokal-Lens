@@ -7,6 +7,8 @@ import { sendSuccess } from '../utils/response.js';
 import jwt from 'jsonwebtoken';
 import { findAnyRefreshToken, findRefreshToken, revokeAllFor, revokeRefreshToken, startSession } from '../utils/tokens.js';
 import { clearRefreshCookie, readRefreshCookie } from '../utils/cookies.js';
+import { newRecoveryCodes, newTotpSecret, openSecret, otpauthUrl, sealSecret, verifyTotp } from '../utils/totp.js';
+import { checkSecondFactor } from '../utils/secondFactor.js';
 const publicUser = user => user.toJSON();
 // Compared against when the email is unknown, so a wrong email and a wrong password take the same time.
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 12);
@@ -46,9 +48,20 @@ async function checkCode(email, code) {
   return user;
 }
 
-// Admins must pass two checks: the password, then a code sent to their email. The password step hands back a short-lived
-// "challenge" instead of a session, so a stolen password alone is not enough.
-export const login = (config, mailer) => async (req, res, next) => { try {
+// Admins always sign in with two checks: the password, then a code from their authenticator app. Anyone else can turn it on
+// for their own account. Passing the first check only hands back a short-lived "challenge", never a session.
+const needsSecondFactor = (user) => isAdminRole(user) || user.totpEnabled;
+const secondFactorStep = (res, user, config) => {
+  const challenge = jwt.sign({ sub: user.id, purpose: '2fa' }, config.JWT_ACCESS_SECRET, { expiresIn: '10m' });
+  return sendSuccess(res, user.totpEnabled ? 'Enter the 6-digit code from your authenticator app.' : 'Set up your authenticator app to finish signing in.', { requires2fa: true, enroll: !user.totpEnabled, challenge });
+};
+const readChallenge = (challenge, config) => {
+  try { const payload = jwt.verify(challenge, config.JWT_ACCESS_SECRET); if (payload.purpose === '2fa') return payload; } catch { /* fall through */ }
+  throw new AppError('This sign-in expired. Start again.', 401);
+};
+const TOTP_FIELDS = '+totpSecretEnc +totpPendingEnc +totpLastStep +totpRecovery +failedLogins +lockedUntil';
+
+export const login = (config) => async (req, res, next) => { try {
   const { email, password } = req.validated.body;
   if (isBlockedTestEmail(config, email)) throw new AppError('Invalid email or password', 401);
   const user = await User.findOne({ email }).select('+passwordHash +failedLogins +lockedUntil');
@@ -60,24 +73,82 @@ export const login = (config, mailer) => async (req, res, next) => { try {
   }
   if (!user.emailVerified && !isAdminRole(user)) throw new AppError('Confirm your email first. Choose “Email me a code” to sign in and confirm it.', 403);
   user.failedLogins = 0; user.lockedUntil = undefined;
-  if (isAdminRole(user)) {
-    const devCode = await sendCode(user, email, config, mailer, 'Lokal Lens admin sign-in');
-    const challenge = jwt.sign({ sub: user.id, purpose: '2fa' }, config.JWT_ACCESS_SECRET, { expiresIn: '10m' });
-    return sendSuccess(res, 'Enter the code we emailed you to finish signing in.', { requires2fa: true, challenge, ...(devCode ? { devCode } : {}) });
-  }
+  if (needsSecondFactor(user)) { await user.save(); return secondFactorStep(res, user, config); }
   user.lastLoginAt = new Date(); await user.save();
   sendSuccess(res, 'Login successful', { user: publicUser(user), ...(await startSession(res, user, config, req)) });
 } catch (e) { next(e); } };
 
+const finishSignIn = async (res, user, config, req, extra = {}) => {
+  user.lastLoginAt = new Date(); await user.save();
+  sendSuccess(res, 'Signed in', { user: publicUser(user), ...extra, ...(await startSession(res, user, config, req)) });
+};
+
+// Step 2 for someone who already has an authenticator: a 6-digit code, or one of their backup codes.
 export const verifyTwoFactor = config => async (req, res, next) => { try {
   const { challenge, code } = req.validated.body;
-  let payload; try { payload = jwt.verify(challenge, config.JWT_ACCESS_SECRET); } catch { throw new AppError('This sign-in expired. Start again.', 401); }
-  if (payload.purpose !== '2fa') throw new AppError('This sign-in expired. Start again.', 401);
-  const holder = await User.findById(payload.sub).select('email role status');
-  if (!holder || holder.status !== 'active' || !isAdminRole(holder)) throw new AppError('This sign-in expired. Start again.', 401);
-  const user = await checkCode(holder.email, code);
-  user.lastLoginAt = new Date(); user.emailVerified = true; await user.save();
-  sendSuccess(res, 'Signed in', { user: publicUser(user), ...(await startSession(res, user, config, req)) });
+  const payload = readChallenge(challenge, config);
+  const user = await User.findById(payload.sub).select(TOTP_FIELDS);
+  if (!user || user.status !== 'active' || !user.totpEnabled) throw new AppError('This sign-in expired. Start again.', 401);
+  if (user.lockedUntil && user.lockedUntil > new Date()) throw new AppError('Too many wrong codes. Try again in a few minutes.', 429);
+  if (!await checkSecondFactor(user, code, config)) throw new AppError('That code isn’t right. Check your authenticator app and try again.', 400);
+  await finishSignIn(res, user, config, req);
+} catch (e) { next(e); } };
+
+// First sign-in of an admin who hasn't set up the authenticator yet: show the secret, then confirm with the first code.
+export const loginTwoFactorSetup = config => async (req, res, next) => { try {
+  const payload = readChallenge(req.validated.body.challenge, config);
+  const user = await User.findById(payload.sub).select(TOTP_FIELDS);
+  if (!user || user.status !== 'active' || user.totpEnabled) throw new AppError('This sign-in expired. Start again.', 401);
+  const secret = newTotpSecret();
+  user.totpPendingEnc = sealSecret(config, secret); await user.save();
+  sendSuccess(res, 'Scan this with your authenticator app', { secret, otpauthUrl: otpauthUrl(secret, user.email || user.name) });
+} catch (e) { next(e); } };
+export const loginTwoFactorEnroll = config => async (req, res, next) => { try {
+  const { challenge, code } = req.validated.body;
+  const payload = readChallenge(challenge, config);
+  const user = await User.findById(payload.sub).select(TOTP_FIELDS);
+  if (!user || user.status !== 'active' || user.totpEnabled || !user.totpPendingEnc) throw new AppError('This sign-in expired. Start again.', 401);
+  const recoveryCodes = await confirmEnrollment(user, code, config);
+  await finishSignIn(res, user, config, req, { recoveryCodes });
+} catch (e) { next(e); } };
+
+async function confirmEnrollment(user, code, config) {
+  const step = verifyTotp(openSecret(config, user.totpPendingEnc), String(code).trim(), 0);
+  if (step === null) throw new AppError('That code isn’t right. Check your authenticator app and try again.', 400);
+  const { codes, hashes } = newRecoveryCodes();
+  user.totpSecretEnc = user.totpPendingEnc; user.totpPendingEnc = undefined; user.totpEnabled = true; user.totpLastStep = step; user.totpRecovery = hashes;
+  await user.save();
+  return codes;
+}
+
+// Turning it on from Account settings (for owners, and for admins who want to change phone).
+export const totpSetup = config => async (req, res, next) => { try {
+  const user = await User.findById(req.user.id).select(TOTP_FIELDS);
+  if (user.totpEnabled) throw new AppError('Two-step verification is already on. Turn it off first to set it up again.', 409);
+  const secret = newTotpSecret();
+  user.totpPendingEnc = sealSecret(config, secret); await user.save();
+  sendSuccess(res, 'Scan this with your authenticator app', { secret, otpauthUrl: otpauthUrl(secret, user.email || user.name) });
+} catch (e) { next(e); } };
+export const totpEnable = config => async (req, res, next) => { try {
+  const user = await User.findById(req.user.id).select(TOTP_FIELDS);
+  if (user.totpEnabled || !user.totpPendingEnc) throw new AppError('Start the setup again.', 409);
+  const recoveryCodes = await confirmEnrollment(user, req.validated.body.code, config);
+  sendSuccess(res, 'Two-step verification is on', { recoveryCodes });
+} catch (e) { next(e); } };
+export const totpDisable = config => async (req, res, next) => { try {
+  if (isAdminRole(req.user)) throw new AppError('Admins must keep two-step verification on.', 403);
+  const user = await User.findById(req.user.id).select(TOTP_FIELDS);
+  if (!user.totpEnabled) throw new AppError('Two-step verification is already off.', 409);
+  if (!await checkSecondFactor(user, req.validated.body.code, config)) throw new AppError('That code isn’t right.', 400);
+  user.totpEnabled = false; user.totpSecretEnc = undefined; user.totpPendingEnc = undefined; user.totpRecovery = []; user.totpLastStep = 0; await user.save();
+  sendSuccess(res, 'Two-step verification is off');
+} catch (e) { next(e); } };
+export const totpRecoveryCodes = config => async (req, res, next) => { try {
+  const user = await User.findById(req.user.id).select(TOTP_FIELDS);
+  if (!user.totpEnabled) throw new AppError('Turn on two-step verification first.', 409);
+  if (!await checkSecondFactor(user, req.validated.body.code, config)) throw new AppError('That code isn’t right.', 400);
+  const { codes, hashes } = newRecoveryCodes(); user.totpRecovery = hashes; await user.save();
+  sendSuccess(res, 'New backup codes created. The old ones no longer work.', { recoveryCodes: codes });
 } catch (e) { next(e); } };
 
 // The browser sends the refresh cookie on its own. A token that was already used and shows up again is treated as stolen.
@@ -98,7 +169,7 @@ export const logout = config => async (req, res, next) => { try {
   clearRefreshCookie(res, config);
   sendSuccess(res, 'Logged out successfully');
 } catch (e) { next(e); } };
-export const me = () => async (req, res, next) => { try { const withHash = await User.findById(req.user.id).select('+passwordHash'); sendSuccess(res, 'Profile retrieved successfully', { user: { ...publicUser(req.user), hasPassword: Boolean(withHash?.passwordHash) } }); } catch (e) { next(e); } };
+export const me = () => async (req, res, next) => { try { const withHash = await User.findById(req.user.id).select('+passwordHash'); sendSuccess(res, 'Profile retrieved successfully', { user: { ...publicUser(req.user), hasPassword: Boolean(withHash?.passwordHash), hasTotp: Boolean(req.user.totpEnabled) } }); } catch (e) { next(e); } };
 export const sessions = () => async (req, res, next) => { try { const all = await RefreshToken.find({ user: req.user.id, revokedAt: null, expiresAt: { $gt: new Date() } }).select('-tokenHash').sort({ createdAt: -1 }).lean(); const raw = readRefreshCookie(req); const mine = raw ? await findRefreshToken(raw) : null; const currentId = mine && String(mine.user) === String(req.user.id) ? String(mine._id) : ''; const ordered = currentId ? [...all.filter((item) => String(item._id) === currentId), ...all.filter((item) => String(item._id) !== currentId)] : all; const seen = new Set(); const items = ordered.filter((item) => { const key = `${item.userAgent || ''}|${item.ip || ''}`; if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 10).map((item) => ({ ...item, current: String(item._id) === currentId })); sendSuccess(res, 'Sessions retrieved successfully', { items }); } catch (e) { next(e); } };
 export const revokeSession = () => async (req, res, next) => { try { const result = await RefreshToken.updateOne({ _id: req.params.sessionId, user: req.user.id, revokedAt: null }, { $set: { revokedAt: new Date() } }); if (!result.matchedCount) throw new AppError('Session not found', 404); sendSuccess(res, 'Session revoked successfully'); } catch (e) { next(e); } };
 export const revokeAll = () => async (req, res, next) => { try { await RefreshToken.updateMany({ user: req.user.id, revokedAt: null }, { $set: { revokedAt: new Date() } }); sendSuccess(res, 'All sessions revoked successfully'); } catch (e) { next(e); } };
@@ -160,9 +231,9 @@ export const verifyOtp = config => async (req, res, next) => { try {
   const found = await User.findOne({ email, status: 'active' }).select('role');
   if (found && isAdminRole(found)) throw new AppError('Admins sign in with a password and an emailed code.', 403);
   const user = await checkCode(email, code);
-  user.emailVerified = true; user.lastLoginAt = new Date();
-  await user.save();
-  sendSuccess(res, 'Signed in', { user: publicUser(user), ...(await startSession(res, user, config, req)) });
+  user.emailVerified = true;
+  if (user.totpEnabled) { await user.save(); return secondFactorStep(res, user, config); }
+  await finishSignIn(res, user, config, req);
 } catch (e) { next(e); } };
 
 // Change the password (or set one for an account that so far signs in with email codes). Other devices are signed out.

@@ -69,6 +69,12 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
     return () => { live = false; };
   }, [role]);
 
+  // The admin's own account page (password, two-step verification) needs the signed-in user too.
+  useEffect(() => {
+    if (role !== 'admin') return;
+    request('/auth/me').then((data) => setOwnerUser(data.user || null)).catch(() => setOwnerUser(null));
+  }, [role]);
+
   useEffect(() => {
     if (role !== 'owner') return;
     // Who is signed in, and (when opened as /add-business) which listing to edit.

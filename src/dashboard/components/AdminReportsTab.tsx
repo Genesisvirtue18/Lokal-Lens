@@ -91,7 +91,7 @@ function ClaimCard({ claim, onDone, onOpenBusiness, onOpenPerson, showToast }: {
   const confirm = useConfirm();
   const business = claim.business;
   const decide = async (decision: 'approve' | 'reject') => {
-    const pw = decision === 'approve' ? await confirm({ title: `Hand “${business?.name}” to ${claim.claimant?.name}?`, message: `${business?.owner ? `It moves away from ${business.owner.name}. ` : ''}The new owner gets full control of the listing. Both are told by email.`, confirmLabel: 'Approve and hand over', tone: 'warning', askPassword: true }) : true;
+    const pw = decision === 'approve' ? await confirm({ title: `Hand “${business?.name}” to ${claim.claimant?.name}?`, message: `${business?.owner ? `It moves away from ${business.owner.name}. ` : ''}The new owner gets full control of the listing. Both are told by email.`, confirmLabel: 'Approve and hand over', tone: 'warning', askCode: true }) : true;
     if (!pw) return;
     setBusy(true);
     try { await decideAdminClaim(claim._id, decision, note.trim() || undefined, typeof pw === 'string' ? pw : undefined); showToast(decision === 'approve' ? 'Claim approved. The listing was handed over.' : 'Claim rejected.'); onDone(); }

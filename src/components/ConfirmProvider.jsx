@@ -19,7 +19,6 @@ export function ConfirmProvider({ children }) {
   const [request, setRequest] = useState(null);
   const [typed, setTyped] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const resolver = useRef(null);
   const opener = useRef(null);
   const cancelRef = useRef(null);
@@ -29,7 +28,7 @@ export function ConfirmProvider({ children }) {
   const ask = useCallback((options) => new Promise((resolve) => {
     opener.current = typeof document === "undefined" ? null : document.activeElement;
     resolver.current = resolve;
-    setTyped(""); setPassword(""); setShowPassword(false);
+    setTyped(""); setPassword("");
     setRequest(options);
   }), []);
 
@@ -45,14 +44,14 @@ export function ConfirmProvider({ children }) {
     if (!request) return undefined;
     const previous = document.body.style.overflow; document.body.style.overflow = "hidden";
     // Risky actions start on Cancel (or on the typing box), so a stray Enter never confirms them.
-    setTimeout(() => (request.requireText || request.askPassword ? inputRef.current : request.tone === "primary" ? confirmRef.current : cancelRef.current)?.focus(), 0);
+    setTimeout(() => (request.requireText || request.askCode ? inputRef.current : request.tone === "primary" ? confirmRef.current : cancelRef.current)?.focus(), 0);
     return () => { document.body.style.overflow = previous; };
   }, [request]);
 
   const tone = TONES[request?.tone] || TONES.primary;
   const Icon = tone.icon;
-  const ready = (!request?.requireText || typed.trim() === request.requireText) && (!request?.askPassword || password.length > 0);
-  const answer = () => (request?.askPassword ? password : true);
+  const ready = (!request?.requireText || typed.trim() === request.requireText) && (!request?.askCode || password.trim().length >= 6);
+  const answer = () => (request?.askCode ? password.trim() : true);
 
   function onKeyDown(event) {
     if (event.key === "Escape") { event.stopPropagation(); close(false); return; }
@@ -84,11 +83,11 @@ export function ConfirmProvider({ children }) {
                 <input ref={inputRef} value={typed} onChange={(event) => setTyped(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && ready) close(answer()); }} autoComplete="off" spellCheck={false} className="h-12 rounded-[10px] border border-[#bdbcb5] px-3.5 font-mono text-[16px] font-normal outline-none focus:border-2 focus:border-[#101115]" />
               </label>
             )}
-            {request.askPassword && (
+            {request.askCode && (
               <label className="flex flex-col gap-1.5 font-display text-[14px] font-medium text-[#101115]">
-                <span>Enter your password to confirm</span>
-                <span className="relative"><input ref={request.requireText ? undefined : inputRef} type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && ready) close(answer()); }} autoComplete="current-password" className="h-12 w-full rounded-[10px] border border-[#bdbcb5] px-3.5 pr-16 text-[16px] font-normal outline-none focus:border-2 focus:border-[#101115]" /><button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-[6px] px-2 py-1 text-[13px] font-medium text-[#4a4c55] hover:bg-[#f1f1ee]">{showPassword ? "Hide" : "Show"}</button></span>
-                <span className="text-[13px] font-normal text-[#6e7079]">This action can’t be undone, so we check it’s really you.</span>
+                <span>Code from your authenticator app</span>
+                <input ref={request.requireText ? undefined : inputRef} value={password} onChange={(event) => setPassword(event.target.value.slice(0, 24))} onKeyDown={(event) => { if (event.key === "Enter" && ready) close(answer()); }} autoComplete="one-time-code" inputMode="text" placeholder="000000" className="h-12 w-full rounded-[10px] border border-[#bdbcb5] px-3.5 text-center font-mono text-[20px] font-normal tracking-[0.25em] outline-none focus:border-2 focus:border-[#101115]" />
+                <span className="text-[13px] font-normal text-[#6e7079]">This can’t be undone, so we check it’s really you. Open the app and type the 6-digit code (or a backup code).</span>
               </label>
             )}
             <div className="flex justify-end gap-3">

@@ -60,8 +60,8 @@ Sign in at `/login` → "Use password instead". Admin page: `/admin`.
 
 ## Security settings (read before going live)
 - **Sign-in sessions.** The long-lived refresh token is stored in an httpOnly cookie, not in the browser's storage. The website and the API sit on different sites (Vercel and Render), so the cookie is sent with `SameSite=None; Secure`. If you later put both under one domain (for example `lokallens.in` and `api.lokallens.in`), set `COOKIE_SAMESITE=lax` on Render.
-- **Admins sign in in two steps:** password, then a 6-digit code emailed to them. This needs working email (SMTP), so set SMTP **before** creating the first admin. Admins can't use "email me a code" alone.
-- **Actions that can't be undone** (delete listings, change roles, hand a listing to someone else, create admins, suspend accounts) ask the admin for their password again. Admins need a password set.
+- **Admins sign in in two steps:** password, then a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy). The first time, the login page shows a QR code and 8 one-time backup codes (store them safely). Admins can't sign in with an emailed code alone, and can't turn the authenticator off. Owners and customers can turn it on under Account settings.
+- **Actions that can't be undone** (delete listings, change roles, hand a listing to someone else, create admins, suspend accounts) ask the admin for a fresh authenticator code. If a phone is lost, use a backup code, then create new ones under Account & security.
 - **`TRUST_PROXY=1` is required in production.** The API refuses to start without it, because otherwise every visitor looks like the same IP and rate limits protect nothing.
 - **No test accounts on the live site.** Never run `seed-test-users.js` against the live database. Addresses ending in `@lokallens.test` are refused in production.
 - **Create the first admin with a long password** (12+ characters): `scripts/create-admin.js`.

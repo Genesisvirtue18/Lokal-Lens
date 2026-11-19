@@ -143,9 +143,9 @@ export async function loadAdminDashboard(): Promise<BusinessListing[]> {
   return all.map(toDashboardBusiness);
 }
 // Actions that can't be undone ask the admin for their password again; it travels only in this header.
-const withPassword = (password?: string): { headers?: Record<string, string> } => (password ? { headers: { 'X-Confirm-Password': password } } : {});
+const withCode = (password?: string): { headers?: Record<string, string> } => (password ? { headers: { 'X-Confirm-Code': password } } : {});
 export async function loadAdminOwners(): Promise<{ id: string; name: string; email: string }[]> { const { items = [] } = await request('/admin/owners'); return items.map((item: { _id: string; name: string; email: string }) => ({ id: item._id, name: item.name, email: item.email })); }
-export async function assignBusinessOwner(id: string, ownerId: string, password?: string) { const { item } = await request(`/admin/businesses/${id}/owner`, { method: 'PATCH', body: JSON.stringify({ ownerId }), ...withPassword(password) }); return toDashboardBusiness(item); }
+export async function assignBusinessOwner(id: string, ownerId: string, password?: string) { const { item } = await request(`/admin/businesses/${id}/owner`, { method: 'PATCH', body: JSON.stringify({ ownerId }), ...withCode(password) }); return toDashboardBusiness(item); }
 export async function reviewBusiness(id: string, decision: 'approve' | 'reject', rejectionReason?: string) { const { item } = await request(`/admin/businesses/${id}/review`, { method: 'PATCH', body: JSON.stringify({ decision, ...(rejectionReason ? { rejectionReason } : {}) }) }); return toDashboardBusiness(item); }
 export async function reviewKyc(id: string, decision: 'approve' | 'reject', reason?: string) { const { item } = await request(`/admin/businesses/${id}/kyc`, { method: 'PATCH', body: JSON.stringify({ decision, ...(reason ? { reason } : {}) }) }); return toDashboardBusiness(item); }
 export async function setBusinessPlan(id: string, plan: 'free' | 'premium', planExpiresAt?: string) { const { item } = await request(`/admin/businesses/${id}/plan`, { method: 'PATCH', body: JSON.stringify({ plan, ...(planExpiresAt ? { planExpiresAt } : {}) }) }); return toDashboardBusiness(item); }
@@ -156,7 +156,7 @@ export async function loadAdminBusiness(id: string) { const { item } = await req
 export async function createAdminBusiness(payload: Record<string, unknown>) { const { item } = await request('/admin/businesses', { method: 'POST', body: JSON.stringify(payload) }); return toDashboardBusiness(item); }
 export async function updateAdminBusiness(id: string, payload: Record<string, unknown>) { const { item } = await request(`/admin/businesses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); return toDashboardBusiness(item); }
 export async function setAdminBusinessStatus(id: string, status: 'published' | 'suspended') { const { item } = await request(`/admin/businesses/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }); return toDashboardBusiness(item); }
-export async function deleteAdminBusiness(id: string, password?: string) { await request(`/admin/businesses/${id}`, { method: 'DELETE', ...withPassword(password) }); }
+export async function deleteAdminBusiness(id: string, password?: string) { await request(`/admin/businesses/${id}`, { method: 'DELETE', ...withCode(password) }); }
 export async function loadOwnerBusiness(id: string) { const { item } = await request(`/owner/businesses/${id}`); return item; }
 export async function createOwnerBusiness(payload: Record<string, unknown>) { const { item } = await request('/owner/businesses', { method: 'POST', body: JSON.stringify(payload) }); return toDashboardBusiness(item); }
 export async function updateOwnerBusiness(id: string, payload: Record<string, unknown>) { const { item } = await request(`/owner/businesses/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }); return toDashboardBusiness(item); }
@@ -166,7 +166,7 @@ export type ManagedCategory = { _id: string; name: string; icon?: string; isActi
 export async function loadAdminCategories(): Promise<ManagedCategory[]> { const { items = [] } = await request('/admin/categories'); return items; }
 export async function createCategory(name: string, parentCategory?: string, icon?: string) { const { item } = await request('/admin/categories', { method: 'POST', body: JSON.stringify({ name, ...(parentCategory ? { parentCategory } : {}), ...(icon ? { icon } : {}) }) }); return item; }
 export async function updateCategory(id: string, patch: { name?: string; icon?: string; isActive?: boolean; displayOrder?: number; services?: string[] }) { const { item } = await request(`/admin/categories/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }); return item; }
-export async function deleteCategory(id: string, password?: string) { await request(`/admin/categories/${id}`, { method: 'DELETE', ...withPassword(password) }); }
+export async function deleteCategory(id: string, password?: string) { await request(`/admin/categories/${id}`, { method: 'DELETE', ...withCode(password) }); }
 export async function addCategoryServices(id: string, services: string[]) { const { item } = await request(`/admin/categories/${id}/services`, { method: 'POST', body: JSON.stringify({ services }) }); return item; }
 async function uploadCsv(path: string, file: File) { const form = new FormData(); form.append('file', file); const response = await authedFetch(`${baseUrl}${path}`, { method: 'POST', body: form }); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.message || 'Unable to import CSV'); return body.data || {}; }
 export const importCategoriesCsv = (file: File, parentId?: string) => uploadCsv(parentId ? `/admin/categories/${parentId}/subcategories/import` : '/admin/categories/import', file);
@@ -203,13 +203,13 @@ const qs = (params: Record<string, string | number | undefined>) => { const sear
 export const loadAdminStats = async (): Promise<AdminStats> => request('/admin/stats');
 export const loadAdminUsers = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminUser>> => request(`/admin/users?${qs(params)}`);
 export const loadAdminUser = async (id: string): Promise<AdminUserDetail> => request(`/admin/users/${id}`);
-export const setAdminUserStatus = async (id: string, status: 'active' | 'suspended', password?: string) => request(`/admin/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }), ...withPassword(password) });
+export const setAdminUserStatus = async (id: string, status: 'active' | 'suspended', password?: string) => request(`/admin/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }), ...withCode(password) });
 export const loadAdminReviews = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminReview>> => request(`/admin/reviews?${qs(params)}`);
 export const deleteAdminReview = async (businessId: string, reviewId: string) => { await request(`/admin/businesses/${businessId}/reviews/${reviewId}`, { method: 'DELETE' }); };
 export const loadAdminLeads = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminLead>> => request(`/admin/leads?${qs(params)}`);
 export type ListingAction = 'suspend' | 'restore' | 'delete';
-export const bulkListingsAction = async (ids: string[], action: ListingAction | 'assign', ownerId?: string, password?: string): Promise<{ count: number }> => request('/admin/businesses/bulk', { method: 'POST', body: JSON.stringify({ ids, action, ...(ownerId ? { ownerId } : {}) }), ...withPassword(password) });
-export const ownerListingsAction = async (userId: string, action: ListingAction, password?: string): Promise<{ count: number }> => request(`/admin/users/${userId}/listings`, { method: 'POST', body: JSON.stringify({ action }), ...withPassword(password) });
+export const bulkListingsAction = async (ids: string[], action: ListingAction | 'assign', ownerId?: string, password?: string): Promise<{ count: number }> => request('/admin/businesses/bulk', { method: 'POST', body: JSON.stringify({ ids, action, ...(ownerId ? { ownerId } : {}) }), ...withCode(password) });
+export const ownerListingsAction = async (userId: string, action: ListingAction, password?: string): Promise<{ count: number }> => request(`/admin/users/${userId}/listings`, { method: 'POST', body: JSON.stringify({ action }), ...withCode(password) });
 
 // ---- Admin: activity, roles, reports, claims, exports ----
 export type AdminActivity = { _id: string; actorName?: string; actorEmail?: string; label: string; targetType: string; targetId?: string; targetName?: string; details?: string; createdAt: string };
@@ -219,9 +219,9 @@ export const loadAdminActivity = async (params: Record<string, string | number |
 export const loadAdminReports = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminReport>> => request(`/admin/reports?${qs(params)}`);
 export const resolveAdminReport = async (id: string, action: 'dismiss' | 'remove', note?: string) => request(`/admin/reports/${id}`, { method: 'PATCH', body: JSON.stringify({ action, ...(note ? { note } : {}) }) });
 export const loadAdminClaims = async (params: Record<string, string | number | undefined>): Promise<Paged<AdminClaim>> => request(`/admin/claims?${qs(params)}`);
-export const decideAdminClaim = async (id: string, decision: 'approve' | 'reject', note?: string, password?: string) => request(`/admin/claims/${id}`, { method: 'PATCH', body: JSON.stringify({ decision, ...(note ? { note } : {}) }), ...withPassword(password) });
-export const createAdminUser = async (payload: { name: string; email: string; role: 'customer' | 'business_owner' | 'admin' }, password?: string) => request('/admin/users', { method: 'POST', body: JSON.stringify(payload), ...withPassword(password) });
-export const changeAdminUserRole = async (id: string, role: 'customer' | 'business_owner' | 'admin', password?: string) => request(`/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }), ...withPassword(password) });
+export const decideAdminClaim = async (id: string, decision: 'approve' | 'reject', note?: string, password?: string) => request(`/admin/claims/${id}`, { method: 'PATCH', body: JSON.stringify({ decision, ...(note ? { note } : {}) }), ...withCode(password) });
+export const createAdminUser = async (payload: { name: string; email: string; role: 'customer' | 'business_owner' | 'admin' }, password?: string) => request('/admin/users', { method: 'POST', body: JSON.stringify(payload), ...withCode(password) });
+export const changeAdminUserRole = async (id: string, role: 'customer' | 'business_owner' | 'admin', password?: string) => request(`/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }), ...withCode(password) });
 export const reportReview = async (businessId: string, reviewId: string, reason: string, note?: string) => request(`/businesses/${businessId}/reviews/${reviewId}/report`, { method: 'POST', body: JSON.stringify({ reason, ...(note ? { note } : {}) }) });
 export type MyClaim = { _id: string; status: 'pending' | 'approved' | 'rejected'; createdAt: string; decisionNote?: string; business?: { name?: string; address?: { city?: string } } };
 export const loadMyClaims = async (): Promise<MyClaim[]> => { const { items = [] } = await request('/owner/claims'); return items; };

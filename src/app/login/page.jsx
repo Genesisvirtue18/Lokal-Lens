@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Button, Field, Logo, cx, fieldClass } from "@/components/ds";
 import { saveSession } from "@/dashboard/api";
+import { TwoFactorSetup, TwoFactorVerify } from "@/components/TwoFactor";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,7 +32,8 @@ export default function LoginPage({ initialRegistering = false }) {
   const [showPassword, setShowPassword] = useState(false);
   const [terms, setTerms] = useState(false);
   const [code, setCode] = useState("");
-  const [challenge, setChallenge] = useState(""); // set when an admin passed the password and now needs the emailed code
+  const [challenge, setChallenge] = useState(""); // set when the first check passed and an authenticator code is still needed
+  const [enroll, setEnroll] = useState(false); // true when this account has no authenticator yet (always the case for a new admin)
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -86,7 +88,7 @@ export default function LoginPage({ initialRegistering = false }) {
       if (method === "code") await sendCode();
       else {
         const body = await call(`/auth/${registering ? "register" : "login"}`, { ...(registering ? { name: name.trim() } : {}), email: email.trim().toLowerCase(), password });
-        if (body.data?.requires2fa) { setChallenge(body.data.challenge); setStep("code"); setCode(body.data.devCode || ""); setCooldown(30); setNotice(body.data.devCode ? `Test mode: your code is ${body.data.devCode}.` : "We emailed you a 6-digit code to finish signing in."); }
+        if (body.data?.requires2fa) startSecondFactor(body.data);
         else if (registering) { setStep("code"); setCode(body.data?.devCode || ""); setCooldown(30); setNotice(body.data?.devCode ? `Test mode: email isn’t set up yet, so your code is ${body.data.devCode}.` : body.message || "We sent a 6-digit code to your email."); }
         else finish(body.data);
       }
@@ -98,23 +100,28 @@ export default function LoginPage({ initialRegistering = false }) {
     event.preventDefault();
     if (code.length !== 6) { setError("Enter the 6-digit code from your email."); return; }
     setBusy(true); setError("");
-    try { const body = challenge ? await call("/auth/login/2fa", { challenge, code }) : await call("/auth/otp/verify", { email: email.trim().toLowerCase(), code }); finish(body.data); }
+    try { const body = await call("/auth/otp/verify", { email: email.trim().toLowerCase(), code }); if (body.data?.requires2fa) startSecondFactor(body.data); else finish(body.data); }
+    catch (reason) { setError(reason.message); }
+    finally { setBusy(false); }
+  }
+
+  function startSecondFactor(data) { setChallenge(data.challenge); setEnroll(Boolean(data.enroll)); setStep("2fa"); setError(""); setNotice(""); setCode(""); }
+  const beginSetup = useCallback(() => call("/auth/login/2fa/setup", { challenge }).then((body) => body.data), [challenge]);
+  const confirmSetup = useCallback((value) => call("/auth/login/2fa/enroll", { challenge, code: value }).then((body) => body.data), [challenge]);
+  async function verifyAuthenticator(value) {
+    setBusy(true); setError("");
+    try { const body = await call("/auth/login/2fa", { challenge, code: value }); finish(body.data); }
     catch (reason) { setError(reason.message); }
     finally { setBusy(false); }
   }
 
   async function resend() {
     setBusy(true); setError("");
-    try {
-      if (challenge) {
-        const body = await call("/auth/login", { email: email.trim().toLowerCase(), password });
-        if (body.data?.requires2fa) { setChallenge(body.data.challenge); setCode(body.data.devCode || ""); setCooldown(30); setNotice("We emailed you a new code."); }
-      } else await sendCode();
-    } catch (reason) { setError(reason.message); }
+    try { await sendCode(); } catch (reason) { setError(reason.message); }
     finally { setBusy(false); }
   }
 
-  const title = step === "code" ? "Check your email" : registering ? "Create your account" : "Sign in to Lokal Lens";
+  const title = step === "2fa" ? (enroll ? "Set up two-step verification" : "Two-step verification") : step === "code" ? "Check your email" : registering ? "Create your account" : "Sign in to Lokal Lens";
 
   return (
     <main className="min-h-screen bg-[#f1f1ee] text-[#101115] grid grid-cols-[minmax(0,1fr)] lg:h-screen lg:grid-cols-[440px_minmax(0,1fr)] xl:grid-cols-[560px_minmax(0,1fr)]">
@@ -146,7 +153,11 @@ export default function LoginPage({ initialRegistering = false }) {
           {error && <p role="alert" className="flex items-start gap-2.5 rounded-[10px] bg-[#fce9e7] px-3.5 py-3 text-[14px] leading-5 text-[#b42318]"><AlertCircle size={18} className="mt-px shrink-0" aria-hidden="true" />{error}</p>}
           {notice && !error && <p role="status" className="rounded-[10px] bg-[#e7f4e5] px-3.5 py-3 text-[14px] leading-5 text-[#2b7a26]">{notice}</p>}
 
-          {step === "form" ? (
+          {step === "2fa" ? (
+            enroll
+              ? <div className="flex flex-col gap-4"><p className="text-[15px] leading-6 text-[#4a4c55]">Admin accounts need a second check. It takes a minute, and you only do it once.</p><TwoFactorSetup start={beginSetup} confirm={confirmSetup} onDone={finish} doneLabel="Finish signing in" /></div>
+              : <TwoFactorVerify onSubmit={verifyAuthenticator} busy={busy} error="" onBack={() => { setStep("form"); setChallenge(""); setError(""); }} />
+          ) : step === "form" ? (
             <form onSubmit={submit} noValidate className="flex flex-col gap-4">
               {registering && (
                 <Field label="Full name" error={fieldErrors.name}>

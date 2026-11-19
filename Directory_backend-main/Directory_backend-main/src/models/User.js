@@ -23,6 +23,12 @@ const userSchema = new mongoose.Schema({
   otpExpiresAt: { type: Date, select: false },
   otpAttempts: { type: Number, default: 0, select: false },
   failedLogins: { type: Number, default: 0, select: false },
+  // Authenticator-app two-step verification. The secret is stored encrypted; recovery codes only as hashes.
+  totpEnabled: { type: Boolean, default: false },
+  totpSecretEnc: { type: String, select: false },
+  totpPendingEnc: { type: String, select: false },
+  totpLastStep: { type: Number, default: 0, select: false },
+  totpRecovery: { type: [String], default: [], select: false },
   lockedUntil: { type: Date, select: false },
   otpSentAt: { type: Date, select: false },
   deletedAt: { type: Date, default: null },
@@ -30,8 +36,8 @@ const userSchema = new mongoose.Schema({
   lastLoginAt: Date,
 }, {
   timestamps: true,
-  toJSON: { transform(doc, ret) { delete ret.passwordHash; delete ret.passwordResetTokenHash; delete ret.passwordResetExpiresAt; delete ret.otpHash; delete ret.otpExpiresAt; delete ret.otpAttempts; delete ret.otpSentAt; return ret; } },
-  toObject: { transform(doc, ret) { delete ret.passwordHash; delete ret.passwordResetTokenHash; delete ret.passwordResetExpiresAt; delete ret.otpHash; delete ret.otpExpiresAt; delete ret.otpAttempts; delete ret.otpSentAt; return ret; } },
+  toJSON: { transform(doc, ret) { delete ret.passwordHash; delete ret.totpSecretEnc; delete ret.totpPendingEnc; delete ret.totpLastStep; delete ret.totpRecovery; delete ret.passwordResetTokenHash; delete ret.passwordResetExpiresAt; delete ret.otpHash; delete ret.otpExpiresAt; delete ret.otpAttempts; delete ret.otpSentAt; return ret; } },
+  toObject: { transform(doc, ret) { delete ret.passwordHash; delete ret.totpSecretEnc; delete ret.totpPendingEnc; delete ret.totpLastStep; delete ret.totpRecovery; delete ret.passwordResetTokenHash; delete ret.passwordResetExpiresAt; delete ret.otpHash; delete ret.otpExpiresAt; delete ret.otpAttempts; delete ret.otpSentAt; return ret; } },
 });
 userSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
 userSchema.index({ phone: 1 }, { unique: true, partialFilterExpression: { phone: { $type: 'string' } } });

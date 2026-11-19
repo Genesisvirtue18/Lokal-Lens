@@ -89,6 +89,20 @@ export const businessCities = () => async (req, res, next) => {
     next(error);
   }
 };
+// Every city + category pair that has published listings, with counts. Used for city hub pages, landing pages and the sitemap.
+export const cityCategories = () => async (_req, res, next) => {
+  try {
+    const rows = await Business.aggregate([
+      { $match: { listingStatus: 'published', deletedAt: null, 'address.city': { $type: 'string', $ne: '' }, category: { $ne: null } } },
+      { $group: { _id: { city: { $toLower: { $trim: { input: '$address.city' } } }, category: '$category' }, cityName: { $first: { $trim: { input: '$address.city' } } }, count: { $sum: 1 }, updatedAt: { $max: '$updatedAt' } } },
+      { $lookup: { from: 'categories', localField: '_id.category', foreignField: '_id', as: 'cat' } },
+      { $unwind: '$cat' },
+      { $match: { 'cat.isActive': true } },
+      { $sort: { count: -1 } },
+    ]);
+    sendSuccess(res, 'City and category pairs retrieved successfully', { items: rows.map(row => ({ city: row.cityName, categoryId: String(row._id.category), categoryName: row.cat.name, categorySlug: row.cat.slug, icon: row.cat.icon || '', count: row.count, updatedAt: row.updatedAt })) });
+  } catch (error) { next(error); }
+};
 const weekdayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 const localClock = (date, timeZone) => {
   try {
