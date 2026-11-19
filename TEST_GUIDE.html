@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lokal Lens: poora test guide</title>
+<style>
+  :root { --bg:#f1f1ee; --card:#fff; --ink:#101115; --muted:#6e7079; --line:#dcdbd5; --brand:#002fa7; --ok:#1f7a3a; --okbg:#e7f4e5; --bad:#b42318; --badbg:#fdecea; --admin:#c2410c; --owner:#1d4ed8; --cust:#0f766e; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+  header.top { position:sticky; top:0; z-index:10; background:var(--card); border-bottom:1px solid var(--line); padding:12px 16px; }
+  .wrap { max-width:980px; margin:0 auto; padding:0 16px; }
+  .bar { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .bar h1 { font-size:18px; margin:0; letter-spacing:-.2px; }
+  .progress { flex:1; min-width:200px; }
+  .track { height:10px; background:#e6e5df; border-radius:99px; overflow:hidden; display:flex; }
+  .track .p { background:var(--ok); } .track .f { background:var(--bad); }
+  .stats { font-size:13px; color:var(--muted); margin-top:4px; }
+  .tools { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  button, select { font:inherit; font-size:14px; border:1px solid #bdbcb5; background:#fff; border-radius:10px; padding:7px 12px; cursor:pointer; }
+  button.primary { background:var(--brand); color:#fff; border-color:var(--brand); font-weight:600; }
+  button:hover { border-color:var(--ink); }
+  h2 { font-size:22px; margin:34px 0 4px; letter-spacing:-.3px; }
+  h2 small { font-size:13px; color:var(--muted); font-weight:400; margin-left:8px; }
+  p.intro { margin:0 0 12px; color:#2d2f36; }
+  .howto, .setup { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 20px; margin:18px 0; }
+  .howto ol { margin:8px 0 0 20px; padding:0; }
+  pre { background:#101115; color:#e9e9e6; padding:12px 14px; border-radius:10px; overflow:auto; font:13px/1.5 Consolas,Menlo,monospace; position:relative; margin:8px 0; white-space:pre-wrap; word-break:break-all; }
+  pre button { position:absolute; right:8px; top:8px; font-size:12px; padding:3px 9px; }
+  .row { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin:8px 0; display:grid; grid-template-columns:54px 1fr; gap:4px 12px; }
+  .row.pass { border-color:#9fd3ad; background:#fbfefb; } .row.fail { border-color:#f1b5ae; background:#fffafa; }
+  .id { font:600 13px Consolas,monospace; color:var(--muted); padding-top:2px; }
+  .who { display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:99px; margin-right:8px; color:#fff; }
+  .who.Admin { background:var(--admin); } .who.Owner { background:var(--owner); } .who.Customer { background:var(--cust); } .who.Sab { background:#475569; }
+  .do { font-weight:600; }
+  .see { color:#2d2f36; margin-top:2px; } .see::before { content:"Dikhna chahiye: "; color:var(--muted); font-weight:600; }
+  .acts { grid-column:2; display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:6px; }
+  .acts button.pass.on { background:var(--okbg); border-color:var(--ok); color:var(--ok); font-weight:700; }
+  .acts button.fail.on { background:var(--badbg); border-color:var(--bad); color:var(--bad); font-weight:700; }
+  .acts input { flex:1; min-width:180px; font:inherit; font-size:14px; padding:7px 10px; border:1px solid #bdbcb5; border-radius:10px; }
+  .hidden { display:none !important; }
+  footer { padding:40px 0 80px; color:var(--muted); font-size:14px; }
+  .toast { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:#101115; color:#fff; padding:10px 16px; border-radius:10px; font-size:14px; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.show { opacity:1; }
+  @media print { header.top .tools, .acts button, pre button { display:none; } header.top { position:static; } .row { break-inside:avoid; } }
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="bar">
+    <h1>Lokal Lens: test guide</h1>
+    <div class="progress">
+      <div class="track"><div class="p" id="bp"></div><div class="f" id="bf"></div></div>
+      <div class="stats" id="stats"></div>
+    </div>
+  </div>
+  <div class="tools">
+    <select id="who" aria-label="Kiska kaam dikhao"><option value="all">Sab dikhao</option><option value="Admin">Sirf Admin</option><option value="Owner">Sirf Owner</option><option value="Customer">Sirf Customer</option></select>
+    <select id="show" aria-label="Kaunse steps"><option value="all">Saare steps</option><option value="todo">Jo baaki hain</option><option value="fail">Jo fail hue</option></select>
+    <button class="primary" id="copyFail">Fail ki list copy karo</button>
+    <button id="reset">Sab saaf karo</button>
+  </div>
+</div></header>
+
+<main class="wrap">
+
+<section class="howto">
+  <strong>Isse kaise use karein (30 second)</strong>
+  <ol>
+    <li>Neeche ke steps <b>upar se neeche, order mein</b> karo. Har step mein likha hai kya karna hai aur kya dikhna chahiye.</li>
+    <li>Jo dikhna chahiye wahi dikha to <b>Pass</b> dabao. Alag dikha ya error aaya to <b>Fail</b> dabao aur saamne ek line likh do ki kya dikha.</li>
+    <li>Ye page aapka progress khud yaad rakhta hai (is computer ke browser mein). Band karke dobara khol sakte ho.</li>
+    <li>Sab ho jaye to upar <b>"Fail ki list copy karo"</b> dabao aur wo text mujhe chat mein paste kar do. Main sab theek kar dunga.</li>
+  </ol>
+  <p style="margin:10px 0 0"><b>Teen role teen alag browser mein:</b> <span class="who Admin">Admin</span> Chrome, <span class="who Owner">Owner</span> Edge (ya Chrome ka doosra profile), <span class="who Customer">Customer</span> Incognito window. Ek hi browser mein do role mat rakhna.</p>
+</section>
+
+<section class="setup" id="setup">
+  <h2 style="margin-top:0">Tayyari (pehle ye karo)</h2>
+  <p class="intro">Terminal mein ye commands chalani hain. Har box ke "Copy" se copy karke paste karo.</p>
+  <b>1. Backend chalao</b> (terminal 1)
+  <pre>cd Directory_backend-main\Directory_backend-main
+npm run dev</pre>
+  <b>2. Frontend chalao</b> (terminal 2, main project folder mein)
+  <pre>npm run dev</pre>
+  <b>3. Mail chalti hai ya nahi</b> (terminal 3, backend folder mein) apna email daalo:
+  <pre>cd Directory_backend-main\Directory_backend-main
+node scripts/send-test-email.js aapki@gmail.com</pre>
+  <b>4. Apna admin banao</b> (terminal 3, ek hi line mein, naam/email/password apne daalo):
+  <pre>$env:ADMIN_EMAIL="aapki@gmail.com"; $env:ADMIN_NAME="Aapka Naam"; $env:ADMIN_PASSWORD="koi-lamba-password-123"; node scripts/create-admin.js</pre>
+  <b>5. (Sirf "shuru se khali platform" dekhna ho to)</b> backend ki <code>.env</code> mein <code>MONGODB_URI</code> ka naam <code>business_directory</code> se <code>lokal_lens_fresh</code> kar do aur backend restart karo. Purana data bacha rehta hai.
+  <p style="margin:10px 0 0"><b>Teen email:</b> Gmail ka <code>+</code> trick: <code>aapki@gmail.com</code> (admin), <code>aapki+owner@gmail.com</code> (owner), <code>aapki+customer@gmail.com</code> (customer). Teeno ki mail ek hi inbox mein aati hai.</p>
+</section>
+
+<div id="chapters"></div>
+
+<footer>
+  Local par poori kahaani (chapter 1 se 11). Live par sirf chapter 12 ka chhota check. Computer se automatic tests (admin, owner, forms, phone screen, security) pehle hi pass hain, ye guide sirf aankh se dekhne aur Google/Gmail wali cheezon ke liye hai.
+</footer>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+// [id, kaun, kya karo, kya dikhna chahiye]
+const CH = [
+{ t:"Chapter 1: khali platform, Admin ka pehla din", i:"Pehle sirf Admin hai. Koi business nahi.", r:[
+ ["1.1","Admin","/login kholo, \"Use password instead\" dabao, email aur password daalo, Sign in.","Authenticator ka QR code dikhe."],
+ ["1.2","Admin","Phone ke Google Authenticator se QR scan karo, 6 akshar ka code daalo.","8 backup codes dikhein. Inhe kahin save karo, phir \"I saved these\" dabao."],
+ ["1.3","Admin","Admin dashboard dekho.","Sab kuch 0 dikhe, \"No businesses yet\" jaisa saaf message. Page toota hua na ho."],
+ ["1.4","Admin","Categories tab, \"Add category\", naam likho: Healthcare.","Icon apne aap chun jata hai. Add dabao to category ban jaye."],
+ ["1.5","Admin","Healthcare ke andar subcategory Dentists banao, uski services: Dental check-up, Teeth cleaning, Root canal.","Sab dikhe."],
+ ["1.6","Admin","Ek aur category banao: Cafes & Restaurants (subcategory Cafes, services Coffee, Breakfast).","Dikhe."],
+ ["1.7","Customer","Customer ke browser mein localhost:3000 kholo (bina login).","Home khali par toota nahi, categories dikhein."],
+ ["1.8","Admin","Account & security tab dekho.","Likha ho \"Admin accounts must keep this on\". 2FA band karne ka option na ho."],
+]},
+{ t:"Chapter 2: pehla Owner aata hai", i:"Owner apna business add karta hai.", r:[
+ ["2.1","Owner","/register kholo, \"I own a business\" chuno, naam, email, phone (zaroori), terms tick, Create account.","Email aaye (naye design mein bada code)."],
+ ["2.2","Owner","Email wala code daalo.","Seedha owner dashboard, \"Add your business\"."],
+ ["2.3","Owner","\"Add a business\". Step 1: naam Smile Dental, category Healthcare > Dentists, description 80 akshar se zyada. Pehle kuch khali chhod ke Continue dabao.","Khali par red error aaye, Continue na ho. Sahi bharne par chale."],
+ ["2.4","Owner","Step 2: address, city Ghaziabad, state, PIN 201001. PIN mein letters type karke dekho.","PIN mein letters type na hon. \"Find from address\" se map par pin aaye."],
+ ["2.5","Owner","Step 3: services add karo (naam + price). Opening hours mein closing time opening se pehle rakho.","Closing pehle ho to error. Koi bhi minute (jaise 9:17) chun sakte ho."],
+ ["2.6","Owner","Step 4: phone, email, WhatsApp (alag number), photos. Galat email aur galat website bhi daal ke dekho.","Galat email/website par error. Alternate phone = main phone ho to error."],
+ ["2.7","Owner","Step 5: preview dekho, \"Submit for review\".","\"Thanks, we're reviewing\". Dashboard par business \"In review\"."],
+ ["2.8","Customer","Customer browser mein Smile Dental search karo.","Nahi dikhna chahiye, kyunki admin ne abhi approve nahi kiya."],
+]},
+{ t:"Chapter 3: Admin approve karta hai", i:"Admin nayi listing check karke live karta hai.", r:[
+ ["3.1","Admin","Businesses tab, Smile Dental par \"Review\".","Saari jaankari dikhe: naam, owner, photos, services, hours."],
+ ["3.2","Admin","\"Approve and publish\".","Listing live ho jaye."],
+ ["3.3","Owner","Owner ka inbox dekho.","Mail: \"Smile Dental is now live\", naye design mein."],
+ ["3.4","Customer","Customer browser mein home dobara kholo.","Smile Dental home par dikhe."],
+ ["3.5","Admin","Kisi aur waiting listing ko \"Reject\" karo (reason likho). (Ek aur business add karke.)","Owner ko reason ke saath mail aaye. Listing public na ho."],
+]},
+{ t:"Chapter 4: Customer aata hai", i:"Pehle bina login, phir account banake.", r:[
+ ["4.1","Customer","Search box mein dentist likho.","Smile Dental dikhe."],
+ ["4.2","Customer","Search mein bakwaas likho (zzzqq).","Saaf \"No results\" message, \"Clear filters\" button."],
+ ["4.3","Customer","/ghaziabad aur /categories kholo.","Upar likha hua summary (\"Lokal Lens lists 1 local business...\")."],
+ ["4.4","Customer","City page se Healthcare category kholo.","Listings dikhein (0 results nahi), neeche \"About healthcare in Ghaziabad\"."],
+ ["4.5","Customer","/ghaziabad/healthcare seedha kholo.","Apne aap asli category page par chala jaye."],
+ ["4.6","Customer","Smile Dental kholo.","Photos, address, services, hours, \"Open until...\"."],
+ ["4.7","Customer","Call aur Get directions / Website dabao.","Pehle confirm dialog aaye, phir khule."],
+ ["4.8","Customer","WhatsApp dabao.","Dialog, phir WhatsApp khule aur message pehle se likha ho: \"Hi, I found Smile Dental on Lokal Lens...\"."],
+ ["4.9","Customer","Inquiry form bharo (naam, phone, message), Send. Phone mein letters type karke dekho.","\"Your inquiry was sent\". Phone mein letters na jayein."],
+ ["4.10","Customer","Bina login \"Report this listing\" dabao.","Login page par bheje."],
+ ["4.11","Customer","/register, \"I'm looking for businesses\", \"Continue with Google\", apni Gmail chuno.","Popup khule, Gmail chuno, seedha /account."],
+ ["4.12","Customer","Smile Dental par heart (Save) dabao.","Account > Saved mein dikhe."],
+ ["4.13","Customer","Dobara inquiry bhejo.","Naam aur phone pehle se bhare hon. Account > My inquiries mein dikhe, status Sent. Confirmation mail aaye."],
+ ["4.14","Customer","Review likho: 5 star aur comment.","Listing par dikhe, rating 5.0, My reviews mein bhi."],
+ ["4.15","Customer","Wahi listing par dobara review likho.","Purana update ho, naya na bane."],
+]},
+{ t:"Chapter 5: Owner ka din", i:"Owner inquiry, review, offer aur analytics sambhalta hai.", r:[
+ ["5.1","Owner","Dashboard kholo.","Views, 2 inquiries, 1 review, rating 5.0."],
+ ["5.2","Owner","Inquiries tab.","Dono inquiry dikhein (ek bina login wali, ek customer wali)."],
+ ["5.3","Owner","Customer wali inquiry kholo, \"Reply to customer\" mein jawab likho, Send.","\"Replied\" badge, status Contacted."],
+ ["5.4","Customer","Account > My inquiries kholo.","Owner ka jawab dikhe (neele box mein). Mail bhi aaye."],
+ ["5.5","Customer","\"Withdraw\" dabao.","\"Withdrawn\" dikhe."],
+ ["5.6","Owner","Withdrawn inquiry kholo.","\"Withdrawn by customer\", reply ka box na ho."],
+ ["5.7","Owner","Inquiry par Follow-up note likho.","Sirf owner ko dikhe, customer ko nahi."],
+ ["5.8","Owner","Reviews tab, review par Reply likho.","Listing page par owner ka jawab dikhe."],
+ ["5.9","Owner","Offers, naya offer (20% off, code, valid until).","/offers aur listing par dikhe."],
+ ["5.10","Owner","Analytics tab (7, 30, 90 din).","Views, WhatsApp clicks, inquiries ke asli numbers."],
+ ["5.11","Owner","Edit, sirf description badlo, save.","Turant live, review mein nahi jata."],
+ ["5.12","Owner","Edit, naam badlo, save.","\"Our team will check again\". Listing \"In review\", public se hat jaye."],
+ ["5.13","Admin","Businesses mein wo listing kholo, Review.","\"Sent back for review: Changed: name\" dikhe. Approve karo to wapas live."],
+ ["5.14","Owner","Listing \"Pause\" karo, phir \"Resume\".","Pause par public se hat jaye, Resume par wapas."],
+ ["5.15","Owner","Account: naam badlo (digits daal ke dekho), password badlo (pehle galat current).","Digits hat jayein. Galat current par error, sahi par badle."],
+]},
+{ t:"Chapter 6: gadbad hoti hai (spam, claim, report)", i:"Admin sambhalta hai.", r:[
+ ["6.1","Customer","Kisi gande review par \"Report\" dabao, reason chuno.","\"Thanks\" aaye."],
+ ["6.2","Admin","Reports & claims > Reported reviews.","Report dikhe. Remove ya Dismiss chale."],
+ ["6.3","Customer","Login ke saath listing par \"Report this listing\" (reason: closed).","\"Thanks for letting us know\"."],
+ ["6.4","Admin","Reports & claims > Reported listings.","Report dikhe. Suspend / Mark as handled / Dismiss chale."],
+ ["6.5","Owner","Doosra owner (naya account) usi listing par \"Claim this listing\" kare.","Claim ka form khule, code ya document ka option dikhe."],
+ ["6.6","Owner","Asli owner ka dashboard dekho.","\"Someone asked to claim your listing\" dikhe, \"This isn't right\" button ke saath. Mail bhi aaye."],
+ ["6.7","Admin","Reports & claims > Listing claims.","Claim dikhe, \"Current owner was told\" badge. Reject karo to listing asli owner ke paas rahe."],
+ ["6.8","Admin","Businesses > Manage > \"Suspend listing\".","Public se hat jaye, owner ko mail. \"Restore\" se wapas."],
+ ["6.9","Admin","Businesses > Manage > Delete (naam type karo).","Authenticator code zaroor maange. Bina code ke na ho."],
+ ["6.10","Admin","People: kisi customer ko kholo, \"Suspend account\".","Authenticator code maange. Wo login na kar paye. \"Reactivate\" se wapas."],
+ ["6.11","Admin","People: kisi ka role admin karne ki koshish karo.","Authenticator code maange. Bina code ke role na badle."],
+ ["6.12","Admin","Activity tab.","Har kaam ki line: kisne, kya kiya."],
+]},
+{ t:"Chapter 7: bahut saare businesses", i:"Ab dekhna hai ki 50 se 200 business hon to sab theek chalta hai.", r:[
+ ["7.1","Admin","Demo data daalo: backend folder se npm run seed:demo. Ya Businesses > Bulk upload > Download template, 10-20 rows bharke upload.","Naye businesses ban jayein. Galat rows ki list alag dikhe."],
+ ["7.2","Customer","Home aur /directory kholo.","3 second se kam mein khulein."],
+ ["7.3","Customer","/directory par \"Load more\" / pagination.","24 ke baad agla page aaye."],
+ ["7.4","Customer","Filters: Open now, Verified, Rating 4+, Area. Sort: Relevance, Rating. Grid/List.","Results aur count sahi badlein. Filter hataane par wapas."],
+ ["7.5","Customer","City page aur category page dobara dekho.","Summary mein ab areas aur services ke naam aayein."],
+ ["7.6","Admin","Businesses mein search aur filter.","Sahi results."],
+ ["7.7","Admin","10 listing select karo, bulk Suspend, phir Restore.","Sab ek saath badlein."],
+ ["7.8","Admin","Export CSV (businesses aur people).","File download ho aur Excel mein khule."],
+ ["7.9","Owner","Ek owner ko 5 listing do (Admin: bulk \"Assign to owner\").","Owner ke Overview mein sab dikhein, \"Profile setup\" mein ek ek chuna ja sake."],
+]},
+{ t:"Chapter 8: phone par sab dekho", i:"Browser ko chhota karo (390 px) ya asli phone par kholo.", r:[
+ ["8.1","Customer","Home, listing, search phone par.","Side mein khiskana (horizontal scroll) na ho. Listing par neeche \"Call\" bar, amenities 2 column."],
+ ["8.2","Customer","/account phone par.","Neeche tab bar, sab tab khulein."],
+ ["8.3","Owner","Owner dashboard phone par.","Neeche 6 tab. Reply, Pause, Add business chalein."],
+ ["8.4","Admin","Admin phone par.","Neeche scroll hone wali tab bar. Manage drawer, Suspend/Restore chalein."],
+]},
+{ t:"Chapter 9: sign-up aur login har tareeke se", i:"Ek hi cheez ke saare raaste.", r:[
+ ["9.1","Customer","/register, customer chuno, email code se account banao.","Code mail se aaye, daalne par /account."],
+ ["9.2","Customer","Terms tick kiye bina Create dabao.","Error: \"Please agree...\"."],
+ ["9.3","Customer","Galat email (abc) aur 1 akshar ka naam daalo.","Har field ke neeche saaf error."],
+ ["9.4","Customer","Wahi email dobara register karo.","\"An account with this email already exists\"."],
+ ["9.5","Owner","Owner register mein phone khali chhodo.","Error: phone zaroori hai."],
+ ["9.6","Owner","Wahi phone doosre account mein daalo.","\"This mobile number is already used\"."],
+ ["9.7","Customer","Login ka code 3 baar galat daalo.","Har baar error. 5 galat par naya code maange."],
+ ["9.8","Customer","\"Use password instead\" se login (galat password phir sahi).","Galat par \"Invalid email or password\", sahi par andar."],
+ ["9.9","Customer","Galat password 8 baar daalo.","\"Too many wrong attempts\" (kuch der lock)."],
+ ["9.10","Customer","\"Forgot password?\", email daalo.","Mail aaye (\"Choose a new password\" button). Link se naya password lage, purana band."],
+ ["9.11","Customer","Login page par \"Continue with Google\" (nayi Gmail jo pehle use nahi hui).","Popup, phir \"customer ya owner?\" poochhe, phir account ban jaye."],
+ ["9.12","Customer","Wahi Gmail se dobara Google login.","Seedha login, naya account nahi."],
+ ["9.13","Admin","Admin ki email wali Gmail se Google login try karo (agar Gmail wahi hai).","Error: \"Admins sign in with a password and an authenticator code\"."],
+ ["9.14","Admin","Admin login: galat authenticator code, phir sahi.","Galat par error. Wahi sahi code 30 second ke andar dobara na chale."],
+ ["9.15","Admin","Authenticator ki jagah ek backup code daalo.","Chale. Wahi backup code dobara na chale."],
+ ["9.16","Customer","Log out karo, phir browser ka Back dabao.","Dashboard ka data na dikhe, login maange."],
+ ["9.17","Customer","Account > Two-step verification \"Turn on\", authenticator scan.","Backup codes dikhein. Ab login par code maange. \"Turn off\" bhi chale."],
+ ["9.18","Customer","Account > \"Where you're signed in\" se kisi device ko \"Sign out\".","Wo device logout ho jaye."],
+]},
+{ t:"Chapter 10: emails (har ek ka design)", i:"Backend folder se: node scripts/preview-emails.js, phir tmp/email-previews/index.html kholo. Aur asli inbox mein bhi dekho.", r:[
+ ["10.1","Sab","Sign-up / login code wali mail.","Bada code, \"Expires in 10 minutes\"."],
+ ["10.2","Sab","Password reset mail.","\"Choose a new password\" button."],
+ ["10.3","Owner","Owner ko nayi inquiry ki mail.","Details table (phone, email, service), message box, \"Open your dashboard\" button."],
+ ["10.4","Owner","Owner ko naye review ki mail.","Star aur comment."],
+ ["10.5","Customer","Inquiry confirmation mail.","\"Follow my inquiries\" (ya \"Create a free account\")."],
+ ["10.6","Customer","Owner ke reply ki mail.","Reply quote mein."],
+ ["10.7","Owner","Listing approve / reject / suspend ki mail.","Sahi subject aur button."],
+ ["10.8","Sab","Gmail ka Spam folder dekho.","Mail Inbox mein aaye, Spam mein nahi."],
+ ["10.9","Sab","Mail phone ke Gmail app mein kholo.","Layout na tute, button dabe."],
+]},
+{ t:"Chapter 11: security (ek baar zaroor)", i:"Jo nahi hona chahiye wo na ho.", r:[
+ ["11.1","Customer","Customer login karke /admin kholo.","Admin nahi khulta. Apne /account par bhej de."],
+ ["11.2","Customer","Customer login karke /business-owner kholo.","Apne /account par chala jaye."],
+ ["11.3","Owner","Owner A ke login se kisi doosre owner ki listing ka edit address (/add-business?edit=...) kholo.","Nahi khule."],
+ ["11.4","Owner","Owner ke form mein koi \"published\" ya \"verified\" ka option dhundo.","Aisa koi option na ho."],
+ ["11.5","Sab","Naam / message mein <script>alert(1)<\/script> likho aur save/send karo.","Text ki tarah dikhe, popup na aaye. Email mein bhi text hi."],
+ ["11.6","Admin","Bina authenticator code ke koi delete / role badalna.","Nahi hota, code maangta hai."],
+ ["11.7","Sab","Kisi page ka address galat kar do (/directory/kuch-nahi).","\"We couldn't find that page\" (404)."],
+]},
+{ t:"Chapter 12: live par chhota check (10 minute)", i:"Local par sab pass hone ke baad, live (https://local-lens-olive.vercel.app) par sirf ye.", r:[
+ ["12.1","Sab","Live site kholo.","Home khula, images aayein. (Render pehli baar 30-50 second le sakta hai.)"],
+ ["12.2","Admin","Admin login + authenticator (chapter 1.1, 1.2).","Chala."],
+ ["12.3","Owner","Owner sign-up, mail live se aaye (chapter 2.1, 2.2).","Chala, mail aayi."],
+ ["12.4","Customer","Google login (chapter 4.11).","Chala. Agar \"origin_mismatch\" aaye to Google Console mein URL check karo."],
+ ["12.5","Owner","Ek test business add karo, Admin approve kare, dikhe, phir DELETE kar do.","Test data live par nahi bachna chahiye."],
+ ["12.6","Sab","/sitemap.xml aur /robots.txt kholo.","Dono khulein."],
+ ["12.7","Sab","Render ki CLIENT_URL, Vercel ki NEXT_PUBLIC_API_URL aur redeploy check karo (agar kuch alag chale).","Sab sahi ho."],
+]},
+];
+
+const KEY = "lokal-lens-test-guide-v1";
+let state = {};
+try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { state = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const all = CH.flatMap((c) => c.r.map((x) => ({ id:x[0], who:x[1], act:x[2], see:x[3], ch:c.t })));
+
+function render() {
+  const root = document.getElementById("chapters");
+  root.innerHTML = CH.map((c) => `<h2>${esc(c.t)} <small>${c.r.length} steps</small></h2><p class="intro">${esc(c.i)}</p>` + c.r.map((x) => {
+    const s = state[x[0]] || {};
+    return `<div class="row ${s.v || ""}" id="r-${x[0]}" data-who="${x[1]}" data-v="${s.v || ""}">
+      <div class="id">${x[0]}</div>
+      <div><span class="who ${x[1]}">${x[1] === "Sab" ? "Sab" : x[1]}</span><span class="do">${esc(x[2])}</span><div class="see">${esc(x[3])}</div></div>
+      <div class="acts">
+        <button class="pass ${s.v === "pass" ? "on" : ""}" data-id="${x[0]}" data-v="pass">Pass</button>
+        <button class="fail ${s.v === "fail" ? "on" : ""}" data-id="${x[0]}" data-v="fail">Fail</button>
+        <input type="text" placeholder="Kya dikha? (fail par zaroor likho)" value="${esc(s.n || "")}" data-note="${x[0]}">
+      </div></div>`;
+  }).join("")).join("");
+  update();
+}
+
+function update() {
+  const total = all.length;
+  const pass = all.filter((x) => (state[x.id] || {}).v === "pass").length;
+  const fail = all.filter((x) => (state[x.id] || {}).v === "fail").length;
+  document.getElementById("bp").style.width = (pass / total * 100) + "%";
+  document.getElementById("bf").style.width = (fail / total * 100) + "%";
+  document.getElementById("stats").textContent = `${pass} pass, ${fail} fail, ${total - pass - fail} baaki (kul ${total})`;
+  const who = document.getElementById("who").value, show = document.getElementById("show").value;
+  document.querySelectorAll(".row").forEach((el) => {
+    const v = el.dataset.v || "";
+    const hide = (who !== "all" && el.dataset.who !== who && el.dataset.who !== "Sab") || (show === "todo" && v) || (show === "fail" && v !== "fail");
+    el.classList.toggle("hidden", hide);
+  });
+}
+
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2200); }
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-id]");
+  if (b) {
+    const id = b.dataset.id; const cur = state[id] || {};
+    state[id] = { ...cur, v: cur.v === b.dataset.v ? "" : b.dataset.v };
+    save();
+    const row = document.getElementById("r-" + id);
+    row.dataset.v = state[id].v; row.className = "row " + (state[id].v || "");
+    row.querySelectorAll(".acts button").forEach((x) => x.classList.toggle("on", x.dataset.v === state[id].v));
+    update();
+    return;
+  }
+  const c = e.target.closest("pre button");
+  if (c) { navigator.clipboard.writeText(c.parentElement.innerText.replace(/^Copy\n?/, "").trim()).then(() => toast("Copy ho gaya")); }
+});
+document.addEventListener("input", (e) => {
+  const id = e.target.dataset && e.target.dataset.note;
+  if (id) { state[id] = { ...(state[id] || {}), n: e.target.value }; save(); }
+});
+document.getElementById("who").onchange = update;
+document.getElementById("show").onchange = update;
+document.getElementById("reset").onclick = () => { if (confirm("Saara progress mit jayega. Pakka?")) { state = {}; save(); render(); } };
+document.getElementById("copyFail").onclick = () => {
+  const fails = all.filter((x) => (state[x.id] || {}).v === "fail");
+  if (!fails.length) { toast("Koi fail nahi hai"); return; }
+  const text = "Lokal Lens test: jo fail hue\n\n" + fails.map((x) => `${x.id} (${x.who}) ${x.act}\n   Dikhna chahiye: ${x.see}\n   Kya dikha: ${(state[x.id] || {}).n || "(likha nahi)"}`).join("\n\n");
+  navigator.clipboard.writeText(text).then(() => toast(`${fails.length} fail ki list copy ho gayi. Chat mein paste karo`), () => { prompt("Ye copy karo:", text); });
+};
+
+// copy buttons on the setup commands
+document.querySelectorAll("#setup pre").forEach((p) => { const b = document.createElement("button"); b.textContent = "Copy"; p.prepend(b); });
+render();
+</script>
+</body>
+</html>
