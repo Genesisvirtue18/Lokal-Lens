@@ -152,6 +152,8 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.delete('/auth/sessions', authenticate(config), auth.revokeAll());
   router.delete('/auth/sessions/:sessionId', authenticate(config), auth.revokeSession());
   router.get('/users/me', authenticate(config), users.profile());
+  router.post('/users/me/phone/request', authenticate(config), strictLimit(10, 'Too many code requests. Please try again in a few minutes.'), validate(z.object({ body: z.object({ phone: indianPhone }).strict() })), auth.requestPhoneChange(config, mailer));
+  router.post('/users/me/phone/verify', authenticate(config), strictLimit(20, 'Too many attempts. Please try again in a few minutes.'), validate(z.object({ body: z.object({ code: z.string().regex(/^\d{6}$/) }).strict() })), auth.verifyPhoneChange());
   router.patch('/users/me', authenticate(config), validate(z.object({body:z.object({name:z.string().trim().min(2).max(120).optional(),phone:z.string().max(30).optional(),avatar:z.url().optional(),notificationPreferences:z.object({email:z.boolean().optional(),sms:z.boolean().optional()}).optional()}).strict()})), users.updateProfile());
   router.delete('/users/me', authenticate(config), users.deleteAccount());
   router.get('/users/me/activity', authenticate(config), users.activity());

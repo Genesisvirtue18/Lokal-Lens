@@ -104,6 +104,27 @@ await check("change the display name", async () => {
   await t.click("Save profile", { scope: "body" }); await sleep(2000);
   return (await api("GET", "/auth/me", { token: tok })).data?.user?.name === "Renamed Owner";
 });
+await check("mobile number: changing it needs the code emailed to the account; a number someone else has is refused", async () => {
+  const setPhone = (v) => t.ev(`(() => { const el = document.querySelector('input[autocomplete=tel-national]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(v)}); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);
+  // another confirmed account that already holds a number
+  const reg = await api("POST", "/auth/register", { body: { name: "Phone Holder", email: "holder@e2e.test", password: "Passw0rd!x", phone: "9876500077" } });
+  await api("POST", "/auth/otp/verify", { body: { email: "holder@e2e.test", code: reg.data.devCode } });
+  const label = await t.has("Mobile number") && !(await t.has("Mobile number \(optional\)"));
+  await setPhone("9876500078"); await sleep(500);
+  const prompt = await t.has("we email a 6-digit code");
+  await t.click("Save profile", { scope: "body" }); await sleep(1200); const blocked = await t.has("Confirm your new mobile number");
+  const before = (await api("GET", "/auth/me", { token: tok })).data?.user?.phone;
+  await t.click("^Send code$", { scope: "body" }); await sleep(2000);
+  const codeBox = await t.ev("!!document.querySelector('input[autocomplete=one-time-code]')");
+  const unchanged = (await api("GET", "/auth/me", { token: tok })).data?.user?.phone === before;
+  await t.click("Confirm number", { scope: "body" }); await sleep(2500);
+  const after = (await api("GET", "/auth/me", { token: tok })).data?.user?.phone;
+  await setPhone("9876500077"); await sleep(400); await t.click("^Send code$", { scope: "body" }); await sleep(2000);
+  const refused = await t.has("already used by another account");
+  const stillMine = (await api("GET", "/auth/me", { token: tok })).data?.user?.phone === "9876500078";
+  console.log("   phone:", { label, prompt, blocked, before, codeBox, unchanged, after, refused, stillMine });
+  return label && prompt && blocked && codeBox && unchanged && after === "9876500078" && refused && stillMine;
+});
 await check("wrong current password is refused; correct one changes it and old password stops working", async () => {
   const pw = await t.ev("[...document.querySelectorAll('input[type=password]')].length"); console.log("   password inputs:", pw);
   const setPw = (i, v) => t.ev(`(() => { const el = [...document.querySelectorAll('input[type=password]')][${i}]; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, ${JSON.stringify(v)}); el.dispatchEvent(new Event('input', { bubbles: true })); })()`);

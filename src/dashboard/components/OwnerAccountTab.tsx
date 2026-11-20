@@ -27,6 +27,15 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
   const [phone, setPhone] = useState(user?.phone || '');
   const [profileError, setProfileError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
+  // A new mobile number is confirmed with a code emailed to the account before it is saved.
+  const [phoneSent, setPhoneSent] = useState(false);
+  const [phoneCode, setPhoneCode] = useState('');
+  const [phoneBusy, setPhoneBusy] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
+  const [phoneNote, setPhoneNote] = useState('');
+  const savedPhone = user?.phone || '';
+  const phoneChanged = phone !== savedPhone;
+  const phoneValid = /^[6-9]\d{9}$/.test(phone);
 
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -46,16 +55,38 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
   useEffect(() => { setName(user?.name || ''); setPhone(user?.phone || ''); }, [user]);
   useEffect(() => { request('/auth/sessions').then((data) => setSessions(data.items || [])).catch(() => setSessions([])); }, []);
 
+  function resetPhoneFlow() { setPhoneSent(false); setPhoneCode(''); setPhoneError(''); setPhoneNote(''); }
+  async function sendPhoneCode() {
+    if (!phoneValid) { setPhoneError('Enter a 10-digit mobile number starting with 6, 7, 8 or 9.'); return; }
+    setPhoneBusy(true); setPhoneError('');
+    try {
+      const data = await request('/users/me/phone/request', { method: 'POST', body: JSON.stringify({ phone }) });
+      setPhoneSent(true); setPhoneCode(data.devCode || '');
+      setPhoneNote(data.devCode ? `Test mode: the email could not be sent (or isn’t set up), so your code is ${data.devCode}.` : `We sent a 6-digit code to ${user?.email}. It works for 10 minutes.`);
+    } catch (reason) { setPhoneError(reason instanceof Error ? reason.message : 'Unable to send the code.'); }
+    finally { setPhoneBusy(false); }
+  }
+  async function verifyPhone(event?: React.FormEvent) {
+    event?.preventDefault();
+    if (!/^\d{6}$/.test(phoneCode)) { setPhoneError('Enter the 6-digit code from your email.'); return; }
+    setPhoneBusy(true); setPhoneError('');
+    try {
+      const data = await request('/users/me/phone/verify', { method: 'POST', body: JSON.stringify({ code: phoneCode }) });
+      onUserChange({ ...(user as OwnerUser), ...(data.user || {}) });
+      resetPhoneFlow(); showToast('Mobile number updated.');
+    } catch (reason) { setPhoneError(reason instanceof Error ? reason.message : 'Unable to confirm the number.'); }
+    finally { setPhoneBusy(false); }
+  }
   async function saveProfile(event: React.FormEvent) {
     event.preventDefault();
     const cleanName = name.trim().replace(/\s{2,}/g, ' ');
     if (cleanName.length < 2) { setProfileError('Enter your full name.'); return; }
     if (!/^[\p{L}][\p{L}\s.'’-]*$/u.test(cleanName)) { setProfileError('Use letters only in your name.'); return; }
-    if (phone && !/^[6-9]\d{9}$/.test(phone)) { setProfileError('Enter a 10-digit mobile number starting with 6, 7, 8 or 9.'); return; }
+    if (phoneChanged) { setProfileError('Confirm your new mobile number with the code first (use Send code), or put your old number back.'); return; }
     setSavingProfile(true); setProfileError('');
     try {
-      const data = await request('/users/me', { method: 'PATCH', body: JSON.stringify({ name: cleanName, ...(phone ? { phone } : {}) }) });
-      onUserChange({ ...(user as OwnerUser), ...(data.user || {}), name: cleanName, phone });
+      const data = await request('/users/me', { method: 'PATCH', body: JSON.stringify({ name: cleanName }) });
+      onUserChange({ ...(user as OwnerUser), ...(data.user || {}), name: cleanName });
       showToast('Profile saved.');
     } catch (reason) { setProfileError(reason instanceof Error ? reason.message : 'Unable to save your profile.'); }
     finally { setSavingProfile(false); }
@@ -121,8 +152,19 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
         <form onSubmit={saveProfile} className="flex flex-col gap-4" noValidate>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Full name" required><input value={name} onChange={(event) => { setName(event.target.value.replace(/[^\p{L}\s.'’-]/gu, '').slice(0, 120)); setProfileError(''); }} autoComplete="name" className={fieldClass} /></Field>
-            <Field label="Mobile number" optional helper="Only used by our team to reach you."><input value={phone} onChange={(event) => { setPhone(event.target.value.replace(/\D/g, '').slice(0, 10)); setProfileError(''); }} type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="10-digit number" className={fieldClass} /></Field>
+            <Field label="Mobile number" required helper={savedPhone ? 'Changing it needs a code we email to you.' : 'Required. We email you a code to confirm it.'}><input value={phone} onChange={(event) => { setPhone(event.target.value.replace(/\D/g, '').slice(0, 10)); setProfileError(''); resetPhoneFlow(); }} type="tel" inputMode="numeric" maxLength={10} autoComplete="tel-national" placeholder="10-digit number" className={fieldClass} /></Field>
           </div>
+          {phoneChanged && (
+            <div className="flex flex-col gap-3 rounded-[12px] border border-[#dcdbd5] bg-[#f7f7f4] p-4">
+              <p className="text-[14px] leading-5 text-[#4a4c55]">{phoneSent ? phoneNote : `To ${savedPhone ? 'change' : 'add'} your number, we email a 6-digit code to ${user?.email}.`}</p>
+              {phoneSent && <div className="flex flex-wrap items-center gap-3"><input value={phoneCode} onChange={(event) => { setPhoneCode(event.target.value.replace(/\D/g, '').slice(0, 6)); setPhoneError(''); }} inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="6-digit code" aria-label="6-digit code" className={cx(fieldClass, 'w-40 text-center tracking-[0.3em]')} /><Button type="primary" size="s" htmlType="button" onClick={() => void verifyPhone()} disabled={phoneBusy || phoneCode.length !== 6}>{phoneBusy ? 'Checking…' : 'Confirm number'}</Button></div>}
+              {phoneError && <p role="alert" className="text-[14px] leading-5 text-[#b42318]">{phoneError}</p>}
+              <div className="flex flex-wrap items-center gap-4">
+                <Button type={phoneSent ? 'secondary' : 'primary'} size="s" htmlType="button" onClick={() => void sendPhoneCode()} disabled={phoneBusy || !phoneValid}>{phoneSent ? 'Send a new code' : 'Send code'}</Button>
+                <button type="button" onClick={() => { setPhone(savedPhone); resetPhoneFlow(); }} className="text-[14px] font-medium text-[#002fa7] hover:underline">Cancel</button>
+              </div>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <span className="font-display text-[14px] font-medium leading-5">Email address</span>
             <div className="flex flex-wrap items-center gap-3"><span className="flex h-12 min-w-0 flex-1 items-center rounded-[10px] border border-[#dcdbd5] bg-[#f7f7f4] px-3.5 text-[16px] text-[#4a4c55]">{user?.email}</span>{user?.emailVerified ? <Badge tone="verified">Email confirmed</Badge> : <Badge tone="pending">Not confirmed</Badge>}</div>

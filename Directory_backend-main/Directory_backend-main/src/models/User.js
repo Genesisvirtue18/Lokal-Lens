@@ -35,6 +35,12 @@ const userSchema = new mongoose.Schema({
   saved: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Business' }], default: [] },
   lockedUntil: { type: Date, select: false },
   otpSentAt: { type: Date, select: false },
+  // A new mobile number waits here until the code emailed to the account is entered.
+  phoneChangeTo: { type: String, select: false },
+  phoneChangeHash: { type: String, select: false },
+  phoneChangeExpiresAt: { type: Date, select: false },
+  phoneChangeAttempts: { type: Number, default: 0, select: false },
+  phoneChangeSentAt: { type: Date, select: false },
   deletedAt: { type: Date, default: null },
   notificationPreferences: { email: { type: Boolean, default: true }, sms: { type: Boolean, default: false } },
   lastLoginAt: Date,

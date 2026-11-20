@@ -264,6 +264,35 @@ export const requestOtp = (config, mailer) => async (req, res, next) => { try {
   const devCode = await sendCode(user, email, config, mailer, 'Lokal Lens');
   sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600, ...(devCode ? { devCode } : {}) });
 } catch (e) { next(e); } };
+// ---- Changing the mobile number: a code is emailed to the account's own address first, and the number must not belong to anyone else ----
+export const requestPhoneChange = (config, mailer) => async (req, res, next) => { try {
+  const mobile = nationalPhone(req.validated.body.phone);
+  const user = await User.findById(req.user.id).select('+phoneChangeSentAt');
+  if (!user.email) throw new AppError('Add an email address to your account first.', 400);
+  if (mobile === user.phone) throw new AppError('That is already your mobile number.', 400);
+  // A number somebody else has is reported straight away; the short wait between codes comes after.
+  if (await phoneInUse(mobile, user._id)) throw new AppError('This mobile number is already used by another account.', 409);
+  if (user.phoneChangeSentAt && Date.now() - user.phoneChangeSentAt.getTime() < 30 * 1000) throw new AppError('Please wait a few seconds before asking for another code.', 429);
+  const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+  user.phoneChangeTo = mobile; user.phoneChangeHash = otpHash(`${user.email}:${mobile}`, code); user.phoneChangeExpiresAt = new Date(Date.now() + 10 * 60 * 1000); user.phoneChangeAttempts = 0; user.phoneChangeSentAt = new Date();
+  await user.save();
+  let mailFailed = false;
+  try { await mailer.send({ to: user.email, subject: `${code} is your Lokal Lens code`, template: { heading: 'Confirm your new mobile number', preheader: `${code} is your code. It expires in 10 minutes.`, paragraphs: [`Enter this code to change the mobile number on your Lokal Lens account to ${mobile}.`], code, codeNote: 'Expires in 10 minutes', note: 'Didn’t ask for this? Ignore this email and your number stays as it is. If you keep getting codes you didn’t ask for, change your password.' } }); }
+  catch { mailFailed = true; }
+  const devCode = config.NODE_ENV !== 'production' && (!config.SMTP_HOST || mailFailed) ? code : undefined;
+  sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600, ...(devCode ? { devCode } : {}) });
+} catch (e) { next(e); } };
+export const verifyPhoneChange = () => async (req, res, next) => { try {
+  const user = await User.findById(req.user.id).select('+phoneChangeTo +phoneChangeHash +phoneChangeExpiresAt +phoneChangeAttempts');
+  if (!user.phoneChangeTo || !user.phoneChangeHash || !user.phoneChangeExpiresAt || user.phoneChangeExpiresAt <= new Date()) throw new AppError('This code has expired. Ask for a new one.', 400);
+  if ((user.phoneChangeAttempts || 0) >= 5) throw new AppError('Too many wrong codes. Ask for a new one.', 429);
+  const expected = Buffer.from(user.phoneChangeHash, 'hex'); const given = Buffer.from(otpHash(`${user.email}:${user.phoneChangeTo}`, req.validated.body.code), 'hex');
+  if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) { user.phoneChangeAttempts = (user.phoneChangeAttempts || 0) + 1; await user.save(); throw new AppError('That code is not right. Check it and try again.', 400); }
+  if (await phoneInUse(user.phoneChangeTo, user._id)) throw new AppError('This mobile number is already used by another account.', 409);
+  user.phone = user.phoneChangeTo; user.phoneChangeTo = undefined; user.phoneChangeHash = undefined; user.phoneChangeExpiresAt = undefined; user.phoneChangeAttempts = 0;
+  try { await user.save(); } catch (error) { if (error?.code === 11000) throw new AppError('This mobile number is already used by another account.', 409); throw error; }
+  sendSuccess(res, 'Mobile number updated', { user: user.toJSON() });
+} catch (e) { next(e); } };
 export const verifyOtp = config => async (req, res, next) => { try {
   const { email, code } = req.validated.body;
   const found = await User.findOne({ email, status: 'active' }).select('role');
