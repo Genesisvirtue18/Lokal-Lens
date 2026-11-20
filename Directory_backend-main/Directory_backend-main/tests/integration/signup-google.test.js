@@ -35,7 +35,10 @@ test('sign-up picks the role, validates the phone number, and Google sign-in fol
     assert.match(dup.body.message, /mobile number/);
 
     // Email-code sign-up: customer by default, and the role can't be admin.
-    await post('/auth/otp/request', { email: 'otp@example.com', name: 'Otp User' }).expect(200);
+    const noAccount = await post('/auth/otp/request', { email: 'nobody@example.com' }).expect(404);   // signing in doesn't create accounts
+    assert.match(noAccount.body.message, /No account found/);
+    assert.equal(await User.findOne({ email: 'nobody@example.com' }), null);
+    await post('/auth/otp/request', { email: 'otp@example.com', name: 'Otp User', role: 'customer' }).expect(200);
     assert.equal((await User.findOne({ email: 'otp@example.com' })).role, 'customer');
     await post('/auth/otp/request', { email: 'otp2@example.com', role: 'admin' }).expect(400);
 

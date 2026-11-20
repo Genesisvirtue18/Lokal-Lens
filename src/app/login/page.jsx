@@ -122,7 +122,11 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
         else if (registering) { setStep("code"); setCode(body.data?.devCode || ""); setCooldown(30); setNotice(body.data?.devCode ? `Test mode: the email could not be sent (or isn’t set up), so your code is ${body.data.devCode}.` : body.message || "We sent a 6-digit code to your email."); }
         else finish(body.data);
       }
-    } catch (reason) { setError(reason.message); }
+    } catch (reason) {
+      // Signing in with an email that has no account: move to Create account (email kept) so the role and terms are chosen.
+      if (method === "code" && !registering && /No account found/i.test(reason.message)) { switchMode(true); setNotice("We couldn’t find an account for this email. Choose how you’ll use Lokal Lens to create one."); }
+      else setError(reason.message);
+    }
     finally { setBusy(false); }
   }
 
