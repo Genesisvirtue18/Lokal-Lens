@@ -80,6 +80,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
   useEffect(() => { if (step === "code") codeInput.current?.focus(); }, [step]);
   // Someone who is already signed in has no use for a sign-in form: send them to their own area.
   useEffect(() => {
+    if (initialRegistering) return undefined;   // /register stays open: a customer can create a separate business account
     let live = true;
     let token = "";
     try { token = localStorage.getItem("directflow_access_token") || ""; } catch { /* storage blocked */ }
@@ -89,7 +90,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
       .then((body) => { const role = body?.data?.user?.role; const next = new URLSearchParams(window.location.search).get("next"); if (live && role && next && next.startsWith("/") && !next.startsWith("//")) router.replace(next); else if (live && role) router.replace(["admin", "super_admin"].includes(role) ? "/admin" : role === "business_owner" ? "/business-owner" : "/account"); })
       .catch(() => {});
     return () => { live = false; };
-  }, [router]);
+  }, [router, initialRegistering]);
 
   function switchMode(next) {
     router.replace(`${next ? "/register" : "/login"}${window.location.search}`);

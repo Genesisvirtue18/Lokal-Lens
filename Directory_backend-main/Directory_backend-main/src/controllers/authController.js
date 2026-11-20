@@ -248,6 +248,8 @@ export const requestOtp = (config, mailer) => async (req, res, next) => { try {
   if (user?.otpSentAt && Date.now() - user.otpSentAt.getTime() < 30 * 1000) throw new AppError('Please wait a few seconds before asking for another code.', 429);
   // Admins never sign in with a code alone. Answer the same way, send nothing.
   if (user && isAdminRole(user)) return sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600 });
+  // Create account (a role was chosen) for an email that already has a confirmed account: tell them, don't quietly sign that account in.
+  if (user && !fresh && req.body?.role !== undefined && user.emailVerified === true && !isAdminRole(user)) throw new AppError('An account with this email already exists. Sign in instead, or use a different email to register a business.', 409);
   // Signing in never creates an account: a first-timer has to use "Create account" (role, terms) so nobody lands in an account they didn't choose.
   // Same for a sign-up nobody finished (email never confirmed): it is not an account yet, so the Sign in tab sends no code for it.
   if ((!user || isPending(user)) && req.body?.role === undefined) throw new AppError('No account found for this email. Create an account first.', 404);

@@ -6,15 +6,6 @@ import { sendSuccess } from '../utils/response.js';
 export const profile = () => (req, res) => sendSuccess(res, 'Profile retrieved successfully', { user: req.user.toJSON() });
 export const updateProfile = () => async (req, res, next) => { try { const allowed = ['name', 'phone', 'avatar', 'notificationPreferences']; for (const key of allowed) if (key in req.validated.body) req.user[key] = req.validated.body[key]; await req.user.save(); sendSuccess(res, 'Profile updated successfully', { user: req.user.toJSON() }); } catch (e) { next(e); } };
 export const deleteAccount = () => async (req, res, next) => { try { if (['admin', 'super_admin'].includes(req.user.role)) throw new AppError('Admin accounts can’t be deleted here. Ask another super admin to change your role first.', 403); req.user.status = 'deleted'; req.user.deletedAt = new Date(); await req.user.save(); sendSuccess(res, 'Account deleted successfully'); } catch (e) { next(e); } };
-// A customer who runs a business switches the same account to a business account (their saved places, reviews and inquiries stay).
-export const becomeOwner = () => async (req, res, next) => { try {
-  if (['admin', 'super_admin'].includes(req.user.role)) throw new AppError('Admin accounts can’t be changed to a business account.', 403);
-  if (req.user.role !== 'business_owner') {
-    if (!req.user.phone) throw new AppError('Add your mobile number in Account settings first. Customers use it to reach your business.', 400);
-    req.user.role = 'business_owner'; await req.user.save();
-  }
-  sendSuccess(res, 'Your account is now a business account', { user: req.user.toJSON() });
-} catch (e) { next(e); } };
 export const activity = () => async (req, res, next) => { try { const items = await User.findById(req.user.id).select('createdAt lastLoginAt passwordChangedAt'); sendSuccess(res, 'Activity retrieved successfully', { items }); } catch (e) { next(e); } };
 
 // ---- Customer account: saved businesses, own reviews, own inquiries ----

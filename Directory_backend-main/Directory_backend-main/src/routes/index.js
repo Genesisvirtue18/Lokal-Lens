@@ -152,7 +152,6 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.delete('/auth/sessions', authenticate(config), auth.revokeAll());
   router.delete('/auth/sessions/:sessionId', authenticate(config), auth.revokeSession());
   router.get('/users/me', authenticate(config), users.profile());
-  router.post('/users/me/become-owner', authenticate(config), users.becomeOwner());
   router.patch('/users/me', authenticate(config), validate(z.object({body:z.object({name:z.string().trim().min(2).max(120).optional(),phone:z.string().max(30).optional(),avatar:z.url().optional(),notificationPreferences:z.object({email:z.boolean().optional(),sms:z.boolean().optional()}).optional()}).strict()})), users.updateProfile());
   router.delete('/users/me', authenticate(config), users.deleteAccount());
   router.get('/users/me/activity', authenticate(config), users.activity());
