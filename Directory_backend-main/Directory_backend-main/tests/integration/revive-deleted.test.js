@@ -43,7 +43,7 @@ test('an account that was removed can sign up again with the same email, startin
     assert.equal(redo.role, 'business_owner');
     assert.equal(redo.phone, '9000000009');
     await User.updateOne({ email: 'redo@example.com' }, { $unset: { otpSentAt: 1 } });
-    await request(app).post('/api/v1/auth/otp/request').send({ email: 'redo@example.com' }).expect(200);   // sign-in tab: no role in the form
+    await request(app).post('/api/v1/auth/otp/request').send({ email: 'redo@example.com' }).expect(404);   // sign-in tab: an unfinished sign-up is not an account yet
     redo = await User.findOne({ email: 'redo@example.com' });
     assert.equal(redo.name, 'Second Try', 'a sign-in request leaves the details alone');
     assert.equal(redo.role, 'business_owner');

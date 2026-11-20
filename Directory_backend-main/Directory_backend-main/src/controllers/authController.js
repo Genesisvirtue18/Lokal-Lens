@@ -248,7 +248,8 @@ export const requestOtp = (config, mailer) => async (req, res, next) => { try {
   // Admins never sign in with a code alone. Answer the same way, send nothing.
   if (user && isAdminRole(user)) return sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600 });
   // Signing in never creates an account: a first-timer has to use "Create account" (role, terms) so nobody lands in an account they didn't choose.
-  if (!user && req.body?.role === undefined) throw new AppError('No account found for this email. Create an account first.', 404);
+  // Same for a sign-up nobody finished (email never confirmed): it is not an account yet, so the Sign in tab sends no code for it.
+  if ((!user || isPending(user)) && req.body?.role === undefined) throw new AppError('No account found for this email. Create an account first.', 404);
   if (!user || fresh) {
     const displayName = name || email.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 120);
     const mobile = nationalPhone(phone);
