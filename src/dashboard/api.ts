@@ -88,7 +88,8 @@ export function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 export async function authedFetch(url: string, init: RequestInit & { headers?: Record<string, string> } = {}, retry = true): Promise<Response> {
-  const response = await fetch(url, { ...init, credentials: 'include', headers: { ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...init.headers } });
+  // A browser only says "Failed to fetch" when the server cannot be reached (restarting, or the connection dropped).
+  const response = await fetch(url, { ...init, credentials: 'include', headers: { ...(token() ? { Authorization: `Bearer ${token()}` } : {}), ...init.headers } }).catch(() => { throw new Error('We couldn’t reach the server. Check your connection and try again in a moment.'); });
   if (response.status !== 401 || !retry) return response;
   if (await refreshSession()) return authedFetch(url, init, false);
   clearSession();

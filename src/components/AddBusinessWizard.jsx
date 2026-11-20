@@ -34,7 +34,10 @@ const idOf = (value) => String(value?._id || value || "");
 const two = (n) => String(n).padStart(2, "0");
 const selectPart = "h-9 cursor-pointer appearance-none rounded-[6px] bg-transparent px-1.5 text-center font-body text-[15px] text-[#101115] outline-none hover:bg-[#f0efe9] focus:bg-[#e8edf8]";
 function TimeSelect({ value, onChange, label, invalid }) {
-  const [h24, m] = String(value).split(":").map(Number);
+  // A missing or broken time falls back to 9:00 AM instead of putting NaN into the selects.
+  const [rawHour, rawMinute] = String(value || "").split(":").map(Number);
+  const h24 = Number.isFinite(rawHour) ? rawHour : 9;
+  const m = Number.isFinite(rawMinute) ? rawMinute : 0;
   const hour = h24 % 12 || 12;
   const pm = h24 >= 12;
   const emit = (nextHour, nextMinute, nextPm) => onChange(`${two((nextHour % 12) + (nextPm ? 12 : 0))}:${two(nextMinute)}`);
