@@ -239,6 +239,8 @@ export const requestOtp = (config, mailer) => async (req, res, next) => { try {
   const { email, name, role, phone } = req.validated.body;
   if (isBlockedTestEmail(config, email)) return sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600 });
   let user = await User.findOne({ email }).select('+otpHash +otpExpiresAt +otpSentAt');
+  // A removed account comes back only through Create account (role and terms chosen again), never silently from the Sign in tab.
+  if (isRemoved(user) && req.body?.role === undefined) throw new AppError('No account found for this email. Create an account first.', 404);
   const fresh = isRemoved(user) || (isPending(user) && req.body?.role !== undefined);
   if (fresh && isRemoved(user)) startFresh(user);
   else if (user && user.status !== 'active') throw new AppError('This account is not active', 403);
