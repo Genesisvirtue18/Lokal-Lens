@@ -78,6 +78,12 @@ export default function CustomerApp() {
   const [loadError, setLoadError] = useState('');
   const [toast, setToast] = useState('');
 
+  // The same account becomes a business account (saved places, reviews and inquiries stay), then the add-business form opens.
+  const startListing = async () => {
+    if (!(await confirm({ title: 'Switch to a business account?', message: 'You keep your saved places, reviews and inquiries. You will be able to list your business and reply to customers.', confirmLabel: 'Switch and list my business', tone: 'primary' }))) return;
+    try { await request('/users/me/become-owner', { method: 'POST' }); window.location.assign('/add-business'); }
+    catch (error) { showToast(error instanceof Error ? error.message : 'Unable to switch your account.'); }
+  };
   const showToast = useCallback((message: string) => { setToast(message); window.setTimeout(() => setToast(''), 3500); }, []);
 
   // Keep this device's heart icons in step with the account.
@@ -213,7 +219,7 @@ export default function CustomerApp() {
 
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] bg-[#e6ebf7] p-5">
           <div><h2 className="text-[17px] font-semibold">Run a business?</h2><p className="text-[14px] text-[#4a4c55]">List it for free and get inquiries from local customers.</p></div>
-          <Button type="primary" size="s" href="/register?next=/add-business">List your business</Button>
+          <Button type="primary" size="s" onClick={() => void startListing()}>List your business</Button>
         </section>
       </div>
     );
@@ -244,9 +250,8 @@ export default function CustomerApp() {
         </aside>
 
         <div className="min-w-0 flex-1 pb-24 lg:pb-0">
-          <header className="sticky top-0 z-40 flex h-16 items-center justify-between gap-3 border-b border-[#dcdbd5] bg-[#f1f1ee]/95 px-4 backdrop-blur md:px-8 lg:px-12">
+          <header className="sticky top-0 z-40 flex h-16 lg:hidden items-center justify-between gap-3 border-b border-[#dcdbd5] bg-[#f1f1ee]/95 px-4 backdrop-blur md:px-8 lg:px-12">
             <Link href="/" aria-label="Lokal Lens home" className="lg:hidden"><Logo /></Link>
-            <span className="hidden text-[15px] font-medium text-[#4a4c55] lg:block">{user?.email}</span>
             <div className="ml-auto flex items-center gap-2">
               <Link href="/" className="hidden h-10 items-center px-3 font-display text-[14px] font-medium hover:text-[#002fa7] sm:inline-flex">View site</Link>
               <button type="button" onClick={() => void doLogout()} className="inline-flex h-10 items-center gap-1.5 rounded-[10px] px-3 font-display text-[14px] font-medium text-[#4a4c55] hover:bg-white lg:hidden"><LogOut size={18} aria-hidden="true" />Log out</button>

@@ -86,7 +86,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
     if (!token) return undefined;
     fetch(`${apiUrl}/auth/me`, { headers: { Authorization: `Bearer ${token}` }, credentials: "include" })
       .then((response) => (response.ok ? response.json() : null))
-      .then((body) => { const role = body?.data?.user?.role; if (live && role) router.replace(["admin", "super_admin"].includes(role) ? "/admin" : role === "business_owner" ? "/business-owner" : "/account"); })
+      .then((body) => { const role = body?.data?.user?.role; const next = new URLSearchParams(window.location.search).get("next"); if (live && role && next && next.startsWith("/") && !next.startsWith("//")) router.replace(next); else if (live && role) router.replace(["admin", "super_admin"].includes(role) ? "/admin" : role === "business_owner" ? "/business-owner" : "/account"); })
       .catch(() => {});
     return () => { live = false; };
   }, [router]);
