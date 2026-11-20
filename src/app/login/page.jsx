@@ -13,6 +13,12 @@ import GoogleSignIn, { GOOGLE_CLIENT_ID } from "@/components/GoogleSignIn";
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^(?:\+?91)?[6-9]\d{9}$/;
+// The "Check your email" step survives a page refresh in the same tab for as long as the code is valid (10 minutes). Only the details
+// typed into the form are kept (never the code or a password), and they are forgotten when the tab closes or the person signs in.
+const CODE_STEP_KEY = "lokal-lens-code-step";
+const CODE_LIFETIME_MS = 10 * 60 * 1000;
+const rememberCodeStep = (details) => { try { sessionStorage.setItem(CODE_STEP_KEY, JSON.stringify({ ...details, at: Date.now() })); } catch { /* storage blocked: refresh just starts over */ } };
+const forgetCodeStep = () => { try { sessionStorage.removeItem(CODE_STEP_KEY); } catch { /* nothing to forget */ } };
 const cleanPhone = (value) => value.replace(/[\s-]/g, "");
 // A mobile number box takes digits only and stops at 10 (a pasted +91 or 91 in front is dropped).
 const tenDigits = (raw) => { let digits = raw.replace(/\D/g, ""); if (digits.length > 10 && digits.startsWith("91")) digits = digits.slice(2); return digits.slice(0, 10); };
@@ -78,6 +84,18 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
     return () => clearTimeout(timer);
   }, [cooldown]);
   useEffect(() => { if (step === "code") codeInput.current?.focus(); }, [step]);
+  // Refreshing the page on the "Check your email" step brings the same step back (email and form details kept, code asked again if it was lost).
+  useEffect(() => {
+    let saved = null;
+    try { saved = JSON.parse(sessionStorage.getItem(CODE_STEP_KEY) || "null"); } catch { /* unreadable: ignore */ }
+    if (!saved?.email || !saved.at || Date.now() - saved.at > CODE_LIFETIME_MS) { if (saved) forgetCodeStep(); return; }
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setEmail(saved.email); setRole(saved.role === "business_owner" ? "business_owner" : "customer"); setName(saved.name || ""); setPhone(saved.phone || "");
+    setRegistering(Boolean(saved.registering)); setStep("code"); setCode("");
+    setCooldown(Math.max(0, 30 - Math.floor((Date.now() - saved.at) / 1000)));
+    setNotice("Enter the 6-digit code we sent to your email. Didn’t get it? You can ask for a new one below.");
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
   // Someone who is already signed in has no use for a sign-in form: send them to their own area.
   useEffect(() => {
     if (initialRegistering) return undefined;   // /register stays open: a customer can create a separate business account
@@ -94,6 +112,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
 
   function switchMode(next) {
     router.replace(`${next ? "/register" : "/login"}${window.location.search}`);
+    forgetCodeStep();
     setRegistering(next); setStep("form"); setChallenge(""); setSignupToken(""); setFieldErrors({}); setError(""); setNotice(""); setCode("");
   }
 
@@ -112,6 +131,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
   }
 
   function finish(data) {
+    forgetCodeStep();
     saveSession(data.accessToken);
     window.dispatchEvent(new Event("storage"));
     const next = new URLSearchParams(window.location.search).get("next");
@@ -122,6 +142,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
     const result = await call("/auth/otp/request", { email: email.trim().toLowerCase(), ...(registering ? { role, ...(name.trim() ? { name: name.trim() } : {}), ...(phone.trim() ? { phone: cleanPhone(phone) } : {}) } : {}) });
     const devCode = result.data?.devCode;
     setStep("code"); setCode(devCode || ""); setCooldown(30);
+    rememberCodeStep({ email: email.trim().toLowerCase(), registering, role, name: name.trim(), phone: phone.trim() });
     setNotice(devCode ? `Test mode: the email could not be sent (or isn’t set up), so your code is ${devCode}. It is filled in for you.` : result.message || "We sent a 6-digit code to your email.");
   }
 
@@ -292,7 +313,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
               </Field>
               <Button type="primary" htmlType="submit" className="w-full" disabled={busy || code.length !== 6}>{busy ? "Checking…" : "Verify & continue"}</Button>
               <div className="flex flex-wrap items-center justify-between gap-2 text-[14px] leading-5">
-                <button type="button" onClick={() => { setStep("form"); setChallenge(""); setError(""); setNotice(""); }} className="font-medium text-[#002fa7] hover:underline">Change email</button>
+                <button type="button" onClick={() => { forgetCodeStep(); setStep("form"); setChallenge(""); setError(""); setNotice(""); }} className="font-medium text-[#002fa7] hover:underline">Change email</button>
                 <button type="button" onClick={resend} disabled={cooldown > 0 || busy} className="font-medium text-[#002fa7] hover:underline disabled:text-[#9a9ba1] disabled:no-underline">{cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}</button>
               </div>
             </form>

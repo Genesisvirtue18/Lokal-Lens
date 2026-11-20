@@ -38,6 +38,20 @@ await check("wrong code -> clear message, still on the code step; Change email g
   await t.click("Change email", { scope: "main" }); await sleep(800);
   return msg && (await t.ev("!!document.querySelector('input[type=email]')"));
 });
+await check("refreshing the page on 'Check your email' keeps that step with the same email; Change email then clears it", async () => {
+  await signInWithCode("platform@e2e.test"); await sleep(2500);
+  if (!(await t.has("Check your email"))) throw new Error("no code step");
+  await t.send("Page.reload"); await sleep(5000);
+  const kept = (await t.has("Check your email")) && (await t.has("platform@e2e.test")) && (await t.ev("!!document.querySelector(\"input[inputmode=numeric]\")"));
+  await t.click("Change email", { scope: "main" }); await sleep(800); await t.send("Page.reload"); await sleep(5000);
+  const cleared = !(await t.has("Check your email")) && (await t.ev("!!document.querySelector('input[type=email]')"));
+  return kept && cleared;
+});
+await check("an old 'Check your email' (older than 10 minutes) is not brought back", async () => {
+  await reset(); await t.goto("/login", 2500);
+  await t.ev(`sessionStorage.setItem('lokal-lens-code-step', JSON.stringify({ email: 'old@example.com', registering: false, at: Date.now() - 11 * 60 * 1000 }))`);
+  await t.send("Page.reload"); await sleep(4500); return !(await t.has("Check your email"));
+});
 await check("pressing Send code twice quickly does not break the page", async () => {
   await reset(); await t.goto("/login", 2500); await t.fill("input[type=email]", "other@e2e.test");
   await t.ev(`(() => { const b = [...document.querySelectorAll('button')].find((x) => /^Send code$/.test(x.innerText.trim())); b.click(); b.click(); })()`); await sleep(3000);
