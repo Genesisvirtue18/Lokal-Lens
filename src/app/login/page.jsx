@@ -22,7 +22,8 @@ const ROLES = [
 ];
 
 async function call(path, payload) {
-  const response = await fetch(`${apiUrl}${path}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  // A browser says only "Failed to fetch" when the server cannot be reached (it is restarting, or the connection dropped).
+  const response = await fetch(`${apiUrl}${path}`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(() => { throw new Error("We couldn’t reach the server. Check your connection and try again in a moment."); });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.errors?.[0]?.message || body.message || "Something went wrong. Please try again.");
   return body;
