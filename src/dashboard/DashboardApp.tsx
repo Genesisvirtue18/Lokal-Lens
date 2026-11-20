@@ -58,6 +58,8 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  // The dashboard frame is shown only once we know someone is signed in (otherwise it would flash before the redirect to /login).
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -65,6 +67,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
       setLoading(true); setLoadError('');
       // Not signed in at all (no token and no refresh cookie that works): go to the login page instead of showing an error.
       if (!localStorage.getItem('directflow_access_token') && !(await refreshSession())) { window.location.replace('/login'); return; }
+      if (live) setAuthReady(true);
       if (role === 'admin') { loadAdminStats().then((value) => { if (live) setAdminStats(value); }).catch(() => {}); const items = await loadAdminDashboard(); if (live) { setPendingBusinesses(items.filter((item) => item.status === 'Pending')); setActiveBusinesses(items.filter((item) => item.status !== 'Pending')); } }
       else { const data = await loadOwnerDashboard(); if (live) { setActiveBusinesses(data.businesses); setReviews(data.reviews); setOwnerLeads(data.leads); } }
     } catch (error) { const message = error instanceof Error ? error.message : 'Unable to load dashboard data'; if (/not authorized|forbidden|permission/i.test(message)) { if (role === 'owner') { window.location.replace('/account'); return; } try { const me = await request('/auth/me'); window.location.replace(me.user?.role === 'business_owner' ? '/business-owner' : '/account'); return; } catch { /* fall through to the message */ } } if (live) setLoadError(message); } finally { if (live) setLoading(false); } })();
@@ -230,6 +233,8 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
   };
 
   const primaryOwnerBusiness = activeBusinesses[0];
+
+  if (!authReady) return <div className="min-h-screen bg-[#f1f1ee]" aria-busy="true" />;
 
   return (
     <div className="min-h-screen bg-[#f1f1ee] text-[#101115]">

@@ -276,18 +276,6 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
               </div>
             </form>
           )}
-
-          {process.env.NODE_ENV !== "production" && step === "form" && (
-            <div className="rounded-[12px] border border-dashed border-[#bdbcb5] bg-[#f7f7f4] p-3.5 text-[13px] leading-5">
-              <p className="font-eyebrow text-[#6e7079]">Test accounts (local only)</p>
-              <div className="mt-2 flex flex-col gap-1.5">
-                {[["Owner", "owner@lokallens.test"], ["Customer", "customer@lokallens.test"], ["Admin", "admin@lokallens.test"]].map(([label, address]) => (
-                  <button key={address} type="button" onClick={() => { setRegistering(false); setMethod("password"); setEmail(address); setPassword("Test@12345"); setError(""); setFieldErrors({}); setNotice(""); }} className="flex items-center justify-between gap-2 rounded-[8px] bg-white px-3 py-2 text-left hover:bg-[#e6ebf7]"><span><strong>{label}</strong> · {address}</span><span className="font-medium text-[#002fa7]">Use</span></button>
-                ))}
-              </div>
-              <p className="mt-2 text-[#6e7079]">Password for all: Test@12345 · Email codes show on screen in test mode.</p>
-            </div>
-          )}
         </div>
       </section>
     </main>
