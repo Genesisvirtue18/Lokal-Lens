@@ -23,8 +23,8 @@ const cleanPhone = (value) => value.replace(/[\s-]/g, "");
 // A mobile number box takes digits only and stops at 10 (a pasted +91 or 91 in front is dropped).
 const tenDigits = (raw) => { let digits = raw.replace(/\D/g, ""); if (digits.length > 10 && digits.startsWith("91")) digits = digits.slice(2); return digits.slice(0, 10); };
 const ROLES = [
-  ["customer", "I’m looking for businesses", "Find places, save favourites, write reviews.", Search],
-  ["business_owner", "I own a business", "List it for free and get customer inquiries.", Briefcase],
+  ["customer", "Customer", "Find places, save favourites and write reviews.", Search],
+  ["business_owner", "Business owner", "List your business for free and get customer inquiries.", Briefcase],
 ];
 
 async function call(path, payload) {
@@ -38,19 +38,19 @@ async function call(path, payload) {
 // Sign in / Create account. Figma "Desktop / Sign in" and "Create account — Validation error".
 // Default method is a one-time code sent to the email address; password sign-in stays available for existing accounts.
 function RoleChoice({ value, onChange }) {
+  const chosen = ROLES.find(([id]) => id === value) || ROLES[0];
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1 font-display text-[14px] font-medium leading-5">How will you use Lokal Lens?</legend>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {ROLES.map(([id, title, hint, Icon]) => (
-          <label key={id} className={cx("flex cursor-pointer flex-col gap-1.5 rounded-[12px] border bg-white p-3.5 transition-colors focus-within:ring-2 focus-within:ring-[#002fa7] focus-within:ring-offset-2", value === id ? "border-2 border-[#002fa7] bg-[#f3f6fd] p-[13px]" : "border-[#bdbcb5] hover:border-[#101115]")}>
+      <legend className="mb-1 font-display text-[14px] font-medium leading-5">I am a</legend>
+      <div className="grid grid-cols-2 gap-2">
+        {ROLES.map(([id, title, , Icon]) => (
+          <label key={id} className={cx("flex h-12 cursor-pointer items-center justify-center gap-2 rounded-[12px] border bg-white font-display text-[15px] font-medium transition-colors focus-within:ring-2 focus-within:ring-[#002fa7] focus-within:ring-offset-2", value === id ? "border-2 border-[#002fa7] bg-[#f3f6fd] text-[#002fa7]" : "border-[#bdbcb5] text-[#101115] hover:border-[#101115]")}>
             <input type="radio" name="role" value={id} checked={value === id} onChange={() => onChange(id)} className="sr-only" />
-            <span className={cx("grid h-8 w-8 place-items-center rounded-[8px]", value === id ? "bg-[#002fa7] text-white" : "bg-[#f1f1ee] text-[#4a4c55]")}><Icon size={18} aria-hidden="true" /></span>
-            <span className="font-display text-[14px] font-semibold leading-5">{title}</span>
-            <span className="text-[13px] leading-[18px] text-[#6e7079]">{hint}</span>
+            <Icon size={18} aria-hidden="true" />{title}
           </label>
         ))}
       </div>
+      <p className="text-[13px] leading-[18px] text-[#6e7079]">{chosen[2]}</p>
     </fieldset>
   );
 }
