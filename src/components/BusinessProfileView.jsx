@@ -81,6 +81,10 @@ export default function BusinessProfileView({ business, related = [], preview = 
   const categorySlug = business.category?.slug || categoryName.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
   const address = [business.address?.addressLine1,business.address?.addressLine2,business.address?.landmark,business.address?.locality,business.address?.city,business.address?.state,business.address?.postalCode].filter(Boolean).join(", ");
   const workingHours = business.workingHours || [];
+  // Holidays and festivals the owner has set (closed, or open on different hours): only the days still to come are shown.
+  const todayIso = new Date().toLocaleDateString("en-CA");   // YYYY-MM-DD in the visitor's own time zone
+  const upcomingSpecial = (business.specialHours || []).filter((day) => day?.date && day.date >= todayIso).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8);
+  const formatDay = (date) => { try { return new Date(`${date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }); } catch { return date; } };
   const highlights = business.highlights?.length ? business.highlights : business.keywords || [];
   const amenities = business.amenities || [];
   const contactPhone = formatContactPhone(business.phone);
@@ -247,6 +251,16 @@ export default function BusinessProfileView({ business, related = [], preview = 
                     <span className={cx("text-right", entry.isClosed ? "text-[#b3261e]" : "")}>{entry.isClosed ? "Closed" : entry.is24Hours ? "Open 24 hours" : `${formatTime(entry.opens)} – ${formatTime(entry.closes)}${entry.breakStart && entry.breakEnd ? ` (break ${formatTime(entry.breakStart)}–${formatTime(entry.breakEnd)})` : ""}`}</span>
                   </div>
                 )) : <p className="px-5 py-4 text-[14px] text-[#4a4c55]">Hours haven’t been added.</p>}
+                {upcomingSpecial.length > 0 && (
+                  <div className="border-t border-[#dcdbd5] bg-[#f7f7f4] px-5 py-4">
+                    <h4 className="font-display text-[14px] font-semibold">Special days</h4>
+                    <ul className="mt-2 flex flex-col gap-1.5 text-[14px] leading-5">
+                      {upcomingSpecial.map((day) => (
+                        <li key={`${day.date}-${day.label}`} className="flex justify-between gap-3"><span>{day.label} <span className="text-[#6e7079]">· {formatDay(day.date)}</span></span><span className={cx("text-right", day.isClosed !== false ? "text-[#b3261e]" : "")}>{day.isClosed !== false ? "Closed" : `${formatTime(day.opens)} – ${formatTime(day.closes)}`}</span></li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           </Section>

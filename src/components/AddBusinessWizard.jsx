@@ -317,7 +317,7 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
   function addSpecial() {
     const message = checkSpecialHours(specialDraft, data.special);
     if (message) { setSpecialError(message); return; }
-    update({ special: [...data.special, { label: specialDraft.label.trim(), date: specialDraft.date, isClosed: true }] }); setSpecialDraft(null); setSpecialError("");
+    update({ special: [...data.special, { label: specialDraft.label.trim(), date: specialDraft.date, ...(specialDraft.isClosed === false ? { isClosed: false, opens: specialDraft.opens, closes: specialDraft.closes } : { isClosed: true }) }] }); setSpecialDraft(null); setSpecialError("");
   }
   function addOffer() {
     const message = checkOffer(offerDraft, data.offers);
@@ -537,18 +537,32 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
                     </div>
                   );
                 })}
-                {data.special.map((item, index) => <div key={`${item.label}-${index}`} className="flex items-center gap-3 text-[14px]"><span className="font-medium">{item.label}</span><span className="text-[#6e7079]">{item.date} · {item.isClosed ? "Closed" : `${item.opens}–${item.closes}`}</span><button type="button" aria-label="Remove" onClick={() => update({ special: data.special.filter((_, i) => i !== index) })} className="text-[#6e7079] hover:text-[#b42318]"><X size={16} /></button></div>)}
+                {data.special.map((item, index) => <div key={`${item.label}-${index}`} className="flex items-center gap-3 text-[14px]"><span className="font-medium">{item.label}</span><span className="text-[#6e7079]">{item.date} · {item.isClosed ? "Closed" : `${timeText(item.opens)} – ${timeText(item.closes)}`}</span><button type="button" aria-label="Remove" onClick={() => update({ special: data.special.filter((_, i) => i !== index) })} className="text-[#6e7079] hover:text-[#b42318]"><X size={16} /></button></div>)}
                 {specialDraft ? (
                   <div className="mt-2 flex flex-col gap-3 rounded-[12px] border border-[#dcdbd5] p-3">
                     <div className="flex flex-wrap items-end gap-3">
                       <Field label="Occasion" required><input value={specialDraft.label} onChange={(event) => { setSpecialDraft({ ...specialDraft, label: clean.text(event.target.value, 60) }); setSpecialError(""); }} maxLength={60} placeholder="e.g. Diwali" className={cx(fieldClass, "w-44")} /></Field>
                       <Field label="Date" required><input type="date" min={new Date().toISOString().slice(0, 10)} value={specialDraft.date} onChange={(event) => { setSpecialDraft({ ...specialDraft, date: event.target.value }); setSpecialError(""); }} className={cx(fieldClass, "w-44")} /></Field>
-                      <Button type="primary" size="s" onClick={addSpecial}>Add closure</Button>
+                    </div>
+                    <div role="radiogroup" aria-label="What happens on this day" className="flex flex-wrap gap-2">
+                      {[[true, "Closed all day"], [false, "Open with special hours"]].map(([closed, text]) => (
+                        <button key={text} type="button" role="radio" aria-checked={specialDraft.isClosed === closed} onClick={() => { setSpecialDraft({ ...specialDraft, isClosed: closed }); setSpecialError(""); }} className={cx("h-10 rounded-[10px] border px-4 font-display text-[14px] font-medium transition-colors", specialDraft.isClosed === closed ? "border-2 border-[#002fa7] bg-[#f3f6fd] text-[#002fa7]" : "border-[#bdbcb5] bg-white hover:border-[#101115]")}>{text}</button>
+                      ))}
+                    </div>
+                    {specialDraft.isClosed === false && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <TimeSelect label="Special day opens" value={specialDraft.opens} invalid={String(specialDraft.opens) >= String(specialDraft.closes)} onChange={(opens) => { setSpecialDraft({ ...specialDraft, opens }); setSpecialError(""); }} />
+                        <span className="text-[14px] text-[#6e7079]">to</span>
+                        <TimeSelect label="Special day closes" value={specialDraft.closes} invalid={String(specialDraft.opens) >= String(specialDraft.closes)} onChange={(closes) => { setSpecialDraft({ ...specialDraft, closes }); setSpecialError(""); }} />
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button type="primary" size="s" onClick={addSpecial}>{specialDraft.isClosed === false ? "Add special hours" : "Add closure"}</Button>
                       <Button type="ghost" size="s" onClick={() => { setSpecialDraft(null); setSpecialError(""); }}>Cancel</Button>
                     </div>
                     {specialError && <p role="alert" className="text-[14px] leading-5 text-[#b42318]">{specialError}</p>}
                   </div>
-                ) : <div className="mt-1"><Button type="ghost" size="s" onClick={() => setSpecialDraft({ label: "", date: "" })} icon={<Plus size={18} aria-hidden="true" />}>Add special hours (holidays, festivals)</Button></div>}
+                ) : <div className="mt-1"><Button type="ghost" size="s" onClick={() => setSpecialDraft({ label: "", date: "", isClosed: true, opens: "10:00", closes: "14:00" })} icon={<Plus size={18} aria-hidden="true" />}>Add special hours (holidays, festivals)</Button></div>}
               </div>
 
               <div className="flex flex-col gap-3 border-t border-[#ecebe7] pt-5">

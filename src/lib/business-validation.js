@@ -161,5 +161,6 @@ export function checkSpecialHours(draft, existing) {
   if (!draft.date) return "Pick the date.";
   if (new Date(`${draft.date}T23:59:59`) < new Date()) return "That date has already passed.";
   if (existing.some((item) => item.date === draft.date)) return "You’ve already set hours for that date.";
+  if (draft.isClosed === false && String(draft.opens || "") >= String(draft.closes || "")) return "Closing time must be after the opening time.";
   return "";
 }
