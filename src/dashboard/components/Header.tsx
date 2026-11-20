@@ -18,7 +18,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   role,
-  onOpenSearch,
   onOpenMobileMenu,
   onLogout,
   onAddBusiness,
@@ -59,17 +58,6 @@ export const Header: React.FC<HeaderProps> = ({
         <button onClick={onLogout} className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-semibold text-[#4a4c55] hover:bg-white" aria-label="Log out">
           <span className="material-symbols-outlined text-[20px]">logout</span><span>Log out</span>
         </button>
-        <button
-          onClick={onOpenSearch}
-          aria-label="Search listings"
-          className="p-2 rounded-xl text-[#4a4c55] hover:bg-white transition-colors duration-150 active:scale-95"
-        >
-          <span className="material-symbols-outlined text-[20px]">search</span>
-        </button>
-
-        <div className="ml-1 flex items-center border-l border-[#dcdbd5] pl-2">
-          <div title="Administrator" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8edfb] font-display text-[13px] font-bold text-[#002fa7] ring-1 ring-[#dcdbd5]">AD</div>
-        </div>
       </div>
     </header>
   );
