@@ -75,6 +75,18 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
     return () => clearTimeout(timer);
   }, [cooldown]);
   useEffect(() => { if (step === "code") codeInput.current?.focus(); }, [step]);
+  // Someone who is already signed in has no use for a sign-in form: send them to their own area.
+  useEffect(() => {
+    let live = true;
+    let token = "";
+    try { token = localStorage.getItem("directflow_access_token") || ""; } catch { /* storage blocked */ }
+    if (!token) return undefined;
+    fetch(`${apiUrl}/auth/me`, { headers: { Authorization: `Bearer ${token}` }, credentials: "include" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => { const role = body?.data?.user?.role; if (live && role) router.replace(["admin", "super_admin"].includes(role) ? "/admin" : role === "business_owner" ? "/business-owner" : "/account"); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [router]);
 
   function switchMode(next) {
     router.replace(`${next ? "/register" : "/login"}${window.location.search}`);
@@ -124,7 +136,8 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
       }
     } catch (reason) {
       // Signing in with an email that has no account: move to Create account (email kept) so the role and terms are chosen.
-      if (method === "code" && !registering && /No account found/i.test(reason.message)) { switchMode(true); setNotice("We couldn’t find an account for this email. Choose how you’ll use Lokal Lens to create one."); }
+      // (The address bar is updated in place: a real route change would reload this page and lose the email and the message.)
+      if (method === "code" && !registering && /No account found/i.test(reason.message)) { window.history.replaceState(null, "", `/register${window.location.search}`); setRegistering(true); setStep("form"); setFieldErrors({}); setError(""); setCode(""); setNotice("We couldn’t find an account for this email. Choose how you’ll use Lokal Lens to create one."); }
       else setError(reason.message);
     }
     finally { setBusy(false); }
