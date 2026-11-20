@@ -4,7 +4,7 @@ import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserRole, OwnerTab, AdminTab, BusinessListing, Lead, Review } from './types';
-import { addOwnerLeadNote, clearGooglePlaceMismatch, AdminStats, loadAdminDashboard, loadAdminStats, loadOwnerDashboard, logout, request, reviewBusiness, setListingVisibility, updateOwnerLeadStatus } from './api';
+import { addOwnerLeadNote, clearGooglePlaceMismatch, AdminStats, loadAdminDashboard, loadAdminStats, loadOwnerDashboard, logout, refreshSession, request, reviewBusiness, setListingVisibility, updateOwnerLeadStatus } from './api';
 import { Header } from './components/Header';
 import { OwnerDashboard } from './components/OwnerDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -63,6 +63,8 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
     let live = true;
     (async () => { try {
       setLoading(true); setLoadError('');
+      // Not signed in at all (no token and no refresh cookie that works): go to the login page instead of showing an error.
+      if (!localStorage.getItem('directflow_access_token') && !(await refreshSession())) { window.location.replace('/login'); return; }
       if (role === 'admin') { loadAdminStats().then((value) => { if (live) setAdminStats(value); }).catch(() => {}); const items = await loadAdminDashboard(); if (live) { setPendingBusinesses(items.filter((item) => item.status === 'Pending')); setActiveBusinesses(items.filter((item) => item.status !== 'Pending')); } }
       else { const data = await loadOwnerDashboard(); if (live) { setActiveBusinesses(data.businesses); setReviews(data.reviews); setOwnerLeads(data.leads); } }
     } catch (error) { const message = error instanceof Error ? error.message : 'Unable to load dashboard data'; if (/not authorized|forbidden|permission/i.test(message)) { if (role === 'owner') { window.location.replace('/account'); return; } try { const me = await request('/auth/me'); window.location.replace(me.user?.role === 'business_owner' ? '/business-owner' : '/account'); return; } catch { /* fall through to the message */ } } if (live) setLoadError(message); } finally { if (live) setLoading(false); } })();
