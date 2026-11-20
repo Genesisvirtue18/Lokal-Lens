@@ -255,7 +255,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
                 <p>{registering ? "Already have an account?" : "New here?"} <button type="button" onClick={() => switchMode(!registering)} className="font-medium text-[#002fa7] hover:underline">{registering ? "Sign in" : "Create an account."}</button></p>
                 <button type="button" onClick={() => { setMethod(method === "code" ? "password" : "code"); setError(""); setFieldErrors({}); }} className="font-medium text-[#002fa7] hover:underline">{method === "code" ? "Use password instead" : "Email me a code instead"}</button>
               </div>
-              {method === "password" && !registering && <p className="-mt-2 text-[14px]"><Link href="/forgot-password" className="font-medium text-[#002fa7] hover:underline">Forgot password?</Link></p>}
+              {!registering && <p className="-mt-2 text-[14px]"><Link href="/forgot-password" className="font-medium text-[#002fa7] hover:underline">Forgot password?</Link></p>}
               {GOOGLE_CLIENT_ID && (
                 <>
                   <div className="flex items-center gap-3 text-[13px] text-[#6e7079]"><span className="h-px flex-1 bg-[#dcdbd5]" />or<span className="h-px flex-1 bg-[#dcdbd5]" /></div>
