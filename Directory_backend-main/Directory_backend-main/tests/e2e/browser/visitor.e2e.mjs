@@ -6,6 +6,7 @@ const t = await launch({ width: 1280, height: 1000 });
 const path = () => t.ev("location.pathname");
 const reset = async () => { await t.send("Network.clearBrowserCookies"); await t.goto("/login", 1500); await t.ev("localStorage.clear(); sessionStorage.clear();"); };
 const pick = (n) => t.ev(`document.querySelectorAll('input[type=radio]')[${n}].click()`);
+const setPasswords = (first, second = first) => t.ev(`(() => { const boxes = [...document.querySelectorAll('input[autocomplete=new-password]')]; [${JSON.stringify(first)}, ${JSON.stringify(second)}].forEach((value, i) => { const el = boxes[i]; if (!el) return; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, value); el.dispatchEvent(new Event('input', { bubbles: true })); }); return boxes.length; })()`);
 const tick = () => t.ev("document.querySelector('input[type=checkbox]').click()");
 const codeBox = "input[inputmode=numeric], input[autocomplete=one-time-code], input[maxlength='6']";
 const submitForm = (label) => t.click(label, { scope: "main" });
@@ -88,9 +89,19 @@ await check("name of 1 letter and a bad email are refused", async () => {
   await reset(); await t.goto("/register", 3000); await t.fill("input[placeholder='Your name']", "R"); await t.fill("input[type=email]", "not-an-email"); await tick(); await submitForm("Create account & send code"); await sleep(1000);
   return (await t.has("full name")) && (await t.has("valid email"));
 });
+await check("Create account shows Password and Confirm password; the 'Use password instead' link is only on Sign in", async () => {
+  await reset(); await t.goto("/register", 3500); const boxes = await t.ev("document.querySelectorAll('input[autocomplete=new-password]').length"); const onRegister = await t.has("Use password instead"); const confirmLabel = await t.has("Confirm password");
+  await t.goto("/login", 3500); const onLogin = await t.has("Use password instead"); return boxes === 2 && confirmLabel && !onRegister && onLogin;
+});
+await check("two different passwords or a short one are refused with a clear message, nothing is created", async () => {
+  await reset(); await t.goto("/register", 3500); await t.fill("input[placeholder='Your name']", "Pw Tester"); await t.fill("input[type=email]", "pw.tester@example.com"); await t.fill("input[type=tel]", "9876500099"); await tick();
+  await setPasswords("Passw0rd!x", "Different1!"); await submitForm("Create account & send code"); await sleep(1000); const mismatch = await t.has("don.t match");
+  await setPasswords("short", "short"); await submitForm("Create account & send code"); await sleep(1000); const tooShort = await t.has("at least 8");
+  const r = await api("POST", "/auth/otp/request", { body: { email: "pw.tester@example.com" } }); return mismatch && tooShort && r.status === 404;
+});
 await check("a real owner sign-up (spaces and capitals in the email, phone with +91) works end to end -> owner dashboard", async () => {
   await reset(); await t.goto("/register", 3000); await pick(1); await t.fill("input[placeholder='Your name']", "Rita Owner"); await t.fill("input[type=email]", "  Rita.Owner@Example.com ");
-  await t.fill("input[type=tel]", "+91 98765 43210"); await tick(); await submitForm("Create account & send code"); await sleep(3000);
+  await t.fill("input[type=tel]", "98765 43210"); await setPasswords("Passw0rd!x"); await tick(); await submitForm("Create account & send code"); await sleep(3000);
   if (!(await t.has("Check your email"))) throw new Error("no code step: " + (await t.text()).slice(0, 300));
   await submitForm("Verify"); await sleep(4500);
   return (await path()).startsWith("/business-owner") && (await t.has("Add your business|Add a business"));

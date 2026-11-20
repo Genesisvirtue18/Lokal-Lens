@@ -58,7 +58,7 @@ function RoleChoice({ value, onChange }) {
 export default function LoginPage({ initialRegistering = false, initialRole = "customer" }) {
   const router = useRouter();
   const [registering, setRegistering] = useState(initialRegistering);
-  const [method, setMethod] = useState("code"); // code | password
+  const [method, setMethod] = useState("code"); // code | password (signing in only: creating an account always sets a password)
   const [step, setStep] = useState("form"); // form | code | role | 2fa
   const [name, setName] = useState("");
   const [role, setRole] = useState(initialRole === "business_owner" ? "business_owner" : "customer");
@@ -66,6 +66,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
   const [signupToken, setSignupToken] = useState(""); // set when Google confirmed the person but we still need their role
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [terms, setTerms] = useState(false);
   const [code, setCode] = useState("");
@@ -110,9 +111,11 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
     return () => { live = false; };
   }, [router, initialRegistering]);
 
+  const usePassword = registering || method === "password";
+
   function switchMode(next) {
     router.replace(`${next ? "/register" : "/login"}${window.location.search}`);
-    forgetCodeStep();
+    forgetCodeStep(); setConfirmPassword("");
     setRegistering(next); setStep("form"); setChallenge(""); setSignupToken(""); setFieldErrors({}); setError(""); setNotice(""); setCode("");
   }
 
@@ -122,7 +125,8 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
     if (registering && !phone.trim()) errors.phone = role === "business_owner" ? "Enter your mobile number. Customers use it to reach you." : "Enter your 10-digit mobile number.";
     else if (registering && phone.trim() && !phonePattern.test(cleanPhone(phone))) errors.phone = "Enter a valid 10-digit mobile number.";
     if (!emailPattern.test(email.trim())) errors.email = "Enter a valid email address, like name@example.com.";
-    if (method === "password" && password.length < 8) errors.password = "Password must be at least 8 characters.";
+    if (usePassword && password.length < 8) errors.password = "Password must be at least 8 characters.";
+    else if (registering && confirmPassword !== password) errors.confirm = "The two passwords don’t match.";
     if (registering && !terms) errors.terms = "Please agree to the Terms and Privacy Policy.";
     setFieldErrors(errors);
     const count = Object.keys(errors).length;
@@ -152,17 +156,17 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
     if (!validate()) return;
     setBusy(true);
     try {
-      if (method === "code") await sendCode();
+      if (!usePassword) await sendCode();
       else {
         const body = await call(`/auth/${registering ? "register" : "login"}`, { ...(registering ? { name: name.trim(), role, ...(phone.trim() ? { phone: cleanPhone(phone) } : {}) } : {}), email: email.trim().toLowerCase(), password });
         if (body.data?.requires2fa) startSecondFactor(body.data);
-        else if (registering) { setStep("code"); setCode(body.data?.devCode || ""); setCooldown(30); setNotice(body.data?.devCode ? `Test mode: the email could not be sent (or isn’t set up), so your code is ${body.data.devCode}.` : body.message || "We sent a 6-digit code to your email."); }
+        else if (registering) { setStep("code"); setCode(body.data?.devCode || ""); setCooldown(30); rememberCodeStep({ email: email.trim().toLowerCase(), registering, role, name: name.trim(), phone: phone.trim() }); setNotice(body.data?.devCode ? `Test mode: the email could not be sent (or isn’t set up), so your code is ${body.data.devCode}.` : body.message || "We sent a 6-digit code to your email."); }
         else finish(body.data);
       }
     } catch (reason) {
       // Signing in with an email that has no account: move to Create account (email kept) so the role and terms are chosen.
       // (The address bar is updated in place: a real route change would reload this page and lose the email and the message.)
-      if (method === "code" && !registering && /No account found/i.test(reason.message)) { window.history.replaceState(null, "", `/register${window.location.search}`); setRegistering(true); setStep("form"); setFieldErrors({}); setError(""); setCode(""); setNotice("We couldn’t find an account for this email. Choose how you’ll use Lokal Lens to create one."); }
+      if (!usePassword && /No account found/i.test(reason.message)) { window.history.replaceState(null, "", `/register${window.location.search}`); setRegistering(true); setStep("form"); setFieldErrors({}); setError(""); setCode(""); setNotice("We couldn’t find an account for this email. Choose how you’ll use Lokal Lens to create one."); }
       else setError(reason.message);
     }
     finally { setBusy(false); }
@@ -277,12 +281,17 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
                   <input value={phone} onChange={(event) => setPhone(tenDigits(event.target.value))} type="tel" inputMode="numeric" maxLength={10} autoComplete="tel" placeholder="10-digit mobile number" aria-invalid={Boolean(fieldErrors.phone)} className={cx(fieldClass, fieldErrors.phone && "!border-2 !border-[#b42318]")} />
                 </Field>
               )}
-              {method === "password" && (
-                <Field label="Password" error={fieldErrors.password}>
+              {usePassword && (
+                <Field label="Password" error={fieldErrors.password} helper={registering ? "At least 8 characters." : undefined}>
                   <span className="relative block">
-                    <input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? "text" : "password"} autoComplete={registering ? "new-password" : "current-password"} placeholder={registering ? "At least 8 characters" : "Your password"} aria-invalid={Boolean(fieldErrors.password)} className={cx(fieldClass, "pr-12", fieldErrors.password && "!border-2 !border-[#b42318]")} />
+                    <input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? "text" : "password"} autoComplete={registering ? "new-password" : "current-password"} placeholder={registering ? "Create a password" : "Your password"} aria-invalid={Boolean(fieldErrors.password)} className={cx(fieldClass, "pr-12", fieldErrors.password && "!border-2 !border-[#b42318]")} />
                     <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4a4c55] hover:text-[#101115]">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
                   </span>
+                </Field>
+              )}
+              {registering && (
+                <Field label="Confirm password" error={fieldErrors.confirm}>
+                  <input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Type the password again" aria-invalid={Boolean(fieldErrors.confirm)} className={cx(fieldClass, fieldErrors.confirm && "!border-2 !border-[#b42318]")} />
                 </Field>
               )}
               {registering && (
@@ -292,10 +301,10 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
                   {fieldErrors.terms && <p role="alert" className="text-[14px] leading-5 text-[#b42318]">{fieldErrors.terms}</p>}
                 </div>
               )}
-              <Button type="primary" htmlType="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : method === "code" ? (registering ? "Create account & send code" : "Send code") : (registering ? "Create account" : "Sign in")}</Button>
+              <Button type="primary" htmlType="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : usePassword ? (registering ? "Create account & send code" : "Sign in") : "Send code"}</Button>
               <div className="flex flex-wrap items-center justify-between gap-2 text-[14px] leading-5 text-[#4a4c55]">
                 <p>{registering ? "Already have an account?" : "New here?"} <button type="button" onClick={() => switchMode(!registering)} className="font-medium text-[#002fa7] hover:underline">{registering ? "Sign in" : "Create an account."}</button></p>
-                <button type="button" onClick={() => { setMethod(method === "code" ? "password" : "code"); setError(""); setFieldErrors({}); }} className="font-medium text-[#002fa7] hover:underline">{method === "code" ? "Use password instead" : "Email me a code instead"}</button>
+                {!registering && <button type="button" onClick={() => { setMethod(method === "code" ? "password" : "code"); setError(""); setFieldErrors({}); }} className="font-medium text-[#002fa7] hover:underline">{method === "code" ? "Use password instead" : "Email me a code instead"}</button>}
               </div>
               {!registering && <p className="-mt-2 text-[14px]"><Link href="/forgot-password" className="font-medium text-[#002fa7] hover:underline">Forgot password?</Link></p>}
               {GOOGLE_CLIENT_ID && (
