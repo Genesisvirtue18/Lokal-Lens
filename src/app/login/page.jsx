@@ -8,6 +8,7 @@ import { AlertCircle, Briefcase, Eye, EyeOff, Search } from "lucide-react";
 import { Button, Field, Logo, cx, fieldClass } from "@/components/ds";
 import { saveSession } from "@/dashboard/api";
 import { TwoFactorSetup, TwoFactorVerify } from "@/components/TwoFactor";
+import { PASSWORD_HINT, passwordProblem } from "@/lib/password";
 import GoogleSignIn, { GOOGLE_CLIENT_ID } from "@/components/GoogleSignIn";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
@@ -125,7 +126,8 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
     if (registering && !phone.trim()) errors.phone = role === "business_owner" ? "Enter your mobile number. Customers use it to reach you." : "Enter your 10-digit mobile number.";
     else if (registering && phone.trim() && !phonePattern.test(cleanPhone(phone))) errors.phone = "Enter a valid 10-digit mobile number.";
     if (!emailPattern.test(email.trim())) errors.email = "Enter a valid email address, like name@example.com.";
-    if (usePassword && password.length < 8) errors.password = "Password must be at least 8 characters.";
+    if (registering && passwordProblem(password)) errors.password = passwordProblem(password);
+    else if (!registering && usePassword && !password) errors.password = "Enter your password.";
     else if (registering && confirmPassword !== password) errors.confirm = "The two passwords don’t match.";
     if (registering && !terms) errors.terms = "Please agree to the Terms and Privacy Policy.";
     setFieldErrors(errors);
@@ -282,7 +284,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
                 </Field>
               )}
               {usePassword && (
-                <Field label="Password" error={fieldErrors.password} helper={registering ? "At least 8 characters." : undefined}>
+                <Field label="Password" error={fieldErrors.password} helper={registering ? PASSWORD_HINT : undefined}>
                   <span className="relative block">
                     <input value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? "text" : "password"} autoComplete={registering ? "new-password" : "current-password"} placeholder={registering ? "Create a password" : "Your password"} aria-invalid={Boolean(fieldErrors.password)} className={cx(fieldClass, "pr-12", fieldErrors.password && "!border-2 !border-[#b42318]")} />
                     <button type="button" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Hide password" : "Show password"} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4a4c55] hover:text-[#101115]">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>

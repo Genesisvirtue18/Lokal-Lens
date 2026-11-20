@@ -97,7 +97,8 @@ await check("two different passwords or a short one are refused with a clear mes
   await reset(); await t.goto("/register", 3500); await t.fill("input[placeholder='Your name']", "Pw Tester"); await t.fill("input[type=email]", "pw.tester@example.com"); await t.fill("input[type=tel]", "9876500099"); await tick();
   await setPasswords("Passw0rd!x", "Different1!"); await submitForm("Create account & send code"); await sleep(1000); const mismatch = await t.has("don.t match");
   await setPasswords("short", "short"); await submitForm("Create account & send code"); await sleep(1000); const tooShort = await t.has("at least 8");
-  const r = await api("POST", "/auth/otp/request", { body: { email: "pw.tester@example.com" } }); return mismatch && tooShort && r.status === 404;
+  await setPasswords("Password123", "Password123"); await submitForm("Create account & send code"); await sleep(1000); const noSpecial = await t.has("special character");
+  const r = await api("POST", "/auth/otp/request", { body: { email: "pw.tester@example.com" } }); return mismatch && tooShort && noSpecial && r.status === 404;
 });
 await check("a real owner sign-up (spaces and capitals in the email, phone with +91) works end to end -> owner dashboard", async () => {
   await reset(); await t.goto("/register", 3000); await pick(1); await t.fill("input[placeholder='Your name']", "Rita Owner"); await t.fill("input[type=email]", "  Rita.Owner@Example.com ");

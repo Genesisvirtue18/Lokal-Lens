@@ -3,6 +3,7 @@ import { TwoFactorCard } from './TwoFactorCard';
 import { BadgeCheck, Eye, EyeOff, Laptop, LogOut, Trash2 } from 'lucide-react';
 import { Badge, Button, Field, cx, fieldClass } from '@/components/ds';
 import { saveSession, request } from '../api';
+import { passwordProblem } from '@/lib/password';
 
 export type OwnerUser = { name: string; email: string; phone?: string; emailVerified?: boolean; hasPassword?: boolean; hasTotp?: boolean; role?: string; notificationPreferences?: { email?: boolean } };
 type Session = { current?: boolean; _id: string; userAgent?: string; ip?: string; createdAt?: string };
@@ -64,8 +65,7 @@ export const OwnerAccountTab: React.FC<Props> = ({ user, onUserChange, onLogout,
     event.preventDefault();
     setPasswordError('');
     if (user?.hasPassword && !current) { setPasswordError('Enter your current password.'); return; }
-    if (next.length < 8) { setPasswordError('The new password needs at least 8 characters.'); return; }
-    if (!/[A-Za-z]/.test(next) || !/\d/.test(next)) { setPasswordError('Use both letters and numbers in the new password.'); return; }
+    const problem = passwordProblem(next); if (problem) { setPasswordError(`New password: ${problem}`); return; }
     if (next !== again) { setPasswordError('The two new passwords don’t match.'); return; }
     setSavingPassword(true);
     try {

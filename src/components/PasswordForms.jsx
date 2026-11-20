@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button, Logo, fieldClass, labelClass } from "@/components/ds";
 import { useRouter } from "next/navigation";
+import { passwordProblem } from "@/lib/password";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 const inputClass = `mt-1.5 ${fieldClass}`;
@@ -55,13 +56,15 @@ export function ResetPasswordForm({ token }) {
   const [state, setState] = useState({ busy: false, done: false, error: "" });
   async function submit(event) {
     event.preventDefault();
+    const problem = passwordProblem(password);
+    if (problem) { setState({ busy: false, done: false, error: problem }); return; }
     if (password !== confirm) { setState({ busy: false, done: false, error: "Passwords do not match." }); return; }
     setState({ busy: true, done: false, error: "" });
     try { await post("/auth/reset-password", { token, password }); setState({ busy: false, done: true, error: "" }); setTimeout(() => router.push("/login"), 2500); }
     catch (reason) { setState({ busy: false, done: false, error: reason.message }); }
   }
   if (!token) return <Shell title="Reset link missing" subtitle="This page needs the link from your email."><Link href="/forgot-password" className="font-semibold text-[#002fa7]">Request a new reset link</Link></Shell>;
-  return <Shell title="Choose a new password" subtitle="Use at least 8 characters. You will be signed out on other devices.">
+  return <Shell title="Choose a new password" subtitle="Use at least 8 characters with a letter, a number and a special character. You will be signed out on other devices.">
     {state.done ? <div role="status" className="rounded-[10px] bg-[#e7f4e5] p-4 text-[14px] text-[#2b7a26]">Password updated. Taking you to sign in…</div>
       : <form onSubmit={submit} className="space-y-4">
         {state.error && <p role="alert" className="rounded-[10px] bg-[#fce9e7] px-3.5 py-3 text-[14px] text-[#b42318]">{state.error} {state.error.includes("expired") && <Link href="/forgot-password" className="font-semibold underline">Get a new link</Link>}</p>}
