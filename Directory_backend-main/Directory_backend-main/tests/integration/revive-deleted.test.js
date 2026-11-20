@@ -34,7 +34,7 @@ test('an account that was removed can sign up again with the same email, startin
     assert.equal(await User.countDocuments({ email: 'back@example.com' }), 1, 'same record, no duplicate');
 
     // An unconfirmed sign-up can be redone with different details (the form sends a role); a plain sign-in request does not change it.
-    await post('/auth/otp/request', { email: 'redo@example.com', name: 'First Try', role: 'customer' }).expect(200);
+    await post('/auth/otp/request', { email: 'redo@example.com', name: 'First Try', role: 'customer', phone: '9000000008' }).expect(200);
     await new Promise((resolve) => setTimeout(resolve, 0));
     await User.updateOne({ email: 'redo@example.com' }, { $unset: { otpSentAt: 1 } });
     await post('/auth/otp/request', { email: 'redo@example.com', name: 'Second Try', role: 'business_owner', phone: '9000000009' }).expect(200);
@@ -68,7 +68,7 @@ test('an account that was removed can sign up again with the same email, startin
     // Google sign-up on a removed account goes through the same "customer or owner?" step, then starts fresh.
     await User.create({ name: 'Old G', email: 'gg@example.com', role: 'business_owner', googleId: 'old-google-id', ...removed() });
     const token = (extra = {}) => jwt.sign({ purpose: 'google-signup', gid: 'new-google-id', email: 'gg@example.com', name: 'Google Person', ...extra }, config.JWT_ACCESS_SECRET, { expiresIn: '10m' });
-    const done = await post('/auth/google', { signupToken: token(), role: 'customer' }).expect(200);
+    const done = await post('/auth/google', { signupToken: token(), role: 'customer', phone: '9000000007' }).expect(200);
     assert.equal(done.body.data.user.role, 'customer');
     const g = await User.findOne({ email: 'gg@example.com' });
     assert.equal(g.status, 'active');

@@ -21,6 +21,7 @@ export const register = (config, mailer) => async (req, res, next) => { try {
   const existing = await User.findOne({ email }).select('+passwordHash');
   if (existing && !isRemoved(existing) && !isPending(existing)) throw new AppError('An account with this email already exists. Sign in instead.', 409);
   const mobile = nationalPhone(phone);
+  if (!mobile) throw new AppError('Enter your 10-digit mobile number.', 400);
   if (await phoneInUse(mobile, existing?._id)) throw new AppError('This mobile number is already used by another account.', 409);
   const displayName = name || email.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 120) || 'Lokal Lens member';
   const user = existing || new User({ email });
@@ -253,6 +254,7 @@ export const requestOtp = (config, mailer) => async (req, res, next) => { try {
   if (!user || fresh) {
     const displayName = name || email.split('@')[0].replace(/[._-]+/g, ' ').trim().slice(0, 120);
     const mobile = nationalPhone(phone);
+    if (!mobile) throw new AppError('Enter your 10-digit mobile number.', 400);
     if (await phoneInUse(mobile, user?._id)) throw new AppError('This mobile number is already used by another account.', 409);
     const details = { name: displayName.length >= 2 ? displayName : 'Lokal Lens member', role, ...(mobile ? { phone: mobile } : {}) };
     if (user) Object.assign(user, details); else user = new User({ email, ...details });
@@ -323,6 +325,7 @@ export const googleLogin = config => async (req, res, next) => { try {
     return sendSuccess(res, 'Choose how you will use Lokal Lens', { needsRole: true, signupToken: token, profile: { name: profile.name, email: profile.email } });
   }
   const mobile = nationalPhone(phone);
+  if (!mobile) throw new AppError('Enter your 10-digit mobile number.', 400);
   if (await phoneInUse(mobile, user?._id)) throw new AppError('This mobile number is already used by another account.', 409);
   const display = profile.name.length >= 2 ? profile.name.slice(0, 120) : profile.email.split('@')[0].replace(/[._-]+/g, ' ').slice(0, 120);
   if (removed) startFresh(user); else user = new User({ email: profile.email });

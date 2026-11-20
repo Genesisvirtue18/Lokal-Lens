@@ -18,7 +18,7 @@ test('sign-up picks the role, validates the phone number, and Google sign-in fol
     const post = (path, body) => request(app).post(`/api/v1${path}`).send(body);
 
     // Password sign-up: customer by default, owner only when chosen, never admin.
-    await post('/auth/register', { name: 'Cust Omer', email: 'cust@example.com', password: 'Passw0rd!x' }).expect(201);
+    await post('/auth/register', { name: 'Cust Omer', email: 'cust@example.com', password: 'Passw0rd!x', phone: '9876500001' }).expect(201);
     assert.equal((await User.findOne({ email: 'cust@example.com' })).role, 'customer');
     await post('/auth/register', { name: 'Own Er', email: 'own@example.com', password: 'Passw0rd!x', role: 'business_owner', phone: '+91 98765 43210' }).expect(201);
     const owner = await User.findOne({ email: 'own@example.com' });
@@ -38,7 +38,12 @@ test('sign-up picks the role, validates the phone number, and Google sign-in fol
     const noAccount = await post('/auth/otp/request', { email: 'nobody@example.com' }).expect(404);   // signing in doesn't create accounts
     assert.match(noAccount.body.message, /No account found/);
     assert.equal(await User.findOne({ email: 'nobody@example.com' }), null);
-    await post('/auth/otp/request', { email: 'otp@example.com', name: 'Otp User', role: 'customer' }).expect(200);
+    // The mobile number is required for everyone who creates an account (password, code and Google), never for signing in.
+    await post('/auth/register', { name: 'No Phone', email: 'nophone@example.com', password: 'Passw0rd!x' }).expect(400);
+    await post('/auth/otp/request', { email: 'nophone@example.com', name: 'No Phone', role: 'customer' }).expect(400);
+    await post('/auth/google', { signupToken: signup({ gid: 'g-nophone', email: 'nophone@example.com' }), role: 'customer' }).expect(400);
+    assert.equal(await User.findOne({ email: 'nophone@example.com' }), null);
+    await post('/auth/otp/request', { email: 'otp@example.com', name: 'Otp User', role: 'customer', phone: '9876500002' }).expect(200);
     assert.equal((await User.findOne({ email: 'otp@example.com' })).role, 'customer');
     await post('/auth/otp/request', { email: 'otp2@example.com', role: 'admin' }).expect(400);
 

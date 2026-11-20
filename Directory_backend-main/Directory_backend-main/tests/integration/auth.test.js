@@ -24,7 +24,7 @@ test('isolated MongoDB: sign-up needs the emailed code, sessions rotate, roles a
     const api = (method, path) => request(app)[method](`/api/v1${path}`);
 
     // Sign-up creates no session: the account is unusable until the emailed code is entered.
-    const registered = await api('post', '/auth/register').send({ email: 'owner@example.com', password: 'safe-password-123', role: 'business_owner' }).expect(201);
+    const registered = await api('post', '/auth/register').send({ email: 'owner@example.com', password: 'safe-password-123', role: 'business_owner', phone: '9000000101' }).expect(201);
     assert.equal(registered.body.data.accessToken, undefined);
     assert.match(registered.body.data.devCode, /^\d{6}$/);
     await api('post', '/auth/login').send({ email: 'owner@example.com', password: 'safe-password-123' }).expect(403);

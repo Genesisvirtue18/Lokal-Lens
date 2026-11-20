@@ -14,6 +14,8 @@ const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "pr
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^(?:\+?91)?[6-9]\d{9}$/;
 const cleanPhone = (value) => value.replace(/[\s-]/g, "");
+// A mobile number box takes digits only and stops at 10 (a pasted +91 or 91 in front is dropped).
+const tenDigits = (raw) => { let digits = raw.replace(/\D/g, ""); if (digits.length > 10 && digits.startsWith("91")) digits = digits.slice(2); return digits.slice(0, 10); };
 const ROLES = [
   ["customer", "I’m looking for businesses", "Find places, save favourites, write reviews.", Search],
   ["business_owner", "I own a business", "List it for free and get customer inquiries.", Briefcase],
@@ -96,7 +98,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
   function validate() {
     const errors = {};
     if (registering && name.trim().length < 2) errors.name = "Enter your full name.";
-    if (registering && role === "business_owner" && !phone.trim()) errors.phone = "Enter your mobile number. Customers use it to reach you.";
+    if (registering && !phone.trim()) errors.phone = role === "business_owner" ? "Enter your mobile number. Customers use it to reach you." : "Enter your 10-digit mobile number.";
     else if (registering && phone.trim() && !phonePattern.test(cleanPhone(phone))) errors.phone = "Enter a valid 10-digit mobile number.";
     if (!emailPattern.test(email.trim())) errors.email = "Enter a valid email address, like name@example.com.";
     if (method === "password" && password.length < 8) errors.password = "Password must be at least 8 characters.";
@@ -166,7 +168,7 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
   }
   async function finishGoogleSignup(event) {
     event.preventDefault();
-    if (role === "business_owner" && !phone.trim()) { setFieldErrors({ phone: "Enter your mobile number. Customers use it to reach you." }); return; }
+    if (!phone.trim()) { setFieldErrors({ phone: role === "business_owner" ? "Enter your mobile number. Customers use it to reach you." : "Enter your 10-digit mobile number." }); return; }
     if (phone.trim() && !phonePattern.test(cleanPhone(phone))) { setFieldErrors({ phone: "Enter a valid 10-digit mobile number." }); return; }
     setBusy(true); setError(""); setFieldErrors({});
     try { const body = await call("/auth/google", { signupToken, role, ...(phone.trim() ? { phone: cleanPhone(phone) } : {}) }); finish(body.data); }
@@ -230,8 +232,8 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
             <form onSubmit={finishGoogleSignup} noValidate className="flex flex-col gap-4">
               <p className="text-[15px] leading-6 text-[#4a4c55]">Welcome{name ? `, ${name.split(" ")[0]}` : ""}. Your Google account <strong className="text-[#101115]">{email}</strong> is verified. Tell us how you’ll use Lokal Lens.</p>
               <RoleChoice value={role} onChange={setRole} />
-              <Field label="Mobile number" optional={role !== "business_owner"} error={fieldErrors.phone} helper={role === "business_owner" ? "Customers and our team use it to reach you." : "Only used by our team to reach you."}>
-                <input value={phone} onChange={(event) => setPhone(event.target.value.replace(/[^\d+\s-]/g, "").slice(0, 16))} type="tel" inputMode="tel" autoComplete="tel" placeholder="10-digit mobile number" aria-invalid={Boolean(fieldErrors.phone)} className={cx(fieldClass, fieldErrors.phone && "!border-2 !border-[#b42318]")} />
+              <Field label="Mobile number" error={fieldErrors.phone} helper={role === "business_owner" ? "Customers and our team use it to reach you." : "Used only by our team to reach you."}>
+                <input value={phone} onChange={(event) => setPhone(tenDigits(event.target.value))} type="tel" inputMode="numeric" maxLength={10} autoComplete="tel" placeholder="10-digit mobile number" aria-invalid={Boolean(fieldErrors.phone)} className={cx(fieldClass, fieldErrors.phone && "!border-2 !border-[#b42318]")} />
               </Field>
               <Button type="primary" htmlType="submit" className="w-full" disabled={busy}>{busy ? "Please wait…" : "Create my account"}</Button>
               <button type="button" onClick={() => { setStep("form"); setSignupToken(""); setError(""); setFieldErrors({}); }} className="self-start text-[14px] font-medium text-[#002fa7] hover:underline">Cancel</button>
@@ -248,8 +250,8 @@ export default function LoginPage({ initialRegistering = false, initialRole = "c
                 <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" placeholder="name@example.com" aria-invalid={Boolean(fieldErrors.email)} className={cx(fieldClass, fieldErrors.email && "!border-2 !border-[#b42318]")} />
               </Field>
               {registering && (
-                <Field label="Mobile number" optional={role !== "business_owner"} error={fieldErrors.phone} helper={role === "business_owner" ? "Customers and our team use it to reach you." : "Only used by our team to reach you."}>
-                  <input value={phone} onChange={(event) => setPhone(event.target.value.replace(/[^\d+\s-]/g, "").slice(0, 16))} type="tel" inputMode="tel" autoComplete="tel" placeholder="10-digit mobile number" aria-invalid={Boolean(fieldErrors.phone)} className={cx(fieldClass, fieldErrors.phone && "!border-2 !border-[#b42318]")} />
+                <Field label="Mobile number" error={fieldErrors.phone} helper={role === "business_owner" ? "Customers and our team use it to reach you." : "Used only by our team to reach you."}>
+                  <input value={phone} onChange={(event) => setPhone(tenDigits(event.target.value))} type="tel" inputMode="numeric" maxLength={10} autoComplete="tel" placeholder="10-digit mobile number" aria-invalid={Boolean(fieldErrors.phone)} className={cx(fieldClass, fieldErrors.phone && "!border-2 !border-[#b42318]")} />
                 </Field>
               )}
               {method === "password" && (
