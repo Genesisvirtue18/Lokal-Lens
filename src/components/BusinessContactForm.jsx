@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { submitBusinessLead } from "@/lib/api";
 import { request } from "@/dashboard/api";
 
 export default function BusinessContactForm({ businessId, businessName, services = [] }) {
   const [status, setStatus] = useState({ message: "", error: false });
   const [sending, setSending] = useState(false);
+  const inFlight = useRef(false); // a second click in the same instant must not send a second inquiry (state updates are too slow for that)
   const [me, setMe] = useState(null); // a signed-in customer's own details, so they don't retype them
 
   useEffect(() => {
@@ -20,6 +21,8 @@ export default function BusinessContactForm({ businessId, businessName, services
 
   async function submit(event) {
     event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true;
     const form = event.currentTarget;
     const formData = new FormData(form);
     setSending(true);
@@ -40,6 +43,7 @@ export default function BusinessContactForm({ businessId, businessName, services
     } catch (error) {
       setStatus({ message: error instanceof Error ? error.message : "Unable to send your inquiry. Please try again.", error: true });
     } finally {
+      inFlight.current = false;
       setSending(false);
     }
   }

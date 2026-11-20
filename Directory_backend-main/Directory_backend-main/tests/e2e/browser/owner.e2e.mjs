@@ -6,7 +6,7 @@ const S = seed(); const ids = S.ids;
 const login = async (email, pw = "Test@12345") => (await api("POST", "/auth/login", { body: { email, password: pw } })).data?.accessToken;
 const t = await launch({ width: 1440, height: 1000 });
 const dump = async (l) => console.log(`   [${l}]`, (await t.buttons()).join(" | ").slice(0, 420));
-const uiLogin = async (email, pw = "Test@12345") => { await t.goto("/login", 3000); await t.click("Use password instead"); await t.fill("input[type=email]", email); await t.fill("input[autocomplete=current-password]", pw); await t.click("^Sign in$", { nth: 1 }); return t.waitText("Overview|Inquiries", 12000); };
+const uiLogin = async (email, pw = "Test@12345") => { await t.goto("/login", 6000); await t.click("Use password instead"); await sleep(600); await t.fill("input[type=email]", email); await t.fill("input[autocomplete=current-password]", pw); await t.click("^Sign in$", { nth: 1 }); return t.waitText("Overview|Inquiries", 12000); };
 const tab = (n) => t.click(n, { scope: "aside" }).then(() => sleep(1800));
 const ownerBiz = async (tok) => (await api("GET", "/owner/businesses?limit=50", { token: tok })).data?.items || [];
 let tok;
@@ -35,8 +35,9 @@ await check("a new listing is not public until our team approves it, and shows '
 console.log("\nEdit a listing");
 await check("edit the description of a live listing and save it", async () => {
   await t.goto("/business-owner", 4000);
-  const idx = await t.ev("[...document.querySelectorAll('li')].findIndex((l) => /Smile Dental/.test(l.innerText) && [...l.querySelectorAll('button,a')].some((b) => /^Edit$/.test(b.innerText.trim())))");
-  await t.ev(`(() => { const li = [...document.querySelectorAll('li')][${idx}]; [...li.querySelectorAll('button,a')].find((b) => /^Edit$/.test(b.innerText.trim())).click(); })()`); await sleep(3000);
+  // The overview now shows one card per listing: find the Edit button that belongs to the Smile Dental card.
+  const clicked = await t.ev(`(() => { for (const btn of [...document.querySelectorAll('button,a')].filter((b) => /^Edit$/.test(b.innerText.trim()))) { let node = btn; for (let i = 0; i < 8 && node; i++, node = node.parentElement) { const x = node.innerText || ''; if (/Smile Dental/.test(x) && !/Browser Test Cafe/.test(x)) { btn.click(); return true; } } } return false; })()`);
+  if (!clicked) throw new Error("no Edit button on the Smile Dental card"); await sleep(3000);
   const NEW = "Smile Dental offers gentle family dentistry with modern equipment, clear pricing and friendly, experienced staff.";
   await t.ev(`(() => { const ta = [...document.querySelectorAll('textarea')][0]; Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(ta, ${JSON.stringify(NEW)}); ta.dispatchEvent(new Event('input', { bubbles: true })); })()`); await sleep(400);
   for (let i = 0; i < 8; i++) {
@@ -46,6 +47,8 @@ await check("edit the description of a live listing and save it", async () => {
     await t.click("^Continue$", { scope: "body" }); await sleep(1500);
   }
   const b = (await ownerBiz(tok)).find((x) => x._id === ids.smile);
+  const raw = await api("GET", "/owner/businesses?limit=50", { token: tok }); console.log("   raw:", raw.status, JSON.stringify(raw.data ?? raw).slice(0, 200), "/ smile id:", ids.smile);
+  console.log("   after edit:", b?.listingStatus, "|", (b?.description || "").slice(0, 40), "|", (await t.text()).replace(/\s+/g, " ").slice(0, 200));
   return (b?.description || "").startsWith("Smile Dental offers gentle");
 });
 

@@ -235,6 +235,9 @@ export const createBusinessLead = (config, mailer) => async (req, res, next) => 
     if (!business) throw new AppError('Business not found', 404);
     const { name, phone, email, service, message } = req.validated.body;
     if (service && !business.services.includes(service)) throw new AppError('Select a service offered by this business', 422);
+    // The same person sending the very same inquiry again within two minutes (double click, a reload that re-sends) is one inquiry, not two.
+    const repeat = await Lead.findOne({ business: business._id, phone, message, createdAt: { $gt: new Date(Date.now() - 2 * 60 * 1000) } }).select('_id').lean();
+    if (repeat) return sendSuccess(res, 'Your inquiry was sent to the business', { item: { id: String(repeat._id), leadCount: await Lead.countDocuments({ business: business._id }) } }, 201);
     const lead = await Lead.create({ business: business._id, ...(req.user?.id ? { user: req.user.id } : {}), name, phone, ...(email ? { email } : {}), ...(service ? { service } : {}), message });
     const leadCount = await Lead.countDocuments({ business: business._id });
     // Tell the owner by email (if they haven't turned it off). A mail problem never blocks the customer's inquiry.
