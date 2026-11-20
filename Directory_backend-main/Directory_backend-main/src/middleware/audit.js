@@ -10,6 +10,7 @@ const pick = (body, keys) => keys.filter((key) => body?.[key] !== undefined && b
 // [method, path pattern, target type, label(body), detail keys]
 const RULES = [
   ['PATCH', /^\/admin\/businesses\/[^/]+\/review$/, 'business', (b) => (b.decision === 'approve' ? 'Approved listing' : 'Rejected listing'), ['rejectionReason']],
+  ['PATCH', /^\/admin\/businesses\/[^/]+\/changes$/, 'business', (b) => (b.decision === 'approve' ? 'Approved owner changes' : 'Rejected owner changes'), ['reason']],
   ['PATCH', /^\/admin\/businesses\/[^/]+\/kyc$/, 'business', (b) => (b.decision === 'approve' ? 'Verified business' : 'Rejected verification'), ['reason']],
   ['PATCH', /^\/admin\/businesses\/[^/]+\/status$/, 'business', (b) => (b.status === 'suspended' ? 'Suspended listing' : 'Restored listing'), []],
   ['PATCH', /^\/admin\/businesses\/[^/]+\/owner$/, 'business', () => 'Assigned an owner', []],

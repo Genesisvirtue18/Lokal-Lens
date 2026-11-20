@@ -15,6 +15,10 @@ export interface BusinessListing {
   slug?: string;
   rejectionReason?: string;
   reviewNote?: string;
+  // Edits to an approved listing waiting for an admin (pending), or sent back with a reason (rejected). The live listing is unchanged meanwhile.
+  changes?: { status: 'pending' | 'rejected'; fields: string[]; reason?: string; submittedAt?: string };
+  sentForReview?: boolean;
+  changedFields?: string[];
   kycRejectionReason?: string;
   offers?: { id: string; title: string; description: string; code: string; occasion: string; validUntil: string; isActive: boolean }[];
   timeAgo: string;

@@ -266,7 +266,7 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.post('/owner/leads/:id/reply', ...ownerOnly, validate(idParam.extend({ body: z.object({ text: z.string().trim().min(2, 'Write at least a few words').max(1500) }).strict() })), owner.replyToLead(mailer));
   router.post('/owner/leads/:id/notes', ...ownerOnly, validate(idParam.extend({ body: z.object({ note: z.string().trim().min(1).max(1000) }).strict() })), owner.addOwnerLeadNote());
   router.get('/owner/businesses/:id', ...ownerOnly, validate(idParam), owner.ownerBusiness());
-  router.patch('/owner/businesses/:id', ...ownerOnly, validate(idParam.extend({body:ownerBusinessUpdateBody})), owner.updateBusiness(places));
+  router.patch('/owner/businesses/:id', ...ownerOnly, validate(idParam.extend({body:ownerBusinessUpdateBody})), owner.updateBusiness(places, mailer));
   router.delete('/owner/businesses/:id', ...ownerOnly, validate(idParam), owner.removeBusiness());
   router.post('/owner/businesses/:id/submit', ...ownerOnly, validate(idParam), owner.submitBusiness());
   const adminOnly = [authenticate(config), authorizeRoles('admin', 'super_admin')];
@@ -324,6 +324,7 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.delete('/admin/businesses/:id/reviews/:reviewId', ...adminOnly, validate(z.object({ params: z.object({ id: objectId, reviewId: objectId }) })), reviews.deleteReview());
   router.patch('/admin/businesses/:id/kyc', ...adminOnly, validate(idParam.extend({ body: z.object({ decision: z.enum(['approve', 'reject']), reason: z.string().trim().max(500).optional() }).strict() })), admin.reviewKyc(config, mailer));
   router.patch('/admin/businesses/:id/plan', ...adminOnly, validate(idParam.extend({ body: z.object({ plan: z.enum(['free', 'premium']), planExpiresAt: z.coerce.date().optional() }).strict() })), admin.setPlan());
+  router.patch('/admin/businesses/:id/changes', ...adminOnly, validate(idParam.extend({ body: z.object({ decision: z.enum(['approve', 'reject']), reason: z.string().trim().max(500).optional() }).strict() })), admin.reviewChanges(config, mailer));
   router.patch('/admin/businesses/:id/review', ...adminOnly, validate(idParam.extend({ body: z.object({ decision: z.enum(['approve', 'reject']), rejectionReason: z.string().trim().max(2000).optional() }).strict() })), admin.reviewBusiness(config, mailer));
   router.patch('/admin/businesses/:id/google-place', ...adminOnly, validate(idParam), admin.clearGooglePlaceMismatch());
   router.patch('/admin/businesses/:id/google-business-profile', ...adminOnly, validate(idParam), gbp.adminUnlink());

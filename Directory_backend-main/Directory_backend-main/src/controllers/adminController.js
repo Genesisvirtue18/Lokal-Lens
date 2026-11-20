@@ -4,6 +4,7 @@ import { Category } from '../models/Category.js';
 import { AppError } from '../utils/AppError.js';
 import { sendSuccess } from '../utils/response.js';
 import { dashboardUrl, emailPerson } from '../services/notices.js';
+import { labelsOf } from '../services/pendingChanges.js';
 
 const slugify = value => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 110) || 'category';
 const uniqueSlug = async (name, reserved = new Set()) => { const base = slugify(name); let slug = base; let suffix = 2; while (reserved.has(slug) || await Category.exists({ slug })) slug = `${base}-${suffix++}`; reserved.add(slug); return slug; };
@@ -186,13 +187,18 @@ const createCategories = async (entries, parentCategory = null) => {
 export const businesses = () => async (req, res, next) => { try {
   const { page, limit, status } = req.validated.query;
   const filter = { deletedAt: null, ...(status ? { listingStatus: status } : {}) };
-  const [items, totalItems] = await Promise.all([Business.find(filter).populate('owner', 'name email').populate('category', 'name').sort('-createdAt').skip((page - 1) * limit).limit(limit).lean(), Business.countDocuments(filter)]);
+  const [items, totalItems] = await Promise.all([Business.find(filter).select('+pendingChanges').populate('owner', 'name email').populate('category', 'name').sort('-createdAt').skip((page - 1) * limit).limit(limit).lean(), Business.countDocuments(filter)]);
   sendSuccess(res, 'Businesses retrieved successfully', { items, pagination: { page, limit, totalItems, totalPages: Math.ceil(totalItems / limit), hasNextPage: page * limit < totalItems, hasPreviousPage: page > 1 } });
 } catch (error) { next(error); } };
 
 export const businessById = () => async (req, res, next) => { try {
-  const item = await Business.findOne({ _id: req.params.id, deletedAt: null }).populate('owner', 'name email').populate('category', 'name').lean();
+  const item = await Business.findOne({ _id: req.params.id, deletedAt: null }).select('+pendingChanges').populate('owner', 'name email').populate('category', 'name').lean();
   if (!item) throw new AppError('Business not found', 404);
+  const asked = item.pendingChanges?.data;
+  if (asked) {
+    const ids = [asked.category, ...(asked.subcategories || []), ...(asked.secondaryCategories || [])].filter(Boolean).map(String);
+    if (ids.length) item.pendingChanges.categoryNames = Object.fromEntries((await Category.find({ _id: { $in: ids } }).select('name').lean()).map((row) => [String(row._id), row.name]));
+  }
   sendSuccess(res, 'Business retrieved successfully', { item });
 } catch (error) { next(error); } };
 
@@ -329,6 +335,27 @@ export const reviewBusiness = (config, mailer) => async (req, res, next) => { tr
   await item.save(); await item.populate([{ path: 'category', select: 'name slug' }, { path: 'owner', select: 'name email notificationPreferences' }]);
   emailPerson(mailer, item.owner, decision === 'approve' ? `“${item.name}” is now live on Lokal Lens` : `“${item.name}” needs changes before it can go live`, decision === 'approve' ? [`Good news. Our team approved “${item.name}”, and customers can now find it.`, '', `Manage it here: ${dashboardUrl(config)}`] : [`We couldn’t publish “${item.name}” yet.`, ...(rejectionReason ? ['', `What to change: ${rejectionReason}`] : []), '', `Fix it and save. It goes back to review automatically: ${dashboardUrl(config)}`]);
   sendSuccess(res, `Business ${decision}d successfully`, { item });
+} catch (error) { next(error); } };
+
+// An owner's edits to an approved listing wait as pending changes. Approving applies them; rejecting keeps the live listing as it is and tells the owner why.
+export const reviewChanges = (config, mailer) => async (req, res, next) => { try {
+  const item = await Business.findOne({ _id: req.params.id, deletedAt: null }).select('+pendingChanges').populate('owner', 'name email notificationPreferences');
+  if (!item || item.pendingChanges?.status !== 'pending' || !item.pendingChanges?.data) throw new AppError('This listing has no changes waiting for review', 404);
+  const { decision, reason } = req.validated.body;
+  const fields = labelsOf(item.pendingChanges.fields || Object.keys(item.pendingChanges.data));
+  if (decision === 'reject' && !reason?.trim()) throw new AppError('Tell the owner what to fix', 422);
+  if (decision === 'approve') {
+    Object.assign(item, item.pendingChanges.data);
+    item.set('pendingChanges', undefined);
+  } else {
+    item.pendingChanges.status = 'rejected'; item.pendingChanges.rejectionReason = reason.trim();
+    item.markModified('pendingChanges');
+  }
+  await item.save();
+  emailPerson(mailer, item.owner, decision === 'approve' ? `Your changes to “${item.name}” are live` : `Your changes to “${item.name}” need a fix`, decision === 'approve'
+    ? [`Our team approved your changes to “${item.name}” (${fields.join(', ')}). They now show on your listing.`, '', `Manage it here: ${dashboardUrl(config)}`]
+    : [`We couldn’t approve your changes to “${item.name}” (${fields.join(', ')}). Your live listing still shows the details customers saw before.`, '', `What to fix: ${reason.trim()}`, '', `Edit and send them again: ${dashboardUrl(config)}`]);
+  sendSuccess(res, decision === 'approve' ? 'Changes approved and published' : 'Changes rejected', { item });
 } catch (error) { next(error); } };
 
 export const reviewKyc = (config, mailer) => async (req, res, next) => { try {

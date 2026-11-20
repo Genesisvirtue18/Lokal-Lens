@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { launch, seed, sleep, check, summary, api } from "./lib.mjs";
+import { launch, seed, sleep, check, summary, api, adminToken } from "./lib.mjs";
 const dir = new URL("./", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 const fillJs = fs.readFileSync(dir + "wizfill.js", "utf8"), stateJs = fs.readFileSync(dir + "wizstate.js", "utf8");
 const S = seed(); const ids = S.ids;
@@ -33,7 +33,7 @@ await check("create a business through every wizard step and submit for review",
 await check("a new listing is not public until our team approves it, and shows 'in review' to the owner", async () => { await t.goto("/business-owner", 4000); return /In review/i.test(await t.text()); });
 
 console.log("\nEdit a listing");
-await check("edit the description of a live listing and save it", async () => {
+await check("edit the description of a live listing: it waits for approval, the live text is unchanged", async () => {
   await t.goto("/business-owner", 4000);
   // The overview now shows one card per listing: find the Edit button that belongs to the Smile Dental card.
   const clicked = await t.ev(`(() => { for (const btn of [...document.querySelectorAll('button,a')].filter((b) => /^Edit$/.test(b.innerText.trim()))) { let node = btn; for (let i = 0; i < 8 && node; i++, node = node.parentElement) { const x = node.innerText || ''; if (/Smile Dental/.test(x) && !/Browser Test Cafe/.test(x)) { btn.click(); return true; } } } return false; })()`);
@@ -49,7 +49,8 @@ await check("edit the description of a live listing and save it", async () => {
   const b = (await ownerBiz(tok)).find((x) => x._id === ids.smile);
   const raw = await api("GET", "/owner/businesses?limit=50", { token: tok }); console.log("   raw:", raw.status, JSON.stringify(raw.data ?? raw).slice(0, 200), "/ smile id:", ids.smile);
   console.log("   after edit:", b?.listingStatus, "|", (b?.description || "").slice(0, 40), "|", (await t.text()).replace(/\s+/g, " ").slice(0, 200));
-  return (b?.description || "").startsWith("Smile Dental offers gentle");
+  // An approved listing keeps its live text until an admin approves the change: the new text waits as a pending change.
+  return b?.listingStatus === "published" && !(b?.description || "").startsWith("Smile Dental offers gentle") && (b?.pendingChanges?.data?.description || "").startsWith("Smile Dental offers gentle");
 });
 
 console.log("\nPause / resume");
@@ -147,11 +148,15 @@ await check("delete the new listing by typing its name", async () => {
   return !(await ownerBiz(tok)).some((b) => b.name === "Browser Test Cafe");
 });
 
-console.log("\nRe-review after a sensitive edit");
-await check("changing the name of a live listing sends it back for review and tells the owner", async () => {
-  await t.goto("/business-owner", 4000);
-  const idx = await t.ev("[...document.querySelectorAll('li')].findIndex((l) => /Smile Dental/.test(l.innerText) && [...l.querySelectorAll('button,a')].some((b) => /^Edit$/.test(b.innerText.trim())))");
-  await t.ev(`(() => { const li = [...document.querySelectorAll('li')][${idx}]; [...li.querySelectorAll('button,a')].find((b) => /^Edit$/.test(b.innerText.trim())).click(); })()`); await sleep(3000);
+console.log("\nEdits to a live listing wait for an admin");
+const publicName = async () => (await api("GET", "/businesses/smile-dental")).data?.item?.name;
+const openSmileEdit = async () => {
+  await t.goto("/business-owner", 4500);
+  const clicked = await t.ev(`(() => { for (const btn of [...document.querySelectorAll('button,a')].filter((b) => /^Edit$/.test(b.innerText.trim()))) { let node = btn; for (let i = 0; i < 8 && node; i++, node = node.parentElement) { const x = node.innerText || ''; if (/Smile Dental/.test(x) && !/Browser Test Cafe/.test(x)) { btn.click(); return true; } } } return false; })()`);
+  if (!clicked) throw new Error("no Edit button on the Smile Dental card"); await sleep(3000);
+};
+await check("changing the name of a live listing does NOT change it for customers; the owner is told it waits for approval", async () => {
+  await openSmileEdit();
   await t.ev(`(() => { const el = [...document.querySelectorAll('input')].find((e) => /^Business name/.test(e.closest('label')?.innerText || '')); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, 'Smile Dental Studio'); el.dispatchEvent(new Event('input', { bubbles: true })); })()`); await sleep(400);
   for (let i = 0; i < 8; i++) {
     await t.ev(fillJs); await sleep(600);
@@ -159,11 +164,32 @@ await check("changing the name of a live listing sends it back for review and te
     if (/Save changes|Update listing|Submit for review|Save and exit/.test(txt) && /STEP 5 OF 5/.test(txt)) { await t.click("Save changes|Update listing|Submit for review|Save and exit", { scope: "body" }); await sleep(3000); break; }
     await t.click("^Continue$", { scope: "body" }); await sleep(1500);
   }
-  const notice = await t.has("our team will check the listing again");
-  const b = (await ownerBiz(tok)).find((x) => x._id === ids.smile);
-  const hidden = (await api("GET", "/businesses/smile-dental")).status === 404;
-  console.log("   status:", b?.listingStatus, "| note:", b?.reviewNote);
-  return notice && b?.listingStatus === "pending_review" && /Changed: name/.test(b?.reviewNote || "") && hidden;
+  const notice = await t.has("sent to our team for approval");
+  const b = (await api("GET", `/owner/businesses/${ids.smile}`, { token: tok })).data?.item;
+  const stillLive = b?.listingStatus === "published" && b?.name === "Smile Dental" && (await publicName()) === "Smile Dental";
+  console.log("   live name:", b?.name, "| waiting name:", b?.pendingChanges?.data?.name, "| public name:", await publicName());
+  return notice && stillLive && b?.pendingChanges?.status === "pending" && b?.pendingChanges?.data?.name === "Smile Dental Studio";
+});
+await check("the owner's dashboard says the changes are waiting, and opening Edit shows the newest version", async () => {
+  await t.goto("/business-owner", 4500);
+  const banner = await t.has("Your changes are waiting for approval");
+  await openSmileEdit();
+  const shown = await t.ev(`[...document.querySelectorAll('input')].some((e) => /^Business name/.test(e.closest('label')?.innerText || '') && e.value === 'Smile Dental Studio')`);
+  return banner && shown;
+});
+await check("an admin sees the waiting change next to the live details, approves it in the panel, and only then does the public name change", async () => {
+  const admin = await adminToken();
+  await t.goto("/login", 1500); await t.ev(`localStorage.setItem('directflow_access_token', ${JSON.stringify(admin)})`);
+  await t.goto("/admin", 6000); await t.click("Businesses", { scope: "aside" }); await sleep(2500);
+  const flagged = await t.has("Changes waiting");
+  const rowIndex = await t.ev("[...document.querySelectorAll('li')].findIndex((l) => /Smile Dental/.test(l.innerText) && /Changes waiting/.test(l.innerText))");
+  await t.ev(`(() => { const li = [...document.querySelectorAll('li')][${rowIndex}]; [...li.querySelectorAll('button')].find((b) => /^Review$/.test(b.innerText.trim())).click(); })()`); await sleep(2800);
+  const panel = (await t.has("Changes waiting for approval")) && (await t.has("Smile Dental Studio"));
+  const before = await publicName();
+  await t.click("Approve and publish changes", { scope: "body" }); await sleep(3000);
+  const after = await publicName();
+  console.log("   flagged:", flagged, "| panel:", panel, "| public before/after:", before, "/", after);
+  return flagged && panel && before === "Smile Dental" && after === "Smile Dental Studio";
 });
 
 console.log("\nconsole/native-dialog errors:", t.errors);

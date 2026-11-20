@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 import { emailField, phoneField, slugField, urlField } from './fields.js';
 
 const { Schema } = mongoose;
+// Edits to an approved listing wait here for an admin. Hidden by default (select: false) so a public response can never carry unapproved text.
+const pendingChangesSchema = new Schema({ data: { type: Schema.Types.Mixed }, fields: { type: [String], default: undefined }, submittedAt: Date, status: { type: String, enum: ['pending', 'rejected'] }, rejectionReason: { type: String, maxlength: 500 } }, { _id: false });
 const addressSchema = new Schema({
   addressLine1: { type: String, trim: true, maxlength: 250 },
   addressLine2: { type: String, trim: true, maxlength: 250 },
@@ -150,6 +152,7 @@ const businessSchema = new Schema({
   rejectionReason: { type: String, maxlength: 2000 },
   // Set when a live listing goes back to review because the owner changed something sensitive (name, phone, category, city).
   reviewNote: { type: String, maxlength: 400 },
+  pendingChanges: { type: pendingChangesSchema, select: false },
   timeZone: { type: String, default: 'Asia/Kolkata' },
   verificationStatus: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
   listingStatus: { type: String, enum: ['draft', 'pending_review', 'published', 'paused', 'suspended', 'rejected', 'deleted'], default: 'draft' },

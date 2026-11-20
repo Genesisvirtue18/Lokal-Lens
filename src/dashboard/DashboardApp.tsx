@@ -94,6 +94,13 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
   const reloadAdminList = async () => {
     try { const items = await loadAdminDashboard(); setPendingBusinesses(items.filter((item) => item.status === 'Pending')); setActiveBusinesses(items.filter((item) => item.status !== 'Pending')); } catch { /* keep what is on screen */ }
   };
+  // The listing panel tells the page when an admin has just decided on someone's changes, so the lists and counts refresh.
+  useEffect(() => {
+    if (role !== 'admin') return undefined;
+    const refresh = () => { void reloadAdminList(); };
+    window.addEventListener('admin-listings-changed', refresh);
+    return () => window.removeEventListener('admin-listings-changed', refresh);
+  }, [role]);
   const reloadOwner = async () => {
     try { const data = await loadOwnerDashboard(); setActiveBusinesses(data.businesses); setReviews(data.reviews); setOwnerLeads(data.leads); } catch { /* keep what is on screen */ }
   };
@@ -249,7 +256,7 @@ export default function DashboardApp({ role, initialTab }: DashboardAppProps) {
       {/* Main Responsive App Frame Container */}
       <div className="flex min-h-screen w-full">
         {role === 'owner' && <OwnerSidebar active={ownerTab === 'form' && formEditId ? 'business' : ownerTab} onSelect={setOwnerTab} newLeads={ownerLeads.filter((lead) => lead.status === 'New').length} reviewCount={reviews.filter((review) => !review.reply).length} onAddBusiness={handleAddBusiness} onLogout={doLogout} />}
-        {role === 'admin' && <AdminSidebar active={adminTab} onSelect={(tab) => { setAdminForm(null); setAdminTab(tab); }} waiting={pendingBusinesses.length} reports={(adminStats?.openReports || 0) + (adminStats?.pendingClaims || 0)} onLogout={doLogout} />}
+        {role === 'admin' && <AdminSidebar active={adminTab} onSelect={(tab) => { setAdminForm(null); setAdminTab(tab); }} waiting={pendingBusinesses.length + activeBusinesses.filter((business) => business.changes?.status === 'pending').length} reports={(adminStats?.openReports || 0) + (adminStats?.pendingClaims || 0)} onLogout={doLogout} />}
       <div className="min-w-0 flex-1 bg-[#f1f1ee]">
         {/* Top App Bar Component */}
         <Header

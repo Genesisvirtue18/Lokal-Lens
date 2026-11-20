@@ -34,29 +34,62 @@ test('re-review on sensitive edits, owner replies, withdrawing an inquiry, and l
     // The city filter ignores capitals, because city pages live at lower-case URLs like /pune/health.
     for (const spelling of ['Pune', 'pune', 'PUNE']) assert.equal((await request(app).get(`/api/v1/businesses?city=${spelling}`).expect(200)).body.data.pagination.totalItems, 1, spelling);
 
-    // ---- 1. Re-review only for sensitive changes
-    const harmless = await as(owner).patch(`/owner/businesses/${clinic._id}`, { description: 'A friendly neighbourhood clinic with evening hours.' }).expect(200);
-    assert.equal(harmless.body.data.sentForReview, false);
-    assert.equal((await Business.findById(clinic._id)).listingStatus, 'published');
-    const renamed = await as(owner).patch(`/owner/businesses/${clinic._id}`, { name: 'City Care Clinic' }).expect(200);
-    assert.equal(renamed.body.data.sentForReview, true);
-    assert.deepEqual(renamed.body.data.changed, ['name']);
-    const after = await Business.findById(clinic._id).lean();
-    assert.equal(after.listingStatus, 'pending_review');
-    assert.match(after.reviewNote, /Changed: name/);
-    assert.match(after.reviewNote, /City Clinic/, 'the admin can see what it used to be');
-    assert.equal(await publicStatus(), 404, 'hidden until approved');
+    // ---- 1. Edits to an approved listing wait for an admin; the public page keeps showing what was approved
+    const same = await as(owner).patch(`/owner/businesses/${clinic._id}`, { description: 'A friendly neighbourhood clinic.' }).expect(200);
+    assert.equal(same.body.data.sentForReview, false, 'saving the same text is not a change');
+    const evening = 'A friendly neighbourhood clinic with evening hours.';
+    const harmless = await as(owner).patch(`/owner/businesses/${clinic._id}`, { description: evening }).expect(200);
+    assert.equal(harmless.body.data.sentForReview, true);
+    assert.deepEqual(harmless.body.data.changed, ['Description']);
+    assert.match(harmless.body.message, /approval/i);
+    let live = await Business.findById(clinic._id).select('+pendingChanges').lean();
+    assert.equal(live.description, 'A friendly neighbourhood clinic.', 'the live description is untouched');
+    assert.equal(live.listingStatus, 'published', 'the listing stays live');
+    assert.equal(live.pendingChanges.status, 'pending');
+    assert.equal(live.pendingChanges.data.description, evening);
+    assert.equal(await publicStatus(), 200);
+    const publicText = JSON.stringify((await request(app).get('/api/v1/businesses/city-clinic').expect(200)).body);
+    assert.ok(publicText.includes('A friendly neighbourhood clinic.') && !publicText.includes('evening hours'), 'customers still see the approved text');
+    const ownerView = await as(owner).get(`/owner/businesses/${clinic._id}`).expect(200);
+    assert.equal(ownerView.body.data.item.pendingChanges.data.description, evening, 'the owner can see and keep editing what is waiting');
+
+    // more edits pile up; setting a field back to what is live cancels it
+    const more = await as(owner).patch(`/owner/businesses/${clinic._id}`, { name: 'City Care Clinic', phone: '9876500000', category: String(cat2._id) }).expect(200);
+    assert.deepEqual(more.body.data.changed.sort(), ['Business name', 'Category', 'Description', 'Phone']);
+    assert.equal((await Business.findById(clinic._id)).name, 'City Clinic');
+    await as(owner).patch(`/owner/businesses/${clinic._id}`, { phone: '9876543210' }).expect(200);
+    live = await Business.findById(clinic._id).select('+pendingChanges').lean();
+    assert.deepEqual(Object.keys(live.pendingChanges.data).sort(), ['category', 'description', 'name']);
+
+    // only an admin decides
+    await as(owner).patch(`/admin/businesses/${clinic._id}/changes`, { decision: 'approve' }).expect(403);
+    await as(customer).patch(`/admin/businesses/${clinic._id}/changes`, { decision: 'approve' }).expect(403);
     const adminView = await as(admin).get(`/admin/businesses/${clinic._id}`).expect(200);
-    assert.match(adminView.body.data.item.reviewNote, /Changed: name/);
-    await as(admin).patch(`/admin/businesses/${clinic._id}/review`, { decision: 'approve' }).expect(200);
-    assert.equal((await Business.findById(clinic._id)).reviewNote, undefined);
+    assert.equal(adminView.body.data.item.pendingChanges.data.name, 'City Care Clinic');
+    assert.equal(adminView.body.data.item.name, 'City Clinic', 'the admin sees both what is live and what is asked');
+    await as(admin).patch(`/admin/businesses/${clinic._id}/changes`, { decision: 'reject' }).expect(422);   // the owner must be told what to fix
+    await as(admin).patch(`/admin/businesses/${clinic._id}/changes`, { decision: 'reject', reason: 'The new name looks like another business.' }).expect(200);
+    live = await Business.findById(clinic._id).select('+pendingChanges').lean();
+    assert.equal(live.name, 'City Clinic');
+    assert.equal(live.pendingChanges.status, 'rejected');
+    assert.match(live.pendingChanges.rejectionReason, /another business/);
+    await as(admin).patch(`/admin/businesses/${clinic._id}/changes`, { decision: 'approve' }).expect(404);   // nothing waiting any more
+    const again = await as(owner).patch(`/owner/businesses/${clinic._id}`, { name: 'City Care Clinic' }).expect(200);   // fixing and sending again
+    assert.equal(again.body.data.sentForReview, true);
+    assert.equal((await Business.findById(clinic._id).select('+pendingChanges').lean()).pendingChanges.status, 'pending');
+    await as(admin).patch(`/admin/businesses/${clinic._id}/changes`, { decision: 'approve' }).expect(200);
+    live = await Business.findById(clinic._id).select('+pendingChanges').lean();
+    assert.equal(live.name, 'City Care Clinic');
+    assert.equal(live.description, evening);
+    assert.equal(String(live.category), String(cat2._id));
+    assert.equal(live.phone, '9876543210');
+    assert.equal(live.pendingChanges, undefined, 'nothing is left waiting');
+    assert.equal(live.listingStatus, 'published');
     assert.equal(await publicStatus(), 200);
     const phone = await as(owner).patch(`/owner/businesses/${clinic._id}`, { phone: '9876500000' }).expect(200);
-    assert.deepEqual(phone.body.data.changed, ['phone']);
-    await as(admin).patch(`/admin/businesses/${clinic._id}/review`, { decision: 'approve' }).expect(200);
-    const cat = await as(owner).patch(`/owner/businesses/${clinic._id}`, { category: String(cat2._id) }).expect(200);
-    assert.deepEqual(cat.body.data.changed, ['category']);
-    await as(admin).patch(`/admin/businesses/${clinic._id}/review`, { decision: 'approve' }).expect(200);
+    assert.deepEqual(phone.body.data.changed, ['Phone']);
+    await as(admin).patch(`/admin/businesses/${clinic._id}/changes`, { decision: 'approve' }).expect(200);
+    assert.equal((await Business.findById(clinic._id)).phone, '9876500000');
 
     // ---- 2. Inquiry, owner reply, customer sees it, withdraw
     const sent = await as(customer).post(`/businesses/${clinic._id}/leads`, { name: 'Customer', phone: '9811111111', message: 'Do you open on Sunday?' }).expect(201);

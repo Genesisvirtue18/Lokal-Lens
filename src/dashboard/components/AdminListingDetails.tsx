@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { ExternalLink } from 'lucide-react';
-import { loadAdminBusiness } from '../api';
+import { loadAdminBusiness, request } from '../api';
+import { FIELD_LABELS, describeValue } from '@/lib/pending-changes';
 
 type Raw = {
   tagline?: string; description?: string; businessType?: string; establishedYear?: number; serviceMode?: string; serviceAreas?: string[];
@@ -14,6 +15,7 @@ type Raw = {
   faqs?: { question: string; answer: string }[]; images?: string[]; logo?: string;
   createdAt?: string; viewCount?: number; leadCount?: number; averageRating?: number; reviewCount?: number; slug?: string;
   category?: { name?: string } | string;
+  pendingChanges?: { status?: 'pending' | 'rejected'; data?: Record<string, unknown>; submittedAt?: string; rejectionReason?: string; categoryNames?: Record<string, string> };
 };
 
 const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -37,14 +39,64 @@ function Row({ name, children }: { name: string; children: React.ReactNode }) {
 const none = <span className="font-normal italic text-[#9a9ba3]">Not added</span>;
 const chips = (items?: string[]) => (items?.length ? <ul className="flex flex-wrap gap-1.5">{items.map((item) => <li key={item} className="rounded-full bg-[#f1f1ee] px-2.5 py-1 text-[13px]">{item}</li>)}</ul> : none);
 
+// What an owner asked to change on an approved listing, next to what customers see now, with the decision.
+function PendingChanges({ item, id, onDone }: { item: Raw; id: string; onDone: () => void }) {
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const asked = item.pendingChanges?.data || {};
+  const names = item.pendingChanges?.categoryNames || {};
+  const rows = Object.keys(asked).map((key) => {
+    const isCategory = key === 'category' || key === 'subcategories' || key === 'secondaryCategories';
+    const show = (value: unknown) => (isCategory ? [value].flat().filter(Boolean).map((entry) => names[String(entry)] || '').filter(Boolean).join(', ') : describeValue(key, value));
+    const now = isCategory ? (key === 'category' && item.category && typeof item.category === 'object' ? item.category.name || '' : '') : describeValue(key, (item as Record<string, unknown>)[key]);
+    return { key, label: (FIELD_LABELS as Record<string, string>)[key] || key, now, next: show(asked[key]) };
+  });
+  async function decide(decision: 'approve' | 'reject') {
+    if (decision === 'reject' && !reason.trim()) { setError('Tell the owner what to fix.'); return; }
+    setBusy(true); setError('');
+    try { await request(`/admin/businesses/${id}/changes`, { method: 'PATCH', body: JSON.stringify({ decision, ...(decision === 'reject' ? { reason: reason.trim() } : {}) }) }); window.dispatchEvent(new Event('admin-listings-changed')); onDone(); }
+    catch (reasonError) { setError(reasonError instanceof Error ? reasonError.message : 'Unable to save the decision.'); }
+    finally { setBusy(false); }
+  }
+  return (
+    <section className="overflow-hidden rounded-[14px] border-2 border-[#e0b04a] bg-white">
+      <h4 className="border-b border-[#e0b04a] bg-[#fbf0d9] px-4 py-2.5 font-display text-[13px] font-semibold uppercase tracking-wide text-[#5c3d00]">Changes waiting for approval ({rows.length})</h4>
+      <div className="flex flex-col gap-3 px-4 py-3">
+        <p className="text-[13px] leading-[18px] text-[#4a4c55]">Customers still see the current details. Nothing below is public until you approve it.</p>
+        <ul className="flex flex-col divide-y divide-[#f1f1ee]">
+          {rows.map((row) => (
+            <li key={row.key} className="grid gap-1 py-2.5 text-[14px] leading-5">
+              <span className="text-[13px] font-semibold text-[#101115]">{row.label}</span>
+              <span className="grid grid-cols-[52px_minmax(0,1fr)] gap-x-3"><span className="text-[12px] font-medium uppercase tracking-wide text-[#6e7079]">Now</span><span className="break-words text-[#4a4c55] line-through decoration-[#b3261e]/40">{row.now || <span className="italic text-[#9a9ba3] no-underline">Not set</span>}</span></span>
+              <span className="grid grid-cols-[52px_minmax(0,1fr)] gap-x-3"><span className="text-[12px] font-medium uppercase tracking-wide text-[#2b7a26]">Asked</span><span className="break-words font-medium text-[#101115]">{row.next || <span className="italic text-[#9a9ba3]">Removed</span>}</span></span>
+            </li>
+          ))}
+        </ul>
+        {error && <p role="alert" className="rounded-[10px] bg-[#fdecea] px-3 py-2 text-[14px] text-[#8c1d13]">{error}</p>}
+        {rejecting ? (
+          <div className="flex flex-col gap-2">
+            <label className="flex flex-col gap-1.5 text-[14px] font-medium">What should the owner fix?<textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} maxLength={500} placeholder="The owner sees this on their dashboard and in an email" className="rounded-[10px] border border-[#bdbcb5] px-3 py-2 text-[14px] font-normal" /></label>
+            <div className="flex gap-2"><button type="button" disabled={busy} onClick={() => void decide('reject')} className="h-10 rounded-[10px] bg-[#b42318] px-4 font-display text-[14px] font-semibold text-white disabled:opacity-60">{busy ? 'Saving…' : 'Reject changes'}</button><button type="button" onClick={() => { setRejecting(false); setError(''); }} className="h-10 px-3 text-[14px] font-medium text-[#002fa7]">Cancel</button></div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={() => void decide('approve')} className="h-10 rounded-[10px] bg-[#002fa7] px-4 font-display text-[14px] font-semibold text-white disabled:opacity-60">{busy ? 'Saving…' : 'Approve and publish changes'}</button><button type="button" onClick={() => setRejecting(true)} className="h-10 rounded-[10px] border border-[#bdbcb5] bg-white px-4 font-display text-[14px] font-semibold">Reject…</button></div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 // Everything the owner entered, read-only, so an admin can judge a listing before approving it.
 export function AdminListingDetails({ id }: { id: string }) {
   const [state, setState] = useState<{ id: string; item?: Raw; error?: string }>({ id: '' });
+  const [round, setRound] = useState(0);
   useEffect(() => {
     let live = true;
     loadAdminBusiness(id).then((item) => { if (live) setState({ id, item }); }).catch((reason) => { if (live) setState({ id, error: reason instanceof Error ? reason.message : 'Unable to load the full listing' }); });
     return () => { live = false; };
-  }, [id]);
+  }, [id, round]);
   if (state.id !== id) return <p className="px-6 py-5 text-[14px] text-[#6e7079]">Loading the full listing…</p>;
   if (state.error || !state.item) return <p role="alert" className="mx-6 my-5 rounded-[10px] bg-[#fdecea] px-3 py-2 text-[14px] text-[#8c1d13]">{state.error}</p>;
   const item = state.item;
@@ -59,6 +111,7 @@ export function AdminListingDetails({ id }: { id: string }) {
 
   return (
     <div className="flex flex-col gap-4 px-6 py-5">
+      {item.pendingChanges?.status === 'pending' && <PendingChanges item={item} id={id} onDone={() => setRound((value) => value + 1)} />}
       {photos.length > 0 ? (
         <Block title={`Photos (${photos.length})`}>
           <ul className="grid grid-cols-4 gap-2">{photos.slice(0, 8).map((src, index) => <li key={src + index}><a href={src} target="_blank" rel="noreferrer" className="relative block aspect-square overflow-hidden rounded-[10px] bg-[#f1f1ee]"><Image src={src} alt={`Photo ${index + 1}`} unoptimized fill sizes="120px" className="object-cover" /></a></li>)}</ul>

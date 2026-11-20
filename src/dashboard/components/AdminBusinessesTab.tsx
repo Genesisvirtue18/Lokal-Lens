@@ -100,7 +100,7 @@ export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({ activeBu
   const current = Math.min(page, pages);
   const rows = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
   const selected = all.find((item) => item.id === selectedId) || null;
-  const counts = { review: all.filter((item) => item.status === 'Pending').length, live: all.filter((item) => item.status === 'Active').length, check: all.filter((item) => item.kycStatus === 'submitted').length, unowned: all.filter((item) => !item.ownerId).length };
+  const counts = { review: all.filter((item) => item.status === 'Pending' || item.changes?.status === 'pending').length, live: all.filter((item) => item.status === 'Active').length, check: all.filter((item) => item.kycStatus === 'submitted').length, unowned: all.filter((item) => !item.ownerId).length };
   const reset = (setter: (value: string) => void) => (value: string) => { setter(value); setPage(1); };
   const close = () => { setSelectedId(''); onClose?.(); };
 
@@ -155,10 +155,10 @@ export const AdminBusinessesTab: React.FC<AdminBusinessesTabProps> = ({ activeBu
                   </button></span>
                   <span className="truncate text-[14px] text-[#4a4c55]">{item.category}</span>
                   <span className="min-w-0 truncate text-[14px]">{item.ownerId ? <span className="text-[#4a4c55]">{item.owner}</span> : <span className="font-medium text-[#8a5a00]">Unassigned</span>}</span>
-                  <span><StatusBadge status={item.status} /></span>
+                  <span className="flex flex-wrap items-center gap-1.5"><StatusBadge status={item.status} />{item.changes?.status === 'pending' && <Badge tone="pending">Changes waiting</Badge>}</span>
                   <span><VerificationBadge business={item} /></span>
                   <span className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                    <Button type="secondary" size="s" onClick={() => setSelectedId(item.id)}>{item.status === 'Pending' ? 'Review' : 'Manage'}</Button>
+                    <Button type="secondary" size="s" onClick={() => setSelectedId(item.id)}>{item.status === 'Pending' || item.changes?.status === 'pending' ? 'Review' : 'Manage'}</Button>
                     <Button type="ghost" size="s" onClick={() => onEdit(item)} icon={<Pencil size={16} aria-hidden="true" />}>Edit</Button>
                   </span>
                 </li>

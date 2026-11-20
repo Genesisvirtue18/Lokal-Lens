@@ -46,18 +46,20 @@ await check("Delete listing: type its name, give an authenticator code, then it 
   const gone = (await api("GET", "/admin/businesses?limit=50", { token: tok })).data.items.every((b) => b.name !== name);
   return delBtnDisabledFirst === true && gone;
 });
-await check("a live listing whose owner changed its name comes back to review with a note saying what changed", async () => {
+await check("an owner's edit to a live listing waits for the admin: the list flags it, the panel shows now / asked, and the name changes only after approval", async () => {
   const ownerTok = (await api("POST", "/auth/login", { body: { email: "owner@e2e.test", password: "Test@12345" } })).data.accessToken;
   const changed = await api("PATCH", `/owner/businesses/${ids.smile}`, { token: ownerTok, body: { name: "Smile Dental Care" } });
-  if (!changed.data?.sentForReview) throw new Error("the edit did not go to review");
+  if (!changed.data?.sentForReview) throw new Error("the edit was not held for approval");
+  const publicName = async () => (await api("GET", "/businesses/smile-dental")).data?.item?.name;
+  if ((await publicName()) !== "Smile Dental") throw new Error("the public name changed before approval");
   await home("Businesses"); await sleep(800);
-  const idx = await t.ev("[...document.querySelectorAll('li')].findIndex((l) => /Smile Dental Care/.test(l.innerText) && [...l.querySelectorAll('button')].some((b) => /^Review$/.test(b.innerText.trim())))");
-  if (idx < 0) throw new Error("renamed listing is not in the waiting list");
-  await t.ev(`(() => { const li = [...document.querySelectorAll('li')][${idx}]; [...li.querySelectorAll('button')].find((b) => /^Review$/.test(b.innerText.trim())).click(); })()`); await sleep(1200);
-  const noteShown = await t.has("Sent back for review: Changed: name");
-  await t.click("Approve and publish"); await sleep(2500);
+  const idx = await t.ev("[...document.querySelectorAll('li')].findIndex((l) => /Smile Dental/.test(l.innerText) && /Changes waiting/.test(l.innerText) && [...l.querySelectorAll('button')].some((b) => /^Review$/.test(b.innerText.trim())))");
+  if (idx < 0) throw new Error("the listing with waiting changes is not flagged in the list");
+  await t.ev(`(() => { const li = [...document.querySelectorAll('li')][${idx}]; [...li.querySelectorAll('button')].find((b) => /^Review$/.test(b.innerText.trim())).click(); })()`); await sleep(2500);
+  const shown = (await t.has("Changes waiting for approval")) && (await t.has("Smile Dental Care"));
+  await t.click("Approve and publish changes", { scope: "body" }); await sleep(3000);
   const b = await biz(ids.smile);
-  return noteShown && b.listingStatus === "published" && !b.reviewNote && (await api("GET", "/businesses/smile-dental")).status === 200;
+  return shown && b.listingStatus === "published" && (await publicName()) === "Smile Dental Care";
 });
 await check("bulk actions: select two listings, suspend them together, then restore them", async () => {
   await home("Businesses"); await sleep(800);

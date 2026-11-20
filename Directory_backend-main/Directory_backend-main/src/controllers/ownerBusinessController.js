@@ -6,9 +6,10 @@ import { BusinessDailyStat, dayKey } from '../models/BusinessDailyStat.js';
 import { AppError } from '../utils/AppError.js';
 import { sendSuccess } from '../utils/response.js';
 import { safeGooglePlacesError } from '../services/googlePlaces.js';
+import { applyOwnerUpdate, labelsOf } from '../services/pendingChanges.js';
 const forbidden = new Set(['owner','slug','verificationStatus','googlePlaceVerificationStatus','googleBusinessProfileLocation','googleBusinessProfileTitle','googleBusinessProfileLinkedAt','listingStatus','isFeatured','featuredUntil','averageRating','reviewCount','viewCount','photoCount','subscription','kycStatus','plan','planExpiresAt','leadCount','contactClickCount','rejectionReason','deletedAt']);
 const clean = body => Object.fromEntries(Object.entries(body).filter(([key]) => !forbidden.has(key)));
-const getOwned = async (id, owner) => { const item=await Business.findOne({_id:id,owner,deletedAt:null}); if(!item) throw new AppError('Business not found',404); return item; };
+const getOwned = async (id, owner) => { const item=await Business.findOne({_id:id,owner,deletedAt:null}).select('+pendingChanges'); if(!item) throw new AppError('Business not found',404); return item; };
 const slugify = value => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 160) || 'business';
 const uniqueSlug = async name => { const base = slugify(name); let slug = base; let suffix = 2; while (await Business.exists({ slug })) slug = `${base}-${suffix++}`; return slug; };
 const validateCategorySelection = async body => {
@@ -36,7 +37,7 @@ const verifyGooglePlace = async (placesService, placeId, business) => {
   }
 };
 export const createBusiness = placesService => async(req,res,next)=>{try{const body=clean(req.validated.body); if(!body.description||!body.phone||!body.address?.addressLine1||!body.services?.length) throw new AppError('Description, phone, address line 1, and at least one service are required before submission',422); await validateCategorySelection(body); const googlePlace = await verifyGooglePlace(placesService, body.googlePlaceId, body); const item=await Business.create({...body,...googlePlace,slug:await uniqueSlug(body.name),owner:req.user.id,listingStatus:'pending_review',verificationStatus:'pending'}); await item.populate('category','name'); sendSuccess(res,'Business created successfully',{item},201);}catch(e){next(e);}};
-export const ownerBusinesses = () => async(req,res,next)=>{try{const {page,limit}=req.validated.query;const filter={owner:req.user.id,deletedAt:null}; const [items,totalItems]=await Promise.all([Business.find(filter).populate('category','name').skip((page-1)*limit).limit(limit),Business.countDocuments(filter)]);const ids=items.map(item=>item._id);const counts=ids.length?await Lead.aggregate([{ $match:{business:{ $in:ids }} },{ $group:{_id:'$business',count:{ $sum:1 }} }]):[];const countByBusiness=new Map(counts.map(item=>[String(item._id),item.count]));for(const item of items)item.leadCount=countByBusiness.get(String(item._id))||0;sendSuccess(res,'Businesses retrieved successfully',{items,pagination:{page,limit,totalItems,totalPages:Math.ceil(totalItems/limit),hasNextPage:page*limit<totalItems,hasPreviousPage:page>1}});}catch(e){next(e);}};
+export const ownerBusinesses = () => async(req,res,next)=>{try{const {page,limit}=req.validated.query;const filter={owner:req.user.id,deletedAt:null}; const [items,totalItems]=await Promise.all([Business.find(filter).select('+pendingChanges').populate('category','name').skip((page-1)*limit).limit(limit),Business.countDocuments(filter)]);const ids=items.map(item=>item._id);const counts=ids.length?await Lead.aggregate([{ $match:{business:{ $in:ids }} },{ $group:{_id:'$business',count:{ $sum:1 }} }]):[];const countByBusiness=new Map(counts.map(item=>[String(item._id),item.count]));for(const item of items)item.leadCount=countByBusiness.get(String(item._id))||0;sendSuccess(res,'Businesses retrieved successfully',{items,pagination:{page,limit,totalItems,totalPages:Math.ceil(totalItems/limit),hasNextPage:page*limit<totalItems,hasPreviousPage:page>1}});}catch(e){next(e);}};
 export const ownerLeads = () => async (req, res, next) => {
   try {
     const businesses = await Business.find({ owner: req.user.id, deletedAt: null }).select('_id').lean();
@@ -92,7 +93,7 @@ export const addOwnerLeadNote = () => async (req, res, next) => {
   } catch (error) { next(error); }
 };
 export const ownerBusiness = () => async(req,res,next)=>{try{sendSuccess(res,'Business retrieved successfully',{item:await getOwned(req.params.id,req.user.id)});}catch(e){next(e);}};
-export const updateBusiness = placesService => async (req, res, next) => {
+export const updateBusiness = (placesService, mailer) => async (req, res, next) => {
   let stage = 'load business';
   try {
     const item = await getOwned(req.params.id, req.user.id);
@@ -106,19 +107,7 @@ export const updateBusiness = placesService => async (req, res, next) => {
     }
 
     stage = 'apply update';
-    const ids = (list) => (list || []).map(String).sort().join(',');
-    const before = { name: item.name, phone: item.phone, alternatePhone: item.alternatePhone || '', category: String(item.category || ''), subcategories: ids(item.subcategories), secondaryCategories: ids(item.secondaryCategories), city: item.address?.city || '' };
-    Object.assign(item, body);
-    // A live listing that changes who it is (name, phone, category, city) is checked again before the change goes public.
-    const after = { name: item.name, phone: item.phone, alternatePhone: item.alternatePhone || '', category: String(item.category || ''), subcategories: ids(item.subcategories), secondaryCategories: ids(item.secondaryCategories), city: item.address?.city || '' };
-    const labels = { name: 'name', phone: 'phone', alternatePhone: 'alternate phone', category: 'category', subcategories: 'category', secondaryCategories: 'category', city: 'city' };
-    const changed = [...new Set(Object.keys(before).filter((key) => before[key] !== after[key]).map((key) => labels[key]))];
-    let sentForReview = false;
-    if (item.listingStatus === 'published' && changed.length) {
-      item.listingStatus = 'pending_review';
-      item.reviewNote = `Changed: ${changed.join(', ')}. Was "${before.name}"${before.phone !== after.phone ? `, phone ${before.phone}` : ''}.`.slice(0, 400);
-      sentForReview = true;
-    }
+    const outcome = applyOwnerUpdate(item, body);
     if (['draft', 'rejected'].includes(item.listingStatus)) {
       if (!item.description || !item.phone || !item.address?.addressLine1 || !item.services?.length) {
         throw new AppError('Description, phone, address line 1, and at least one service are required before submission', 422);
@@ -132,7 +121,9 @@ export const updateBusiness = placesService => async (req, res, next) => {
     await item.save();
     stage = 'populate category';
     await item.populate('category', 'name');
-    sendSuccess(res, sentForReview ? 'Saved. Because you changed the business details, our team will check the listing again. It stays hidden until then.' : 'Business updated successfully', { item, sentForReview, changed: sentForReview ? changed : [] });
+    const changed = outcome.held ? labelsOf(outcome.fields) : [];
+    if (outcome.newlyHeld && mailer && req.user.email) mailer.send({ to: req.user.email, subject: `We received your changes to “${item.name}”`, template: { heading: 'Your changes are waiting for approval', preheader: 'Your live listing keeps its current details until our team approves the changes.', paragraphs: [`We received your changes to “${item.name}”: ${changed.join(', ')}.`, 'Your live listing keeps showing its current details until our team approves them. We will email you as soon as they are checked.'] } }).catch(() => console.error('Change received email could not be sent'));
+    sendSuccess(res, outcome.held ? 'Your changes were sent to our team for approval. Your live listing keeps showing the current details until they are approved.' : 'Business updated successfully', { item, sentForReview: outcome.held, changed });
   } catch (error) {
     if (!(error instanceof AppError)) {
       console.error('Owner business update failed', {
