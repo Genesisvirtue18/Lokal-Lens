@@ -67,8 +67,10 @@ function InlineSearch({ query = "", city = "", cities = [] }) {
       <button type="submit" aria-label="Search" className="grid shrink-0 place-items-center text-[#6e7079] transition-colors hover:text-[#002fa7]"><Search size={18} aria-hidden="true" /></button>
       <input name="q" defaultValue={query} placeholder="Business or service" aria-label="Business or service" className="ml-[10px] min-w-0 flex-1 bg-transparent text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
       <span className="mx-3 h-5 w-px shrink-0 bg-[#dcdbd5]" aria-hidden="true" />
-      <MapPin size={16} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
-      <CityField name="city" defaultValue={city} cities={cities} width="clamp(100px, 10vw, 150px)" className="ml-[6px] gap-1" inputClassName="text-[16px] leading-6 text-[#101115]" />
+      <span className="flex shrink-0 items-center" style={{ gap: 8 }}>
+        <MapPin size={16} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
+        <CityField name="city" defaultValue={city} cities={cities} width="clamp(100px, 10vw, 150px)" className="gap-1" inputClassName="text-[16px] text-[#101115]" />
+      </span>
     </form>
   );
 }

@@ -79,7 +79,7 @@ export default function CityField({ cities = [], name = "city", defaultValue = "
         role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
         onChange={(event) => { setValue(event.target.value); setTyped(event.target.value); setOpen(true); setActive(-1); onValueChange?.(event.target.value); }}
         onFocus={() => setOpen(true)} onKeyDown={onKeyDown}
-        className={cx("min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#6e7079]", inputClassName)}
+        style={{ height: 24, lineHeight: "24px", padding: 0 }} className={cx("min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#6e7079]", inputClassName)}
       />
       <button type="button" tabIndex={-1} aria-label="Show cities" onMouseDown={(event) => event.preventDefault()} onClick={() => setOpen((current) => !current)} className="shrink-0 text-[#6e7079] hover:text-[#101115]"><ChevronDown size={16} aria-hidden="true" className={cx("transition-transform", open && "rotate-180")} /></button>
       {open && (
