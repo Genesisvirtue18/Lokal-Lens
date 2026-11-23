@@ -121,5 +121,5 @@ export function Container({ className = "", children, as: Tag = "div" }) {
 
 // Header and footer bars: 48px side margin on a 1440 screen, content width 1344.
 export function BarContainer({ className = "", children, as: Tag = "div" }) {
-  return <Tag className={cx("mx-auto w-full max-w-[1440px] px-4 md:px-8 lg:px-12", className)}>{children}</Tag>;
+  return <Tag className={cx("mx-auto w-full max-w-[1440px] px-4 md:px-8 lg:px-12 xl:px-[72px]", className)}>{children}</Tag>;
 }

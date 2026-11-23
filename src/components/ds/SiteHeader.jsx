@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { ChevronDown, Heart, LayoutDashboard, LogIn, LogOut, MapPin, Menu, MessageCircleQuestion, Plus, Search, Tag, User, X } from "lucide-react";
+import { ChevronDown, Heart, LayoutDashboard, LayoutGrid, LogIn, LogOut, MapPin, Menu, MessageCircleQuestion, Plus, Search, Store, Tag, User, X } from "lucide-react";
 import { BarContainer, Button, IconButton, Logo, cx } from "@/components/ds";
-import CitySelector from "@/components/CitySelector";
 import CityField from "@/components/CityField";
 import { authedFetch, logout as endSession } from "@/dashboard/api";
 
@@ -12,7 +11,7 @@ import { authedFetch, logout as endSession } from "@/dashboard/api";
 //  variant="desktop"  80px bar, logo + primary nav + location selector + Saved + Add Your Business + Sign In
 //  variant="compact"  76px bar, logo + inline search + nav + actions (directory, profile)
 // Below 1024px it becomes the 64px mobile bar with Search and Menu.
-const navItems = [["Explore Businesses", "/directory", "explore"], ["Categories", "/categories", "categories"]];
+const browseItems = [["Explore businesses", "/directory", "explore", Store], ["Categories", "/categories", "categories", LayoutGrid]];
 const moreItems = [["Offers near you", "/offers", "offers", Tag], ["Ask Lokal", "/ask", "ask", MessageCircleQuestion], ["Saved businesses", "/saved", "saved", Heart]];
 
 const subscribe = (callback) => { window.addEventListener("storage", callback); return () => window.removeEventListener("storage", callback); };
@@ -41,7 +40,7 @@ function MoreMenu({ active, signedIn }) {
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", key); };
   }, [open]);
   const logout = async () => { try { await endSession(); } catch { /* the local sign-in is cleared anyway */ } window.dispatchEvent(new Event("storage")); window.location.href = "/"; };
-  const items = [...(signedIn ? [[role === "customer" ? "My account" : "Dashboard", dashboardHref(role), "dashboard", LayoutDashboard]] : []), ...moreItems, ...(signedIn ? [] : [["Sign in", "/login", "login", LogIn]])];
+  const items = [...(signedIn ? [[role === "customer" ? "My account" : "Dashboard", dashboardHref(role), "dashboard", LayoutDashboard]] : []), ...browseItems, ...moreItems, ...(signedIn ? [] : [["Sign in", "/login", "login", LogIn]])];
   const current = items.some(([, , key]) => key === active);
   const first = signedIn ? name.split(/\s+/)[0] : "";
   return (
@@ -62,64 +61,53 @@ function MoreMenu({ active, signedIn }) {
   );
 }
 
-function NavLink({ href, active, children }) {
-  return (
-    <Link href={href} aria-current={active ? "page" : undefined} className={cx("relative flex h-11 items-center whitespace-nowrap px-1 font-display text-[15px] font-medium leading-5 transition-colors", active ? "text-[#002fa7]" : "text-[#101115] hover:text-[#002fa7]")}>
-      {children}
-      {active && <span className="absolute inset-x-1 bottom-[2px] h-[2px] rounded-full bg-[#002fa7]" />}
-    </Link>
-  );
-}
-
 function InlineSearch({ query = "", city = "", cities = [] }) {
   return (
-    <form action="/directory" method="get" role="search" className="flex h-12 w-full max-w-[560px] items-center rounded-[12px] border border-[#bdbcb5] bg-white pl-4 pr-3 focus-within:border-2 focus-within:border-[#002fa7]">
+    <form action="/directory" method="get" role="search" className="flex h-11 w-full items-center rounded-full border border-[#bdbcb5] bg-white pl-4 pr-3 transition-shadow focus-within:border-[#002fa7] focus-within:ring-2 focus-within:ring-[#002fa7]/20">
       <button type="submit" aria-label="Search" className="grid shrink-0 place-items-center text-[#6e7079] transition-colors hover:text-[#002fa7]"><Search size={18} aria-hidden="true" /></button>
-      <input name="q" defaultValue={query} placeholder="Business or service" aria-label="Business or service" className="ml-[10px] min-w-0 flex-1 bg-transparent text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
-      <span className="mx-3 h-6 w-px shrink-0 bg-[#dcdbd5]" aria-hidden="true" />
-      <MapPin size={18} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
-      <CityField name="city" defaultValue={city} cities={cities} width="clamp(104px, 9vw, 156px)" className="ml-[8px] gap-1" inputClassName="text-[16px] leading-6 text-[#101115]" />
+      <input name="q" defaultValue={query} placeholder="Business or service" aria-label="Business or service" className="ml-2.5 min-w-0 flex-1 bg-transparent text-[15px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
+      <span className="mx-3 h-5 w-px shrink-0 bg-[#dcdbd5]" aria-hidden="true" />
+      <MapPin size={16} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
+      <CityField name="city" defaultValue={city} cities={cities} width="clamp(100px, 10vw, 150px)" className="ml-1.5 gap-1" inputClassName="text-[15px] leading-6 text-[#101115]" />
     </form>
   );
 }
 
-export default function SiteHeader({ active = "", cities = [], city = "", cityBasePath = "/directory", query = "" }) {
+// One header on every page. Desktop: logo, a centred search with city, then Categories, Add Your Business and Sign in (or the account menu).
+// Phone and tablet: the logo and a menu button on top, the same search underneath, and everything else inside the menu.
+export default function SiteHeader({ active = "", cities = [], city = "", query = "" }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const signedIn = useSyncExternalStore(subscribe, readSignedIn, () => false);
-  // One header for every page: logo, search with city, primary links, Add Your Business and the account menu.
-  const compact = true;
+  const menuLinks = [...browseItems, ...moreItems].map(([label, href, key]) => [label, href, key]);
+  menuLinks.push(signedIn ? ["My account", "/account", "dashboard"] : ["Sign in", "/login", "login"]);
 
   return (
-    <header className="sticky top-0 z-40 overflow-x-clip border-b border-[#dcdbd5] bg-[#f1f1ee]">
-      <BarContainer className={cx("flex items-center gap-4 min-[1400px]:gap-6", compact ? "h-16 lg:h-[76px]" : "h-16 lg:h-20")}>
-        <Link href="/" aria-label="Lokal Lens home" className="shrink-0"><Logo /></Link>
+    <header className="sticky top-0 z-40 border-b border-[#dcdbd5] bg-[#f1f1ee]">
+      <BarContainer>
+        <div className="flex h-14 items-center gap-3 lg:h-[68px] lg:gap-6">
+          <Link href="/" aria-label="Lokal Lens home" className="shrink-0"><Logo /></Link>
 
-        {compact && <div className="hidden min-w-0 xl:flex xl:flex-none" style={{ width: "clamp(400px, 30vw, 560px)" }}><InlineSearch query={query} city={city} cities={cities} /></div>}
+          <div className="hidden min-w-0 flex-1 justify-center lg:flex"><div className="w-full" style={{ maxWidth: 560 }}><InlineSearch query={query} city={city} cities={cities} /></div></div>
 
-        <nav aria-label="Primary" className={cx("hidden items-center lg:flex", compact ? "gap-4 min-[1400px]:gap-6" : "gap-7")}>
-          {navItems.map(([label, href, key]) => <NavLink key={key} href={href} active={active === key}>{label}</NavLink>)}
-        </nav>
+          <nav aria-label="Primary" className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
+            <Link href="/categories" aria-current={active === "categories" ? "page" : undefined} className={cx("flex h-10 items-center whitespace-nowrap rounded-[10px] px-3 font-display text-[15px] font-medium leading-5 transition-colors hover:bg-white", active === "categories" ? "text-[#002fa7]" : "text-[#101115]")}>Categories</Link>
+            <Button type="secondary" size="s" href="/add-business" icon={<Plus size={18} aria-hidden="true" />}>Add Your Business</Button>
+            {signedIn ? <MoreMenu active={active} signedIn={signedIn} /> : <Button type="primary" size="s" href="/login">Sign in</Button>}
+          </nav>
 
-        <div className="ml-auto hidden shrink-0 items-center gap-2 min-[1400px]:gap-3 lg:flex">
-          {!compact && cities.length > 0 && <CitySelector cities={cities} current={city} basePath={cityBasePath} />}
-          <Button type="secondary" size="s" href="/add-business" icon={<Plus size={18} aria-hidden="true" />}>Add Your Business</Button>
-          <MoreMenu active={active} signedIn={signedIn} />
+          <div className="ml-auto flex items-center lg:hidden">
+            <IconButton label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen} className="border-transparent bg-transparent" onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}</IconButton>
+          </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-1 lg:hidden">
-          <IconButton label="Search businesses" className="border-transparent bg-transparent" onClick={() => { window.location.href = "/directory"; }}><Search size={22} aria-hidden="true" /></IconButton>
-          <IconButton label={menuOpen ? "Close menu" : "Open menu"} aria-expanded={menuOpen} className="border-transparent bg-transparent" onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}</IconButton>
-        </div>
+        <div className="pb-3 lg:hidden"><InlineSearch query={query} city={city} cities={cities} /></div>
       </BarContainer>
 
       {menuOpen && (
         <div className="border-t border-[#dcdbd5] bg-[#f1f1ee] lg:hidden">
-          <BarContainer className="flex flex-col gap-1 py-4">
-            {cities.length > 0 && <div className="pb-2"><CitySelector cities={cities} current={city} basePath={cityBasePath} className="w-fit" /></div>}
-            {[...navItems, ...moreItems.map(([label, href, key]) => [label, href, key]), signedIn ? ["Dashboard", "/business-owner", "dashboard"] : ["Sign in", "/login", "login"]].map(([label, href]) => <Link key={label} href={href} onClick={() => setMenuOpen(false)} className="flex min-h-11 items-center font-display text-[15px] font-medium text-[#101115]">{label}</Link>)}
-            <div className="flex flex-wrap gap-3 pt-3">
-              <Button type="secondary" size="s" href="/add-business" icon={<Plus size={18} aria-hidden="true" />}>Add Your Business</Button>
-            </div>
+          <BarContainer className="flex flex-col gap-1 py-3">
+            {menuLinks.map(([label, href]) => <Link key={label} href={href} onClick={() => setMenuOpen(false)} className="flex min-h-12 items-center border-b border-[#ecebe7] font-display text-[16px] font-medium text-[#101115] last:border-0">{label}</Link>)}
+            <div className="pt-3"><Button type="primary" size="m" href="/add-business" className="w-full" icon={<Plus size={18} aria-hidden="true" />}>Add Your Business</Button></div>
           </BarContainer>
         </div>
       )}

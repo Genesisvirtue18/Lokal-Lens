@@ -3,7 +3,7 @@ import { BarContainer, Logo } from "@/components/ds";
 
 // Footer: Figma "Brand, header & footer / Footer". White bar, 1px top border, 56px top padding, columns 180px wide with a 64px gap.
 const columns = [
-  { title: "Explore", links: [["Explore businesses", "/directory"], ["All categories", "/categories"], ["Browse by area", "/directory"], ["Saved businesses", "/saved"]] },
+  { title: "Explore", links: [["Explore businesses", "/directory"], ["All categories", "/categories"], ["Browse by area", "/directory"], ["Saved businesses", "/saved"], ["Offers near you", "/offers"], ["Ask Lokal", "/ask"]] },
   { title: "For businesses", links: [["Add your business", "/add-business"], ["Claim a listing", "/login"], ["Owner dashboard", "/business-owner"]] },
   { title: "Lokal Lens", links: [["How it works", "/#how-it-works"], ["What “Verified” means", "/terms#verified"], ["Report a listing", "/terms#reporting"], ["Terms & contact", "/terms#contact"]] },
 ];
