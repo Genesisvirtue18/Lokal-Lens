@@ -73,13 +73,12 @@ function NavLink({ href, active, children }) {
 
 function InlineSearch({ query = "", city = "", cities = [] }) {
   return (
-    <form action="/directory" method="get" role="search" className="flex h-12 w-full max-w-[460px] items-center rounded-[12px] border border-[#bdbcb5] bg-white pl-4 pr-1 focus-within:border-2 focus-within:border-[#002fa7]">
-      <Search size={18} className="shrink-0 text-[#6e7079]" aria-hidden="true" />
+    <form action="/directory" method="get" role="search" className="flex h-12 w-full max-w-[460px] items-center rounded-[12px] border border-[#bdbcb5] bg-white pl-4 pr-3 focus-within:border-2 focus-within:border-[#002fa7]">
+      <button type="submit" aria-label="Search" className="grid shrink-0 place-items-center text-[#6e7079] transition-colors hover:text-[#002fa7]"><Search size={18} aria-hidden="true" /></button>
       <input name="q" defaultValue={query} placeholder="Business or service" aria-label="Business or service" className="ml-[10px] min-w-0 flex-1 bg-transparent text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
       <span className="mx-3 h-6 w-px shrink-0 bg-[#dcdbd5]" aria-hidden="true" />
       <MapPin size={18} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
-      <CityField name="city" defaultValue={city} cities={cities} className="ml-[8px] w-[84px] min-[1400px]:w-[100px] 2xl:w-[120px] gap-1" inputClassName="text-[16px] leading-6 text-[#101115]" />
-      <button type="submit" aria-label="Search" className="ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#002fa7] text-white transition-colors hover:bg-[#00248a]"><Search size={18} aria-hidden="true" /></button>
+      <CityField name="city" defaultValue={city} cities={cities} className="ml-[8px] w-[100px] min-[1400px]:w-[116px] 2xl:w-[136px] gap-1" inputClassName="text-[16px] leading-6 text-[#101115]" />
     </form>
   );
 }
