@@ -12,7 +12,7 @@ const to = String(process.argv[2] || '').trim();
 if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(to)) { console.error('Usage: node scripts/send-test-email.js you@example.com'); process.exit(1); }
 const config = parseEnv();
 console.log(`Host: ${config.SMTP_HOST || 'not set (mail would only be logged)'} | port: ${config.SMTP_PORT || '-'} | user: ${config.SMTP_USER ? 'set' : 'not set'} | password: ${config.SMTP_PASS ? 'set' : 'MISSING'} | from: ${config.EMAIL_FROM || config.SMTP_USER || '-'}`);
-if (!config.SMTP_HOST) { console.error('Mail is not set up, so nothing can be sent. Fill MAIL_PASSWORD (Gmail App Password) in .env.'); process.exit(1); }
+if (!config.SMTP_HOST && !config.SMTP2GO_API_KEY) { console.error('Mail is not set up, so nothing can be sent. Fill MAIL_PASSWORD (Gmail App Password) in .env.'); process.exit(1); }
 try {
   await createMailer(config).send({ to, subject: 'Lokal Lens test email', text: 'This is a test email from Lokal Lens. If you can read it, sign-in codes and notifications will reach people.' });
   console.log(`Sent. Check the inbox (and spam) of ${to}.`);

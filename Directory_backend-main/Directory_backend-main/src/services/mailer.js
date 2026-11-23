@@ -5,8 +5,31 @@ import { fromPlainText, renderEmail, renderText } from './emailTemplate.js';
 // so codes and links can still be copied from the server console.
 // Callers pass either `template` (structured: heading, paragraphs, code, details, button...) or plain `text`;
 // both are wrapped in the same branded HTML layout, with a plain-text version alongside.
+// SMTP2GO's web API: the same message, sent over HTTPS (port 443), which no host blocks.
+function smtp2goApiTransport(apiKey) {
+  return {
+    async sendMail({ from, to, subject, text, html }) {
+      if (!from) throw new Error('Set EMAIL_FROM (a sender verified in SMTP2GO) to send email');
+      const response = await fetch('https://api.smtp2go.com/v3/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Smtp2go-Api-Key': apiKey },
+        body: JSON.stringify({ sender: from, to: [to], subject, text_body: text, html_body: html }),
+        signal: AbortSignal.timeout(15000),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.data?.error || body?.data?.succeeded === 0) {
+        const error = new Error(body?.data?.error || `SMTP2GO answered ${response.status}`);
+        error.code = body?.data?.error_code || 'SMTP2GO_API';
+        error.responseCode = response.status;
+        throw error;
+      }
+      return { response: `SMTP2GO API ok (${body?.data?.email_id || 'accepted'})`, rejected: [] };
+    },
+  };
+}
+
 export function createMailer(config) {
-  const transport = config.SMTP_HOST
+  const transport = config.SMTP2GO_API_KEY ? smtp2goApiTransport(config.SMTP2GO_API_KEY) : config.SMTP_HOST
     ? nodemailer.createTransport({
       host: config.SMTP_HOST,
       port: config.SMTP_PORT || 587,

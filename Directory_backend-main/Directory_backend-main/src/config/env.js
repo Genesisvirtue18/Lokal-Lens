@@ -26,6 +26,8 @@ const schema = z.object({
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
   SMTP_USER: z.string().trim().optional(),
   SMTP_PASS: z.string().optional(),
+  // Sending through SMTP2GO's web API (port 443) instead of SMTP. Hosts such as Render's free plan block the SMTP ports, never port 443.
+  SMTP2GO_API_KEY: z.string().trim().optional(),
   RATE_LIMIT_MAX: z.coerce.number().int().min(10).max(100000).default(1000),
   SMS_PROVIDER: z.string().default('development'),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),

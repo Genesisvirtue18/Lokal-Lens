@@ -64,7 +64,7 @@ async function sendCode(user, email, config, mailer, subjectNote = 'Lokal Lens')
   try { await mailer.send({ to: email, subject: `${code} is your ${subjectNote} code`, template: { heading: 'Your Lokal Lens code', preheader: `${code} is your code. It expires in 10 minutes.`, paragraphs: ['Enter this code to finish signing in or creating your account.'], code, codeNote: 'Expires in 10 minutes', note: 'Didn’t ask for this? You can ignore this email, nobody can get in without the code. If you keep getting codes you didn’t ask for, change your password.' } }); }
   catch { mailFailed = true; }
   // In development the code is also returned when no mail server is set up or the mail could not be sent, so you are never stuck.
-  return config.NODE_ENV !== 'production' && (!config.SMTP_HOST || mailFailed) ? code : undefined;
+  return config.NODE_ENV !== 'production' && (!(config.SMTP_HOST || config.SMTP2GO_API_KEY) || mailFailed) ? code : undefined;
 }
 
 // Checks a code with the same rules everywhere: expires in 10 minutes, 5 wrong tries, constant-time comparison.
@@ -279,7 +279,7 @@ export const requestPhoneChange = (config, mailer) => async (req, res, next) => 
   let mailFailed = false;
   try { await mailer.send({ to: user.email, subject: `${code} is your Lokal Lens code`, template: { heading: 'Confirm your new mobile number', preheader: `${code} is your code. It expires in 10 minutes.`, paragraphs: [`Enter this code to change the mobile number on your Lokal Lens account to ${mobile}.`], code, codeNote: 'Expires in 10 minutes', note: 'Didn’t ask for this? Ignore this email and your number stays as it is. If you keep getting codes you didn’t ask for, change your password.' } }); }
   catch { mailFailed = true; }
-  const devCode = config.NODE_ENV !== 'production' && (!config.SMTP_HOST || mailFailed) ? code : undefined;
+  const devCode = config.NODE_ENV !== 'production' && (!(config.SMTP_HOST || config.SMTP2GO_API_KEY) || mailFailed) ? code : undefined;
   sendSuccess(res, 'We sent a 6-digit code to your email.', { expiresInSeconds: 600, ...(devCode ? { devCode } : {}) });
 } catch (e) { next(e); } };
 export const verifyPhoneChange = () => async (req, res, next) => { try {

@@ -55,7 +55,7 @@ export const sendClaimCode = (config, mailer) => async (req, res, next) => { try
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
   await ClaimCode.findOneAndUpdate({ business: business._id, user: req.user.id }, { codeHash: codeHash(config, business._id, req.user.id, code), attempts: 0, expiresAt: new Date(Date.now() + CODE_MINUTES * 60 * 1000), createdAt: new Date() }, { upsert: true, setDefaultsOnInsert: true });
   if (mailer) { try { await mailer.send({ to: business.email, subject: `${code} is your code to claim ${business.name}`, template: { heading: `Claim “${business.name}”`, preheader: `${code} is your claim code.`, paragraphs: [`Someone asked to manage “${business.name}” on Lokal Lens. If that is you, enter this code on the claim form.`], code, codeNote: `Expires in ${CODE_MINUTES} minutes`, note: 'Don’t know about this? Ignore this email. Nothing changes unless the code is used.' } }); } catch { console.error('Claim code email could not be sent'); } }
-  const dev = !config.SMTP_HOST && config.NODE_ENV !== 'production';
+  const dev = !(config.SMTP_HOST || config.SMTP2GO_API_KEY) && config.NODE_ENV !== 'production';
   sendSuccess(res, `We sent a 6-digit code to ${maskEmail(business.email)}.`, { maskedEmail: maskEmail(business.email), expiresInMinutes: CODE_MINUTES, ...(dev ? { devCode: code } : {}) });
 } catch (error) { next(error); } };
 
