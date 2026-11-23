@@ -73,12 +73,12 @@ function NavLink({ href, active, children }) {
 
 function InlineSearch({ query = "", city = "", cities = [] }) {
   return (
-    <form action="/directory" method="get" role="search" className="flex h-12 w-full max-w-[460px] items-center rounded-[12px] border border-[#bdbcb5] bg-white pl-4 pr-3 focus-within:border-2 focus-within:border-[#002fa7]">
+    <form action="/directory" method="get" role="search" className="flex h-12 w-full max-w-[560px] items-center rounded-[12px] border border-[#bdbcb5] bg-white pl-4 pr-3 focus-within:border-2 focus-within:border-[#002fa7]">
       <button type="submit" aria-label="Search" className="grid shrink-0 place-items-center text-[#6e7079] transition-colors hover:text-[#002fa7]"><Search size={18} aria-hidden="true" /></button>
       <input name="q" defaultValue={query} placeholder="Business or service" aria-label="Business or service" className="ml-[10px] min-w-0 flex-1 bg-transparent text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
       <span className="mx-3 h-6 w-px shrink-0 bg-[#dcdbd5]" aria-hidden="true" />
       <MapPin size={18} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
-      <CityField name="city" defaultValue={city} cities={cities} className="ml-[8px] w-[100px] min-[1400px]:w-[116px] 2xl:w-[136px] gap-1" inputClassName="text-[16px] leading-6 text-[#101115]" />
+      <CityField name="city" defaultValue={city} cities={cities} width="clamp(104px, 9vw, 156px)" className="ml-[8px] gap-1" inputClassName="text-[16px] leading-6 text-[#101115]" />
     </form>
   );
 }
@@ -94,7 +94,7 @@ export default function SiteHeader({ active = "", cities = [], city = "", cityBa
       <BarContainer className={cx("flex items-center gap-4 min-[1400px]:gap-6", compact ? "h-16 lg:h-[76px]" : "h-16 lg:h-20")}>
         <Link href="/" aria-label="Lokal Lens home" className="shrink-0"><Logo /></Link>
 
-        {compact && <div className="hidden min-w-0 xl:flex xl:w-[400px] xl:flex-none min-[1400px]:w-[460px] 2xl:w-[520px]"><InlineSearch query={query} city={city} cities={cities} /></div>}
+        {compact && <div className="hidden min-w-0 xl:flex xl:flex-none" style={{ width: "clamp(400px, 30vw, 560px)" }}><InlineSearch query={query} city={city} cities={cities} /></div>}
 
         <nav aria-label="Primary" className={cx("hidden items-center lg:flex", compact ? "gap-4 min-[1400px]:gap-6" : "gap-7")}>
           {navItems.map(([label, href, key]) => <NavLink key={key} href={href} active={active === key}>{label}</NavLink>)}

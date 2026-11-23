@@ -20,7 +20,7 @@ function loadCities() {
  * A city box that is both a text field and a dropdown: it shows the cities that have listings, narrows them as you type,
  * and fills the box when one is chosen. It still submits as a normal form field named `name`, so it works inside a plain GET form.
  */
-export default function CityField({ cities = [], name = "city", defaultValue = "", onValueChange, placeholder = "City", className = "", inputClassName = "", align = "right", allLabel = "All cities" }) {
+export default function CityField({ cities = [], name = "city", defaultValue = "", onValueChange, placeholder = "City", className = "", inputClassName = "", align = "right", allLabel = "All cities", width }) {
   const listId = useId();
   const box = useRef(null);
   const [value, setValue] = useState(defaultValue);
@@ -69,7 +69,7 @@ export default function CityField({ cities = [], name = "city", defaultValue = "
   }
 
   return (
-    <div ref={box} className={cx("relative flex min-w-0 items-center", className)}>
+    <div ref={box} className={cx("relative flex min-w-0 items-center", width && "flex-none", className)} style={width ? { width } : undefined}>
       <input
         name={name} value={value} autoComplete="off" placeholder={placeholder} aria-label="City"
         role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list" aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
