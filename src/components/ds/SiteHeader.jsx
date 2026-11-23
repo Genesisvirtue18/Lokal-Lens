@@ -63,12 +63,12 @@ function MoreMenu({ active, signedIn }) {
 
 function InlineSearch({ query = "", city = "", cities = [] }) {
   return (
-    <form action="/directory" method="get" role="search" className="flex h-11 w-full items-center rounded-full border border-[#bdbcb5] bg-white pl-4 pr-3 transition-shadow focus-within:border-[#002fa7] focus-within:ring-2 focus-within:ring-[#002fa7]/20">
+    <form action="/directory" method="get" role="search" className="flex h-12 w-full items-center rounded-full border border-[#bdbcb5] bg-white pl-4 pr-3 transition-shadow focus-within:border-[#002fa7] focus-within:ring-2 focus-within:ring-[#002fa7]/20">
       <button type="submit" aria-label="Search" className="grid shrink-0 place-items-center text-[#6e7079] transition-colors hover:text-[#002fa7]"><Search size={18} aria-hidden="true" /></button>
-      <input name="q" defaultValue={query} placeholder="Business or service" aria-label="Business or service" className="ml-2.5 min-w-0 flex-1 bg-transparent text-[15px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
+      <input name="q" defaultValue={query} placeholder="Business or service" aria-label="Business or service" className="ml-[10px] min-w-0 flex-1 bg-transparent text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
       <span className="mx-3 h-5 w-px shrink-0 bg-[#dcdbd5]" aria-hidden="true" />
       <MapPin size={16} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
-      <CityField name="city" defaultValue={city} cities={cities} width="clamp(100px, 10vw, 150px)" className="ml-1.5 gap-1" inputClassName="text-[15px] leading-6 text-[#101115]" />
+      <CityField name="city" defaultValue={city} cities={cities} width="clamp(100px, 10vw, 150px)" className="ml-[6px] gap-1" inputClassName="text-[16px] leading-6 text-[#101115]" />
     </form>
   );
 }
@@ -84,7 +84,7 @@ export default function SiteHeader({ active = "", cities = [], city = "", query 
   return (
     <header className="sticky top-0 z-40 border-b border-[#dcdbd5] bg-[#f1f1ee]">
       <BarContainer>
-        <div className="flex h-14 items-center gap-3 lg:h-[68px] lg:gap-6">
+        <div className="flex h-16 items-center gap-3 lg:h-20 lg:gap-6">
           <Link href="/" aria-label="Lokal Lens home" className="shrink-0"><Logo /></Link>
 
           <div className="hidden min-w-0 flex-1 justify-center lg:flex"><div className="w-full" style={{ maxWidth: 560 }}><InlineSearch query={query} city={city} cities={cities} /></div></div>
