@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronDown, Heart, LayoutDashboard, LogIn, LogOut, MapPin, Menu, MessageCircleQuestion, Plus, Search, Tag, User, X } from "lucide-react";
 import { BarContainer, Button, IconButton, Logo, cx } from "@/components/ds";
 import CitySelector from "@/components/CitySelector";
+import CityField from "@/components/CityField";
 import { authedFetch, logout as endSession } from "@/dashboard/api";
 
 // Header: Figma "Brand, header & footer / Header".
@@ -70,14 +71,14 @@ function NavLink({ href, active, children }) {
   );
 }
 
-function InlineSearch({ query = "", city = "" }) {
+function InlineSearch({ query = "", city = "", cities = [] }) {
   return (
     <form action="/directory" method="get" role="search" className="flex h-12 w-full max-w-[460px] items-center rounded-[12px] border border-[#bdbcb5] bg-white pl-4 pr-1 focus-within:border-2 focus-within:border-[#002fa7]">
       <Search size={18} className="shrink-0 text-[#6e7079]" aria-hidden="true" />
       <input name="q" defaultValue={query} placeholder="Business or service" aria-label="Business or service" className="ml-[10px] min-w-0 flex-1 bg-transparent text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
       <span className="mx-3 h-6 w-px shrink-0 bg-[#dcdbd5]" aria-hidden="true" />
       <MapPin size={18} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
-      <input name="city" defaultValue={city} placeholder="City" aria-label="City" className="ml-[10px] w-[84px] min-w-0 bg-transparent min-[1400px]:w-[130px] 2xl:w-[160px] text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
+      <CityField name="city" defaultValue={city} cities={cities} className="ml-[10px] w-[104px] min-[1400px]:w-[150px] 2xl:w-[180px]" inputClassName="text-[16px] leading-6 text-[#101115]" />
       <button type="submit" aria-label="Search" className="ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-[#002fa7] text-white transition-colors hover:bg-[#00248a]"><Search size={18} aria-hidden="true" /></button>
     </form>
   );
@@ -94,7 +95,7 @@ export default function SiteHeader({ active = "", cities = [], city = "", cityBa
       <BarContainer className={cx("flex items-center gap-4 min-[1400px]:gap-6", compact ? "h-16 lg:h-[76px]" : "h-16 lg:h-20")}>
         <Link href="/" aria-label="Lokal Lens home" className="shrink-0"><Logo /></Link>
 
-        {compact && <div className="hidden min-w-0 xl:flex xl:w-[400px] xl:flex-none min-[1400px]:w-[460px] 2xl:w-[520px]"><InlineSearch query={query} city={city} /></div>}
+        {compact && <div className="hidden min-w-0 xl:flex xl:w-[400px] xl:flex-none min-[1400px]:w-[460px] 2xl:w-[520px]"><InlineSearch query={query} city={city} cities={cities} /></div>}
 
         <nav aria-label="Primary" className={cx("hidden items-center lg:flex", compact ? "gap-4 min-[1400px]:gap-6" : "gap-7")}>
           {navItems.map(([label, href, key]) => <NavLink key={key} href={href} active={active === key}>{label}</NavLink>)}

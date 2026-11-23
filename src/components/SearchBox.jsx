@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MapPin, Search, Store, Tag } from "lucide-react";
 import { Button, cx } from "@/components/ds";
 import { businessDetailPath } from "@/lib/directory-data";
+import CityField from "@/components/CityField";
 
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 
@@ -108,10 +109,7 @@ export default function SearchBox({ cities = [], defaultCity = "" }) {
         <MapPin size={22} className="shrink-0 text-[#101115]" aria-hidden="true" />
         <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
           <span className="font-display text-[13px] font-medium leading-[18px] text-[#4a4c55]">Where</span>
-          <select name="city" value={city} onChange={(event) => setCity(event.target.value)} className="w-full min-w-0 truncate bg-transparent text-[18px] leading-7 text-[#101115] outline-none">
-            <option value="">All cities</option>
-            {cities.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
+          <CityField name="city" defaultValue={city} cities={cities} onValueChange={setCity} placeholder="All cities" align="left" className="w-full" inputClassName="truncate text-[18px] leading-7 text-[#101115]" />
         </span>
       </label>
       <Button type="primary" size="m" htmlType="submit" className="h-12 w-full sm:ml-1 sm:h-14 sm:w-auto" icon={<Search size={18} aria-hidden="true" />}>Search</Button>
