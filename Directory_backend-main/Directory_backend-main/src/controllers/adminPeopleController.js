@@ -41,7 +41,7 @@ export const userDetail = () => async (req, res, next) => { try {
     Business.find({ owner: id, deletedAt: null }).select('name slug listingStatus verificationStatus kycStatus address.city address.locality averageRating reviewCount viewCount leadCount createdAt').populate('category', 'name').sort('-createdAt').lean(),
     Business.aggregate([{ $match: { 'reviews.user': id } }, { $unwind: '$reviews' }, { $match: { 'reviews.user': id } }, { $sort: { 'reviews.createdAt': -1 } }, { $limit: 100 }, { $project: { businessId: '$_id', businessName: '$name', review: '$reviews' } }]),
   ]);
-  const reviews = reviewRows.map((row) => ({ id: String(row.review._id), businessId: String(row.businessId), businessName: row.businessName, rating: row.review.rating, comment: row.review.comment || '', createdAt: row.review.createdAt, reply: row.review.reply?.text || '' }));
+  const reviews = reviewRows.map((row) => ({ id: String(row.review._id), businessId: String(row.businessId), businessName: row.businessName, rating: row.review.rating, comment: row.review.comment || '', photos: row.review.photos || [], createdAt: row.review.createdAt, reply: row.review.reply?.text || '' }));
   sendSuccess(res, 'User retrieved successfully', { item: user, listings, reviews });
 } catch (error) { next(error); } };
 

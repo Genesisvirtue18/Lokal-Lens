@@ -14,6 +14,7 @@ type ApiReview = {
 type ApiLead = {
   replies?: { text: string; createdAt?: string }[];
   withdrawnAt?: string;
+  source?: 'inquiry' | 'quote';
   _id?: string;
   id?: string;
   name?: string;
@@ -136,6 +137,7 @@ export async function loadOwnerDashboard(): Promise<{ businesses: BusinessListin
       notes: lead.notes || [],
       replies: (lead.replies || []).map((reply) => ({ text: reply.text, createdAt: reply.createdAt })),
       withdrawn: Boolean(lead.withdrawnAt),
+      quote: lead.source === 'quote',
       targetBusiness: lead.business?.name || 'Business',
       businessId: lead.business?._id,
       createdAt: lead.createdAt,

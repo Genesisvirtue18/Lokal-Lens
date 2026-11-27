@@ -54,6 +54,7 @@ export const OwnerLeadsTab: React.FC<OwnerLeadsTabProps> = ({ leads, onSelectLea
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#fbe6ec] font-display text-[15px] font-semibold text-[#7a2842]">{(lead.name || '?')[0].toUpperCase()}</span>
                 <div className="min-w-0 flex-1"><p className="font-display text-[16px] font-semibold leading-6">{lead.name}</p><p className="text-[13px] leading-[18px] text-[#6e7079]">{lead.timestamp} · {lead.targetBusiness}{lead.service ? ` · ${lead.service}` : ''}</p></div>
                 <span className={cx('rounded-full px-2.5 py-1 text-[12px] font-semibold', tone[lead.status])}>{lead.status}</span>
+                {lead.quote && <span className="rounded-full bg-[#e6ebf7] px-2.5 py-1 text-[12px] font-semibold text-[#002fa7]" title="The customer also sent this to other businesses, so reply quickly">Quote request</span>}
                 {lead.withdrawn && <span className="rounded-full bg-[#f1f1ee] px-2.5 py-1 text-[12px] font-semibold text-[#6e7079]">Withdrawn by customer</span>}
                 {!lead.withdrawn && (lead.replies?.length || 0) > 0 && <span className="rounded-full bg-[#e7f4e5] px-2.5 py-1 text-[12px] font-semibold text-[#2b7a26]">Replied</span>}
               </div>

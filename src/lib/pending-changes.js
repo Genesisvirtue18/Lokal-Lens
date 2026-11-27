@@ -5,7 +5,7 @@ export const FIELD_LABELS = {
   phone: "Phone", alternatePhone: "Alternate phone", whatsapp: "WhatsApp", email: "Email", website: "Website", socialLinks: "Social links",
   services: "Services", serviceItems: "Services", workingHours: "Opening hours", specialHours: "Special days", images: "Photos", logo: "Logo",
   paymentModes: "Payments", languages: "Languages", priceRange: "Price level", amenities: "Facilities", homeDelivery: "Home delivery",
-  faqs: "Questions", serviceMode: "Who you serve", serviceAreas: "Service areas", highlights: "Highlights", keywords: "Keywords", googlePlaceId: "Google Place",
+  attributes: "Category details", faqs: "Questions", serviceMode: "Who you serve", serviceAreas: "Service areas", highlights: "Highlights", keywords: "Keywords", googlePlaceId: "Google Place",
 };
 
 export const labelsOfChanges = (keys = []) => [...new Set(keys.map((key) => FIELD_LABELS[key] || key))];
@@ -21,6 +21,7 @@ export function describeValue(key, value) {
   if (key === "specialHours" && Array.isArray(value)) return value.map((day) => `${day.label} ${day.date || ""} ${day.isClosed === false ? `${time(day.opens)}–${time(day.closes)}` : "closed"}`.trim()).join(" · ");
   if (key === "serviceItems" && Array.isArray(value)) return value.map((item) => `${item.name}${item.priceFrom ? ` ₹${item.priceFrom}${item.priceTo ? `–₹${item.priceTo}` : "+"}` : ""}`).join(", ");
   if (key === "images") return Array.isArray(value) ? `${value.length} photo${value.length === 1 ? "" : "s"}` : "";
+  if (key === "attributes" && Array.isArray(value)) return value.map((item) => `${item.label || item.key}: ${(item.values || []).join(", ")}`).join(" · ");
   if (key === "faqs" && Array.isArray(value)) return value.map((item) => item.question).join(" · ");
   if (key === "socialLinks" && typeof value === "object") return Object.entries(value).filter(([, url]) => url).map(([name, url]) => `${name}: ${url}`).join(", ");
   if (key === "location" && value?.coordinates) return `${Number(value.coordinates[1]).toFixed(5)}, ${Number(value.coordinates[0]).toFixed(5)}`;

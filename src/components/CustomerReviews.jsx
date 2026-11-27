@@ -2,7 +2,10 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Star } from "lucide-react";
+import Image from "next/image";
+import { ImagePlus, Star, X } from "lucide-react";
+import { Lightbox } from "@/components/PhotoGallery";
+import { optimizedImage } from "@/lib/images";
 import { Button } from "@/components/ds";
 import { authedFetch } from "@/dashboard/api";
 import ReportReviewButton from "@/components/ReportReviewButton";
@@ -30,6 +33,25 @@ export default function CustomerReviews({ businessId, businessName, initialRevie
   const [comment, setComment] = useState("");
   const [status, setStatus] = useState({ type: "", text: "" });
   const [saving, setSaving] = useState(false);
+  const [photos, setPhotos] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [viewer, setViewer] = useState(null); // { photos, start, name } while a review photo is open
+
+  async function addPhotos(fileList) {
+    const files = [...(fileList || [])].slice(0, 4 - photos.length);
+    if (!files.length) return;
+    if (files.some((file) => !/^image\/(jpeg|png|webp|gif)$/.test(file.type) || file.size > 5 * 1024 * 1024)) { setStatus({ type: "error", text: "Use JPG, PNG or WebP photos up to 5 MB each." }); return; }
+    setUploading(true); setStatus({ type: "", text: "" });
+    try {
+      const form = new FormData();
+      files.forEach((file) => form.append("images", file));
+      const response = await authedFetch(`${apiUrl}/reviews/photos`, { method: "POST", body: form }, true);
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.message || "Unable to upload the photo");
+      setPhotos((current) => [...current, ...(body.data?.urls || [])].slice(0, 4));
+    } catch (reason) { setStatus({ type: "error", text: reason.message }); }
+    finally { setUploading(false); }
+  }
 
   const distribution = useMemo(() => [5, 4, 3, 2, 1].map((star) => ({ star, total: reviews.filter((review) => Math.round(review.rating) === star).length })), [reviews]);
   const ordered = useMemo(() => {
@@ -45,12 +67,12 @@ export default function CustomerReviews({ businessId, businessName, initialRevie
     if (!rating) { setStatus({ type: "error", text: "Choose a star rating first." }); return; }
     setSaving(true); setStatus({ type: "", text: "" });
     try {
-      const response = await authedFetch(`${apiUrl}/businesses/${businessId}/reviews`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rating, comment: comment.trim() || undefined }) }, true);
+      const response = await authedFetch(`${apiUrl}/businesses/${businessId}/reviews`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rating, comment: comment.trim() || undefined, ...(photos.length ? { photos } : {}) }) }, true);
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.message || "Unable to save your review");
       const list = await fetch(`${apiUrl}/businesses/${businessId}/reviews`).then((res) => res.json()).catch(() => null);
       if (list?.data) { setReviews(list.data.items); setAverage(list.data.averageRating); setCount(list.data.reviewCount); }
-      setStatus({ type: "ok", text: body.message || "Thanks for your review" }); setComment(""); setRating(0); setWriting(false);
+      setStatus({ type: "ok", text: body.message || "Thanks for your review" }); setComment(""); setRating(0); setPhotos([]); setWriting(false);
     } catch (reason) { setStatus({ type: "error", text: reason.message }); }
     finally { setSaving(false); }
   }
@@ -89,7 +111,22 @@ export default function CustomerReviews({ businessId, businessName, initialRevie
           <h3 className="font-display text-[16px] font-semibold">Rate {businessName}</h3>
           <div className="flex gap-1" onMouseLeave={() => setHover(0)} role="radiogroup" aria-label="Your rating">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} onMouseEnter={() => setHover(n)} onClick={() => setRating(n)} className="p-0.5"><Star size={28} className={n <= (hover || rating) ? "fill-[#f5a623] text-[#f5a623]" : "text-[#bdbcb5]"} aria-hidden="true" /></button>)}</div>
           <textarea value={comment} onChange={(event) => setComment(event.target.value)} maxLength={3000} rows={3} placeholder="Share your experience (optional)" className="w-full rounded-[10px] border border-[#bdbcb5] px-3.5 py-3 text-[16px] outline-none placeholder:text-[#6e7079] hover:border-[#101115] focus:border-2 focus:border-[#002fa7] focus:px-[13px]" />
-          <div className="flex items-center gap-3"><Button type="primary" size="s" htmlType="submit" disabled={saving}>{saving ? "Saving…" : "Submit review"}</Button>{status.text && <p role={status.type === "error" ? "alert" : "status"} className={`text-[14px] ${status.type === "error" ? "text-[#b3261e]" : "text-[#4a4c55]"}`}>{status.text}</p>}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {photos.map((url, index) => (
+              <span key={url} className="relative h-20 w-20 overflow-hidden rounded-[10px] border border-[#dcdbd5]">
+                <Image src={optimizedImage(url, 160)} alt={`Your photo ${index + 1}`} fill unoptimized sizes="80px" className="object-cover" />
+                <button type="button" onClick={() => setPhotos((current) => current.filter((item) => item !== url))} aria-label={`Remove photo ${index + 1}`} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white"><X size={14} aria-hidden="true" /></button>
+              </span>
+            ))}
+            {photos.length < 4 && (
+              <label className="grid h-20 w-20 cursor-pointer place-items-center rounded-[10px] border border-dashed border-[#bdbcb5] text-center text-[12px] text-[#4a4c55] hover:border-[#002fa7] hover:text-[#002fa7] focus-within:border-[#002fa7]">
+                <span className="flex flex-col items-center gap-1"><ImagePlus size={20} aria-hidden="true" />{uploading ? "Adding…" : "Add photo"}</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple disabled={uploading} onChange={(event) => { addPhotos(event.target.files); event.target.value = ""; }} className="sr-only" />
+              </label>
+            )}
+          </div>
+          <p className="text-[13px] text-[#6e7079]">Up to 4 photos. Add only pictures you took yourself, without other people’s private details.</p>
+          <div className="flex items-center gap-3"><Button type="primary" size="s" htmlType="submit" disabled={saving || uploading}>{saving ? "Saving…" : "Submit review"}</Button>{status.text && <p role={status.type === "error" ? "alert" : "status"} className={`text-[14px] ${status.type === "error" ? "text-[#b3261e]" : "text-[#4a4c55]"}`}>{status.text}</p>}</div>
         </form>
       )}
       {!writing && status.text && status.type === "ok" && <p role="status" className="rounded-[10px] bg-[#e7f4e5] px-4 py-3 text-[14px] text-[#2b7a26]">{status.text}</p>}
@@ -103,6 +140,7 @@ export default function CustomerReviews({ businessId, businessName, initialRevie
               <Stars value={review.rating} size={16} />
             </div>
             {review.comment && <p className="whitespace-pre-line text-[16px] leading-6">{review.comment}</p>}
+            {review.photos?.length > 0 && <div className="flex flex-wrap gap-2">{review.photos.map((url, index) => <button key={url} type="button" onClick={() => setViewer({ photos: review.photos, start: index, name: `${review.reviewerName}’s review` })} aria-label={`Open photo ${index + 1} from ${review.reviewerName}`} className="relative h-20 w-20 overflow-hidden rounded-[10px] border border-[#dcdbd5] sm:h-24 sm:w-24"><Image src={optimizedImage(url, 192)} alt="" fill unoptimized sizes="96px" className="object-cover" /></button>)}</div>}
             {review.reply?.text && <div className="rounded-[12px] bg-[#f1f1ee] p-4"><p className="font-display text-[13px] font-semibold text-[#002fa7]">Response from the owner · {dateText(review.reply.createdAt)}</p><p className="mt-1 whitespace-pre-line text-[15px] leading-6">{review.reply.text}</p></div>}
             {review._id && <div className="flex justify-end"><ReportReviewButton businessId={businessId} reviewId={review._id} /></div>}
           </li>
@@ -113,6 +151,7 @@ export default function CustomerReviews({ businessId, businessName, initialRevie
         </div>
         {visible < ordered.length && <div><Button type="secondary" onClick={() => setVisible((value) => value + 5)}>Show more reviews</Button></div>}
       </> : <p className="rounded-[16px] border border-[#dcdbd5] bg-white px-6 py-8 text-center text-[14px] text-[#4a4c55]">No reviews yet. Be the first to share your experience. {!signedIn && <Link href="/login" className="font-medium text-[#002fa7] underline">Sign in</Link>}</p>}
+      {viewer && <Lightbox photos={viewer.photos} name={viewer.name} start={viewer.start} onClose={() => setViewer(null)} />}
     </div>
   );
 }

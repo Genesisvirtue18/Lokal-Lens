@@ -97,6 +97,7 @@ export default async function Home({ searchParams }) {
           <div className="mt-2"><SearchBox key={homeCity} cities={cities} defaultCity={homeCity} /></div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <UseMyLocationButton />
+            <Button type="secondary" size="s" href={homeCity ? `/quote?city=${encodeURIComponent(homeCity)}` : "/quote"} className="!h-11 w-full !rounded-full sm:!h-10 sm:w-auto">Get quotes</Button>
             {popularTerms.length > 0 && (
               <div className="hidden min-w-0 items-center gap-3 sm:flex">
                 <span className="shrink-0 font-display text-[13px] font-medium text-[#4a4c55]">Popular:</span>

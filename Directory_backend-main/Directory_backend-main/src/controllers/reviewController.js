@@ -12,10 +12,13 @@ export const upsertReview = (config, mailer) => async (req, res, next) => { try 
   const business = await Business.findOne({ _id: req.params.id, listingStatus: 'published', deletedAt: null });
   if (!business) throw new AppError('Business not found', 404);
   if (business.owner && String(business.owner) === String(req.user.id)) throw new AppError('You cannot review your own business', 403);
-  const { rating, comment } = req.validated.body;
+  const { rating, comment, photos } = req.validated.body;
+  // Only pictures uploaded through our own review upload are accepted, so a review can't embed images from anywhere else.
+  const ownFolder = config?.CLOUDINARY_CLOUD_NAME ? `https://res.cloudinary.com/${config.CLOUDINARY_CLOUD_NAME}/image/upload/` : null;
+  if (photos?.some((url) => !ownFolder || !url.startsWith(ownFolder) || !url.includes('/business-directory/reviews/'))) throw new AppError('Add photos with the photo button', 422);
   const existing = business.reviews.find(review => review.user && String(review.user) === String(req.user.id));
-  if (existing) { existing.rating = rating; existing.comment = comment || undefined; existing.reviewerName = req.user.name; }
-  else business.reviews.push({ user: req.user.id, reviewerName: req.user.name, rating, comment: comment || undefined });
+  if (existing) { existing.rating = rating; existing.comment = comment || undefined; existing.reviewerName = req.user.name; if (photos) existing.photos = photos.length ? photos : undefined; }
+  else business.reviews.push({ user: req.user.id, reviewerName: req.user.name, rating, comment: comment || undefined, ...(photos?.length ? { photos } : {}) });
   await business.save();
   const saved = business.reviews.find(review => review.user && String(review.user) === String(req.user.id));
   // Tell the owner about a brand-new review by email (unless they turned emails off). A mail problem never blocks the review.

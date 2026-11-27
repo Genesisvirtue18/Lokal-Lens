@@ -13,6 +13,7 @@ import * as directory from '../controllers/directoryController.js';
 import * as owner from '../controllers/ownerBusinessController.js';
 import * as admin from '../controllers/adminController.js';
 import * as reviews from '../controllers/reviewController.js';
+import * as quotes from '../controllers/quoteController.js';
 import { createMailer } from '../services/mailer.js';
 import * as people from '../controllers/adminPeopleController.js';
 import * as ops from '../controllers/adminOpsController.js';
@@ -40,7 +41,7 @@ const imageUpload = multer({
   fileFilter: (_req, file, done) => done(null, /^image\/(jpeg|png|webp|gif)$/.test(file.mimetype)),
 });
 const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 2 * 1024 * 1024, files: 1 }, fileFilter: (_req, file, done) => done(null, /\.(csv|txt)$/i.test(file.originalname)) });
-const businessBody = z.object({ name:z.string().trim().min(2).max(180), slug:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(180).optional(), category:objectId, description:z.string().max(10000).optional(), phone:z.string().max(30).optional(), alternatePhone:z.string().max(30).optional(), whatsapp:z.string().max(30).optional(), email:z.string().email().optional(), website:httpUrl.optional(), address:z.object({addressLine1:z.string().max(250).optional(),addressLine2:z.string().max(250).optional(),landmark:z.string().max(150).optional(),city:z.string().max(120).optional(),locality:z.string().max(120).optional(),state:z.string().max(120).optional(),postalCode:z.string().max(20).optional(),country:z.string().length(2).optional()}).partial().optional(), workingHours:z.array(z.object({day:z.enum(['monday','tuesday','wednesday','thursday','friday','saturday','sunday']),isClosed:z.boolean().optional(),opens:z.string().optional(),closes:z.string().optional()})).max(7).optional(), logo:httpUrl.optional(),images:z.array(httpUrl).max(30).optional(),photoCount:z.coerce.number().int().min(0).optional(),priceRange:z.enum(['budget','moderate','expensive','luxury']).optional(),keywords:z.array(z.string().max(80)).max(30).optional(),highlights:z.array(z.string().max(180)).max(30).optional(),amenities:z.array(z.string().max(180)).max(50).optional(),establishedYear:z.coerce.number().int().min(1800).max(new Date().getFullYear()).optional(),teamSize:z.coerce.number().int().min(1).optional(),responseTimeMinutes:z.coerce.number().int().min(0).optional(),mapEmbedUrl:httpUrl.optional(),socialLinks:z.object({facebook:httpUrl.optional(),instagram:httpUrl.optional(),linkedin:httpUrl.optional(),youtube:httpUrl.optional(),x:httpUrl.optional()}).optional(),faqs:z.array(z.object({question:z.string().min(1).max(500),answer:z.string().min(1).max(3000)})).max(50).optional(),offers:z.array(z.object({title:z.string().min(1).max(180),description:z.string().max(2000).optional(),code:z.string().max(50).optional(),occasion:z.string().max(40).optional(),howToAvail:z.string().max(160).optional(),validFrom:z.coerce.date().optional(),validUntil:z.coerce.date().optional(),isActive:z.boolean().optional()})).max(30).optional(),subcategories:z.array(objectId).max(30).optional(),services:z.array(z.string().max(150)).max(100).optional(),reviews:z.array(z.object({reviewerName:z.string().min(1).max(120),reviewerAvatar:httpUrl.optional(),rating:z.coerce.number().min(1).max(5),comment:z.string().max(3000).optional(),isVerified:z.boolean().optional(),createdAt:z.coerce.date().optional()})).max(100).optional(),testimonials:z.array(z.object({name:z.string().trim().min(1).max(120),quote:z.string().trim().min(1).max(2000)})).max(20).optional(),timeZone:z.string().max(120).optional() }).strict();
+const businessBody = z.object({ name:z.string().trim().min(2).max(180), slug:z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(180).optional(), category:objectId, description:z.string().max(10000).optional(), phone:z.string().max(30).optional(), alternatePhone:z.string().max(30).optional(), whatsapp:z.string().max(30).optional(), email:z.string().email().optional(), website:httpUrl.optional(), address:z.object({addressLine1:z.string().max(250).optional(),addressLine2:z.string().max(250).optional(),landmark:z.string().max(150).optional(),city:z.string().max(120).optional(),locality:z.string().max(120).optional(),state:z.string().max(120).optional(),postalCode:z.string().max(20).optional(),country:z.string().length(2).optional()}).partial().optional(), workingHours:z.array(z.object({day:z.enum(['monday','tuesday','wednesday','thursday','friday','saturday','sunday']),isClosed:z.boolean().optional(),opens:z.string().optional(),closes:z.string().optional()})).max(7).optional(), logo:httpUrl.optional(),images:z.array(httpUrl).max(30).optional(),photoCount:z.coerce.number().int().min(0).optional(),priceRange:z.enum(['budget','moderate','expensive','luxury']).optional(),keywords:z.array(z.string().max(80)).max(30).optional(),highlights:z.array(z.string().max(180)).max(30).optional(),amenities:z.array(z.string().max(180)).max(50).optional(),establishedYear:z.coerce.number().int().min(1800).max(new Date().getFullYear()).optional(),teamSize:z.coerce.number().int().min(1).optional(),responseTimeMinutes:z.coerce.number().int().min(0).optional(),mapEmbedUrl:httpUrl.optional(),socialLinks:z.object({facebook:httpUrl.optional(),instagram:httpUrl.optional(),linkedin:httpUrl.optional(),youtube:httpUrl.optional(),x:httpUrl.optional()}).optional(),faqs:z.array(z.object({question:z.string().min(1).max(500),answer:z.string().min(1).max(3000)})).max(50).optional(),offers:z.array(z.object({title:z.string().min(1).max(180),description:z.string().max(2000).optional(),code:z.string().max(50).optional(),occasion:z.string().max(40).optional(),howToAvail:z.string().max(160).optional(),validFrom:z.coerce.date().optional(),validUntil:z.coerce.date().optional(),isActive:z.boolean().optional()})).max(30).optional(),subcategories:z.array(objectId).max(30).optional(),attributes:z.array(z.object({key:z.string().max(60),values:z.array(z.string().max(120)).max(30)})).max(40).optional(),services:z.array(z.string().max(150)).max(100).optional(),reviews:z.array(z.object({reviewerName:z.string().min(1).max(120),reviewerAvatar:httpUrl.optional(),rating:z.coerce.number().min(1).max(5),comment:z.string().max(3000).optional(),isVerified:z.boolean().optional(),createdAt:z.coerce.date().optional()})).max(100).optional(),testimonials:z.array(z.object({name:z.string().trim().min(1).max(120),quote:z.string().trim().min(1).max(2000)})).max(20).optional(),timeZone:z.string().max(120).optional() }).strict();
 const emptyableUrl = httpUrl.or(z.literal(''));
 const googleMapsUrl = emptyableUrl.refine(value => {
   if (!value) return true;
@@ -129,7 +130,7 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
   router.post('/auth/reset-password', resetLimit, validate(z.object({ body: z.object({ token: z.string().min(20).max(200), password: strongPassword }).strict() })), auth.resetPassword());
   router.get('/search/suggest', validate(z.object({ query: z.object({ q: z.string().trim().min(1).max(60), city: z.string().trim().max(120).optional() }) })), directory.suggest());
   router.get('/businesses/:id/reviews', validate(idParam), reviews.listReviews());
-  router.post('/businesses/:id/reviews', reviewLimit, authenticate(config), validate(idParam.extend({ body: z.object({ rating: z.coerce.number().int().min(1).max(5), comment: z.string().trim().max(3000).optional() }).strict() })), reviews.upsertReview(config, mailer));
+  router.post('/businesses/:id/reviews', reviewLimit, authenticate(config), validate(idParam.extend({ body: z.object({ rating: z.coerce.number().int().min(1).max(5), comment: z.string().trim().max(3000).optional(), photos: z.array(httpUrl).max(4, 'Add up to 4 photos').optional() }).strict() })), reviews.upsertReview(config, mailer));
   const otpLimit = strictLimit(20, 'Too many code requests. Please try again in a few minutes.');
   router.post('/auth/otp/request', otpLimit, validate(z.object({ body: z.object({ email: emailInput, name: z.string().trim().min(2).max(120).optional(), role: accountRole, phone: indianPhone.optional() }).strict() })), auth.requestOtp(config, mailer));
   router.post('/auth/otp/verify', otpLimit, validate(z.object({ body: z.object({ email: emailInput, code: z.string().regex(/^\d{6}$/) }).strict() })), auth.verifyOtp(config));
@@ -203,7 +204,7 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
       return sendError(res, 503, 'Address lookup is temporarily unavailable. Please retry in a moment.');
     }
   });
-  router.post('/owner/uploads', ...ownerOnly, imageUpload.array('images', 10), (req, res) => {
+  const uploadImages = (folder) => (req, res) => {
     const files = req.files || [];
     if (!files.length) return res.status(400).json({ success: false, message: 'Select at least one image', errors: [] });
     const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = config;
@@ -219,7 +220,7 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
         throw error;
       }
       return new Promise((resolve, reject) => {
-        cloudinary.uploader.upload_stream({ folder: 'business-directory', resource_type: 'image' }, (error, result) => {
+        cloudinary.uploader.upload_stream({ folder, resource_type: 'image' }, (error, result) => {
           if (error) return reject(error);
           if (!result?.secure_url) return reject(new Error('Cloudinary did not return an image URL'));
           resolve(result.secure_url);
@@ -234,7 +235,10 @@ export function apiRouter(config, databaseState, { placesService: injectedPlaces
       });
       res.status(502).json({ success: false, message: 'Unable to upload images', errors: [] });
     });
-  });
+  };
+  router.post('/owner/uploads', ...ownerOnly, imageUpload.array('images', 10), uploadImages('business-directory'));
+  const reviewPhotoLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: config.NODE_ENV === 'test' ? 10000 : 20, standardHeaders: 'draft-8', legacyHeaders: false, handler: (_req, res) => sendError(res, 429, 'Photo limit reached. Please try again later.') });
+  router.post('/reviews/photos', reviewPhotoLimit, authenticate(config), imageUpload.array('images', 4), uploadImages('business-directory/reviews'));
   const documentUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 5 } });
   router.post('/owner/documents', ...ownerOnly, documentUpload.array('files', 5), async (req, res) => {
     const files = req.files || [];
@@ -345,6 +349,15 @@ router.get('/businesses', validate(z.object({query:publicQuery})), directory.bus
 router.get('/search', validate(z.object({query:publicQuery})), directory.businessList());
 router.get('/businesses/:slug', directory.businessBySlug());
 router.post('/businesses/:id/views', softAuthenticate(config), businessViewLimit, validate(idParam), directory.recordBusinessView());
+const quoteLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: config.NODE_ENV === 'test' ? 10000 : 3, standardHeaders: 'draft-8', legacyHeaders: false, handler: (_req, res) => sendError(res, 429, 'You have sent a few quote requests already. Please try again in an hour.') });
+router.get('/quotes/matches', softAuthenticate(config), validate(z.object({ query: z.object({ category: z.string().trim().min(1).max(180), city: z.string().trim().min(2).max(120), service: z.string().trim().max(150).optional() }) })), quotes.quoteMatches());
+router.post('/quotes', softAuthenticate(config), quoteLimit, validate(z.object({ body: z.object({
+  category: z.string().trim().min(1).max(180), city: z.string().trim().min(2).max(120), service: z.string().trim().max(150).optional(),
+  name: z.string().trim().min(2).max(120), phone: indianPhone, email: z.union([z.email().max(254), z.literal('')]).optional(),
+  message: z.string().trim().min(5, 'Write a little about what you need').max(2000),
+  businessIds: z.array(objectId).min(1, 'Choose at least one business').max(quotes.QUOTE_LIMIT, `Choose up to ${quotes.QUOTE_LIMIT} businesses`),
+  consent: z.literal(true, { error: 'Please agree to share your details with the chosen businesses' }),
+}).strict() })), quotes.createQuote(config, mailer));
 router.post('/businesses/:id/leads', softAuthenticate(config), businessLeadLimit, validate(idParam.extend({ body: businessLeadBody })), directory.createBusinessLead(config, mailer));
 router.post('/businesses/:id/events', softAuthenticate(config), businessEventLimit, validate(idParam.extend({ body: z.object({ type: z.enum(['call', 'whatsapp', 'directions', 'website']) }).strict() })), directory.recordBusinessEvent());
 router.get('/businesses/:id/google-reviews', googleReviewsLimit, createGoogleReviewsController(places, googleBusinessProfile));

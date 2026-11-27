@@ -9,6 +9,7 @@ import BusinessServices from "@/components/BusinessServices";
 import BusinessActivityStats from "@/components/BusinessActivityStats";
 import BusinessContactForm from "@/components/BusinessContactForm";
 import { tidyText } from "@/lib/text";
+import { answerText } from "@/lib/category-details";
 import OfferCards from "@/components/OfferCards";
 import BusinessProfileActions from "@/components/BusinessProfileActions";
 import CustomerReviews from "@/components/CustomerReviews";
@@ -116,6 +117,7 @@ export default function BusinessProfileView({ business, related = [], preview = 
   const todayName = new Intl.DateTimeFormat("en-US", { timeZone: business.timeZone || "Asia/Kolkata", weekday: "long" }).format(new Date()).toLowerCase();
   const eyebrowLine = [categoryName, [business.address?.locality, business.address?.city].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
   const facts = [
+    ...(business.attributes || []).filter((entry) => entry.values?.length).map((entry) => [entry.label, answerText(entry)]),
     languages.length > 0 && ["Languages", languages.join(", ")],
     business.establishedYear && ["Established", String(business.establishedYear)],
     business.teamSize && ["Team size", `${business.teamSize} people`],

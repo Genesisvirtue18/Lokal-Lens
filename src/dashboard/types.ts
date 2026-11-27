@@ -62,6 +62,7 @@ export interface Lead {
   notes?: string[];
   replies?: { text: string; createdAt?: string }[];
   withdrawn?: boolean;
+  quote?: boolean; // sent through "Get quotes" to several businesses
 }
 
 export interface Review {

@@ -10,7 +10,7 @@ const siteOrigin = () => (process.env.NEXT_PUBLIC_SITE_URL || (typeof window ===
 // Link, WhatsApp message and a printable QR code for a live listing.
 export function ShareListing({ business }: { business: BusinessListing }) {
   const live = business.status === 'Active';
-  const url = `${siteOrigin()}${businessDetailPath({ address: business.address, slug: business.slug, name: business.name, id: business.id })}`;
+  const url = `${siteOrigin()}${businessDetailPath({ address: business.address, category: business.category, slug: business.slug, name: business.name, id: business.id })}`;
   const [qr, setQr] = useState('');
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);

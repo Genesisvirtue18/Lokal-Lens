@@ -1,4 +1,5 @@
 import { Business } from '../models/Business.js';
+import { cleanAttributes } from '../services/categoryAttributes.js';
 import { Category } from '../models/Category.js';
 import { User } from '../models/User.js';
 import { Lead } from '../models/Lead.js';
@@ -36,7 +37,7 @@ const verifyGooglePlace = async (placesService, placeId, business) => {
     throw error;
   }
 };
-export const createBusiness = placesService => async(req,res,next)=>{try{const body=clean(req.validated.body); if(!body.description||!body.phone||!body.address?.addressLine1||!body.services?.length) throw new AppError('Description, phone, address line 1, and at least one service are required before submission',422); await validateCategorySelection(body); const googlePlace = await verifyGooglePlace(placesService, body.googlePlaceId, body); const item=await Business.create({...body,...googlePlace,slug:await uniqueSlug(body.name),owner:req.user.id,listingStatus:'pending_review',verificationStatus:'pending'}); await item.populate('category','name'); sendSuccess(res,'Business created successfully',{item},201);}catch(e){next(e);}};
+export const createBusiness = placesService => async(req,res,next)=>{try{const body=clean(req.validated.body); if(body.attributes) body.attributes=await cleanAttributes(body.attributes,body.category,body.subcategories); if(!body.description||!body.phone||!body.address?.addressLine1||!body.services?.length) throw new AppError('Description, phone, address line 1, and at least one service are required before submission',422); await validateCategorySelection(body); const googlePlace = await verifyGooglePlace(placesService, body.googlePlaceId, body); const item=await Business.create({...body,...googlePlace,slug:await uniqueSlug(body.name),owner:req.user.id,listingStatus:'pending_review',verificationStatus:'pending'}); await item.populate('category','name'); sendSuccess(res,'Business created successfully',{item},201);}catch(e){next(e);}};
 export const ownerBusinesses = () => async(req,res,next)=>{try{const {page,limit}=req.validated.query;const filter={owner:req.user.id,deletedAt:null}; const [items,totalItems]=await Promise.all([Business.find(filter).select('+pendingChanges').populate('category','name').skip((page-1)*limit).limit(limit),Business.countDocuments(filter)]);const ids=items.map(item=>item._id);const counts=ids.length?await Lead.aggregate([{ $match:{business:{ $in:ids }} },{ $group:{_id:'$business',count:{ $sum:1 }} }]):[];const countByBusiness=new Map(counts.map(item=>[String(item._id),item.count]));for(const item of items)item.leadCount=countByBusiness.get(String(item._id))||0;sendSuccess(res,'Businesses retrieved successfully',{items,pagination:{page,limit,totalItems,totalPages:Math.ceil(totalItems/limit),hasNextPage:page*limit<totalItems,hasPreviousPage:page>1}});}catch(e){next(e);}};
 export const ownerLeads = () => async (req, res, next) => {
   try {
@@ -105,6 +106,8 @@ export const updateBusiness = (placesService, mailer) => async (req, res, next) 
     if (body.category || body.subcategories || body.secondaryCategories) {
       await validateCategorySelection({ category: body.category || item.category, subcategories: body.subcategories ?? item.subcategories, secondaryCategories: body.secondaryCategories ?? item.secondaryCategories });
     }
+
+    if (body.attributes) body.attributes = await cleanAttributes(body.attributes, body.category || item.pendingChanges?.data?.category || item.category, body.subcategories ?? item.pendingChanges?.data?.subcategories ?? item.subcategories);
 
     stage = 'apply update';
     const outcome = applyOwnerUpdate(item, body);

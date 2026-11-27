@@ -20,7 +20,7 @@ const validTill = (value) => (value ? `Valid till ${new Date(value).toLocaleDate
 
 function OfferCard({ offer }) {
   const { business } = offer;
-  const href = businessDetailPath({ _id: business._id, slug: business.slug, address: { city: business.city } });
+  const href = businessDetailPath({ _id: business._id, slug: business.slug, category: business.category, categorySlug: business.categorySlug, address: { city: business.city } });
   const ends = endsIn(offer.validUntil);
   return (
     <article className="flex min-w-0 flex-col overflow-hidden rounded-[16px] border border-[#dcdbd5] bg-white">

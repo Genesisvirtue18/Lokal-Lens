@@ -1,5 +1,8 @@
 "use client";
 
+import CategoryPicker, { flatCategories } from "@/components/CategoryPicker";
+import CategoryFields from "@/components/CategoryFields";
+import { answerText, questionsFor } from "@/lib/category-details";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -23,7 +26,7 @@ const initial = {
   mode: "visit", addressLine1: "", locality: "", city: "", state: "", postalCode: "", landmark: "", serviceAreas: [],
   services: [], hours: emptyHours(), special: [], paymentModes: [], languages: [], priceRange: "", amenities: [], homeDelivery: false, offers: [],
   phone: "", alternatePhone: "", whatsapp: "", email: "", website: "", facebook: "", instagram: "", youtube: "",
-  gstNumber: "", kycDocuments: [], faqs: [],
+  gstNumber: "", kycDocuments: [], faqs: [], attributes: {},
 };
 
 const money = (value) => (value === "" || value === undefined || value === null ? "" : `₹${Number(value).toLocaleString("en-IN")}`);
@@ -90,6 +93,7 @@ function fromApi(item) {
   (item.workingHours || []).forEach((entry) => { if (hours[entry.day]) hours[entry.day] = { open: !entry.isClosed, opens: entry.opens || "09:00", closes: entry.closes || "20:00" }; });
   return {
     ...initial,
+    attributes: Object.fromEntries((item.attributes || []).map((entry) => [entry.key, entry.values || []])),
     name: item.name || "", category: idOf(item.category), subcategory: idOf(item.subcategories?.[0]), secondary: (item.secondaryCategories || []).map(idOf),
     tagline: item.tagline || "", description: item.description || "", businessType: item.businessType || "", establishedYear: item.establishedYear ? String(item.establishedYear) : "",
     mode: item.serviceMode || "visit", addressLine1: item.address?.addressLine1 || "", locality: item.address?.locality || "", city: item.address?.city || "", state: item.address?.state || "", postalCode: item.address?.postalCode || "", landmark: item.address?.landmark || "", serviceAreas: item.serviceAreas || [],
@@ -236,9 +240,22 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
   }, [router, embedded, admin, editIdProp, initialStep]);
 
   const update = (patch) => { setDirty(true); setData((current) => ({ ...current, ...patch })); setErrors((current) => { const keys = Object.keys(patch).filter((key) => current[key]); if (!keys.length) return current; const next = { ...current }; keys.forEach((key) => delete next[key]); return next; }); };
-  const categoryOptions = useMemo(() => categories.flatMap((root) => [{ value: `${root._id}|`, label: root.name }, ...(root.children || []).map((child) => ({ value: `${root._id}|${child._id}`, label: `${root.name} › ${child.name}` }))]), [categories]);
-  const secondaryOptions = categories.filter((root) => root._id !== data.category && !data.secondary.includes(root._id));
-  const nameOf = (id) => categories.find((root) => root._id === id)?.name || "";
+  const everyCategory = flatCategories(categories);
+  const nameOf = (id) => everyCategory.find((item) => item.id === id)?.name || "";
+  const chosen = everyCategory.find((item) => item.id === (data.subcategory || data.category));
+  // Common services for the chosen categories (managed by the admin), minus the ones already added.
+  const [allSuggestions, setAllSuggestions] = useState(false);
+  const serviceSuggestions = (() => {
+    const primary = categories.find((root) => root._id === data.category);
+    const sub = primary?.children?.find((child) => child._id === data.subcategory);
+    const extra = everyCategory.filter((item) => data.secondary.includes(item.id));
+    const added = new Set(data.services.map((service) => String(service.name).toLowerCase()));
+    return [...new Set([sub, primary, ...extra].flatMap((category) => category?.services || []))].filter((name) => !added.has(name.toLowerCase()));
+  })();
+  function addSuggested(name) {
+    if (checkService({ name }, data.services)) return;
+    update({ services: [...data.services, { name }] });
+  }
   const toggle = (key, value) => update({ [key]: data[key].includes(value) ? data[key].filter((item) => item !== value) : [...data[key], value] });
 
   function stepProblems(index, source = data) {
@@ -363,6 +380,7 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
         offers: data.offers.map((offer) => ({ title: offer.title, ...(offer.description ? { description: offer.description } : {}), ...(offer.code ? { code: offer.code } : {}), ...(offer.occasion ? { occasion: offer.occasion } : {}), ...(offer.howToAvail ? { howToAvail: offer.howToAvail } : {}), validUntil: new Date(`${offer.validUntil}T23:59:59`).toISOString(), isActive: true })),
         phone: data.phone, alternatePhone: data.alternatePhone, whatsapp: data.whatsapp, email: data.email.trim(), website: data.website.trim(), socialLinks: social,
         ...(data.gstNumber ? { gstNumber: data.gstNumber.toUpperCase() } : { gstNumber: "" }), kycDocuments: data.kycDocuments.map(({ type, url }) => ({ type, url })),
+        attributes: questionsFor(categories, data.category, data.subcategory).map((field) => ({ key: field.key, values: (data.attributes?.[field.key] || []).map((value) => String(value).trim()).filter(Boolean) })).filter((entry) => entry.values.length),
         faqs: data.faqs, ...(photoUrls.length ? { images: photoUrls, logo: photoUrls[0] } : { images: [] }),
       };
       if (admin) {
@@ -444,19 +462,19 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
             {step === 0 && <>
               <Field label="Business name" required error={errors.name}><input {...bind("name", { sanitize: (v) => clean.text(v, 100) })} maxLength={100} autoComplete="organization" placeholder="e.g. Nimbu Bakehouse" className={inputErr("name")} /></Field>
               <Field label="Primary category" required error={errors.category}>
-                <select id="field-category" aria-invalid={Boolean(errors.category)} onBlur={() => blur("category")} value={`${data.category}|${data.subcategory}`} onChange={(event) => { const [category, subcategory] = event.target.value.split("|"); update({ category, subcategory, secondary: data.secondary.filter((id) => id !== category) }); }} className={inputErr("category")}>
-                  <option value="|">Choose a category</option>
-                  {categoryOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
+                {chosen ? (
+                  <div className="flex items-center justify-between gap-3 rounded-[10px] border border-[#002fa7] bg-[#f3f6fd] px-3.5 py-2.5">
+                    <span className="min-w-0"><span className="block truncate font-display text-[15px] font-semibold leading-5">{chosen.name}</span><span className="block truncate text-[12px] leading-4 text-[#4a4c55]">{chosen.parent || "Main category"}</span></span>
+                    <button id="field-category" type="button" onClick={() => update({ category: "", subcategory: "" })} className="shrink-0 font-display text-[14px] font-medium text-[#002fa7] hover:underline">Change</button>
+                  </div>
+                ) : <CategoryPicker id="field-category" label="Primary category" categories={categories} invalid={Boolean(errors.category)} placeholder="Type to search, e.g. dentist, school, AC repair" onSelect={(item) => update({ category: item.rootId, subcategory: item.subId, secondary: data.secondary.filter((id) => id !== item.rootId && id !== item.id) })} />}
               </Field>
               <div className="flex flex-col gap-2">
-                <span className={labelClass}>Also listed under <span className="font-normal text-[#6e7079]">(optional)</span></span>
-                <div className="flex flex-wrap gap-2">
-                  {data.secondary.map((id) => <Chip key={id} selected onClick={() => update({ secondary: data.secondary.filter((item) => item !== id) })} aria-label={`Remove ${nameOf(id)}`}>{nameOf(id)}<X size={16} aria-hidden="true" /></Chip>)}
-                  {data.secondary.length < 9 && secondaryOptions.length > 0 && (
-                    <select aria-label="Add category" value="" onChange={(event) => event.target.value && update({ secondary: [...data.secondary, event.target.value] })} className="h-10 rounded-full border border-[#dcdbd5] bg-white px-3.5 font-display text-[14px] font-medium outline-none hover:border-[#101115]"><option value="">+ Add category</option>{secondaryOptions.map((root) => <option key={root._id} value={root._id}>{root.name}</option>)}</select>
-                  )}
-                </div>
+                <span className={labelClass}>Also listed under <span className="font-normal text-[#6e7079]">(optional, up to 9)</span></span>
+                {data.secondary.length > 0 && <div className="flex flex-wrap gap-2">{data.secondary.map((id) => <Chip key={id} selected onClick={() => update({ secondary: data.secondary.filter((item) => item !== id) })} aria-label={`Remove ${nameOf(id)}`}>{nameOf(id)}<X size={16} aria-hidden="true" /></Chip>)}</div>}
+                {data.secondary.length < 9
+                  ? <CategoryPicker label="Add another category" categories={categories} exclude={[data.category, data.subcategory, ...data.secondary]} placeholder="Add another category" onSelect={(item) => update({ secondary: [...data.secondary, item.id] })} />
+                  : <p className="text-[13px] text-[#4a4c55]">You’ve added 9. Remove one to add another.</p>}
               </div>
               <Field label="Tagline" optional error={errors.tagline} helper="One line that sums you up, like “Fresh sourdough baked every morning”."><input {...bind("tagline", { sanitize: (v) => clean.text(v, 160) })} maxLength={160} placeholder="Shown under your business name" className={inputErr("tagline")} /></Field>
               <div className="flex flex-col gap-1.5">
@@ -468,6 +486,7 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
                 <Field label="Business type" optional><select id="field-businessType" value={data.businessType} onChange={(event) => update({ businessType: event.target.value })} className={fieldClass}><option value="">Select type</option>{BUSINESS_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
                 <Field label="Established in" optional error={errors.establishedYear}><select id="field-establishedYear" value={data.establishedYear} onChange={(event) => update({ establishedYear: event.target.value })} className={inputErr("establishedYear")}><option value="">Select year</option>{YEARS.map((year) => <option key={year} value={year}>{year}</option>)}</select></Field>
               </div>
+              <CategoryFields title={nameOf(data.category)} fields={questionsFor(categories, data.category, data.subcategory)} answers={data.attributes} onChange={(attributes) => update({ attributes })} />
             </>}
 
             {step === 1 && <>
@@ -508,6 +527,15 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
                     <button type="button" aria-label={`Remove ${service.name}`} onClick={() => update({ services: data.services.filter((_, i) => i !== index) })} className="grid h-9 w-9 shrink-0 place-items-center rounded-[8px] text-[#6e7079] hover:bg-[#fdecea] hover:text-[#b42318]"><Trash2 size={18} /></button>
                   </div>
                 ))}
+                {serviceSuggestions.length > 0 && (
+                  <div className="flex flex-col gap-2 rounded-[12px] bg-[#f7f7f4] p-3">
+                    <p className="text-[13px] leading-[18px] text-[#4a4c55]">Common services for {nameOf(data.category) || "your category"}. Tap to add, only the ones you really offer.</p>
+                    <div className="flex flex-wrap gap-2">
+                      {serviceSuggestions.slice(0, allSuggestions ? 100 : 12).map((name) => <button key={name} type="button" onClick={() => addSuggested(name)} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-dashed border-[#bdbcb5] bg-white px-3 text-left text-[13px] text-[#101115] hover:border-[#002fa7] hover:text-[#002fa7]"><Plus size={14} aria-hidden="true" />{name}</button>)}
+                      {serviceSuggestions.length > 12 && <button type="button" onClick={() => setAllSuggestions((value) => !value)} className="inline-flex h-9 items-center px-2 font-display text-[13px] font-medium text-[#002fa7] hover:underline">{allSuggestions ? "Show fewer" : `Show ${serviceSuggestions.length - 12} more`}</button>}
+                    </div>
+                  </div>
+                )}
                 {serviceDraft ? (
                   <div className="grid gap-3 rounded-[12px] border border-[#002fa7] bg-[#f7f9fd] p-4 sm:grid-cols-2">
                     <Field label="Name" required className="sm:col-span-2"><input autoFocus value={serviceDraft.name} onChange={(event) => { setServiceDraft({ ...serviceDraft, name: clean.text(event.target.value, 150) }); setServiceError(""); }} maxLength={150} placeholder="e.g. Sourdough loaves" className={fieldClass} /></Field>
@@ -719,6 +747,7 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
                     </ul>
                   </PreviewRow>
                   <PreviewRow label="Offers">{data.offers.map((offer) => offer.title).join(" · ")}</PreviewRow>
+                  {questionsFor(categories, data.category, data.subcategory).filter((field) => data.attributes?.[field.key]?.length).map((field) => <PreviewRow key={field.key} label={field.label}>{answerText({ values: data.attributes[field.key], unit: field.unit })}</PreviewRow>)}
                   <PreviewRow label="Payments">{data.paymentModes.map((value) => PAYMENT_MODES.find(([id]) => id === value)?.[1]).join(", ")}</PreviewRow>
                 </PreviewCard>
 

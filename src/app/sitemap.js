@@ -15,6 +15,7 @@ export default async function sitemap() {
     { url: absoluteSiteUrl("/directory"), changeFrequency: "daily", priority: 0.9 },
     { url: absoluteSiteUrl("/categories"), changeFrequency: "weekly", priority: 0.8 },
     { url: absoluteSiteUrl("/offers"), changeFrequency: "daily", priority: 0.6 },
+    { url: absoluteSiteUrl("/quote"), changeFrequency: "monthly", priority: 0.5 },
     { url: absoluteSiteUrl("/privacy"), changeFrequency: "yearly", priority: 0.2 },
     { url: absoluteSiteUrl("/terms"), changeFrequency: "yearly", priority: 0.2 },
   ];

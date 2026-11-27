@@ -14,7 +14,7 @@ export const FIELD_LABELS = {
   phone: 'Phone', alternatePhone: 'Alternate phone', whatsapp: 'WhatsApp', email: 'Email', website: 'Website', socialLinks: 'Social links',
   services: 'Services', serviceItems: 'Services', workingHours: 'Opening hours', specialHours: 'Special days', images: 'Photos', logo: 'Logo',
   paymentModes: 'Payments', languages: 'Languages', priceRange: 'Price level', amenities: 'Facilities', homeDelivery: 'Home delivery',
-  faqs: 'Questions', serviceMode: 'Who you serve', serviceAreas: 'Service areas', highlights: 'Highlights', keywords: 'Keywords', googlePlaceId: 'Google Place',
+  attributes: 'Category details', faqs: 'Questions', serviceMode: 'Who you serve', serviceAreas: 'Service areas', highlights: 'Highlights', keywords: 'Keywords', googlePlaceId: 'Google Place',
 };
 export const labelFor = (key) => FIELD_LABELS[key] || key;
 export const labelsOf = (keys) => [...new Set(keys.map(labelFor))];

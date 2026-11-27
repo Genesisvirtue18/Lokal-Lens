@@ -40,6 +40,7 @@ const reviewSchema = new Schema({
   reviewerAvatar: urlField,
   rating: { type: Number, required: true, min: 1, max: 5 },
   comment: { type: String, trim: true, maxlength: 3000 },
+  photos: { type: [urlField], default: undefined },
   isVerified: { type: Boolean, default: false },
   reply: { type: new Schema({ text: { type: String, trim: true, required: true, maxlength: 1000 }, createdAt: { type: Date, default: Date.now } }, { _id: false }), default: undefined },
   createdAt: { type: Date, default: Date.now },
@@ -57,6 +58,14 @@ const socialLinksSchema = new Schema({
   linkedin: urlField,
   youtube: urlField,
   x: urlField,
+}, { _id: false });
+
+// Answers to the category's extra questions (see Category.fields).
+const attributeSchema = new Schema({
+  key: { type: String, required: true, trim: true, maxlength: 60 },
+  label: { type: String, required: true, trim: true, maxlength: 80 },
+  unit: { type: String, trim: true, maxlength: 20 },
+  values: [{ type: String, trim: true, maxlength: 120 }],
 }, { _id: false });
 
 const faqSchema = new Schema({
@@ -96,6 +105,7 @@ const businessSchema = new Schema({
   subcategories: [{ type: Schema.Types.ObjectId, ref: 'Category' }],
   secondaryCategories: { type: [{ type: Schema.Types.ObjectId, ref: 'Category' }], validate: { validator: value => value.length <= 9, message: 'Choose at most 9 additional categories' } },
   services: [{ type: String, trim: true, maxlength: 150 }],
+  attributes: [attributeSchema],
   phone: phoneField,
   alternatePhone: phoneField,
   whatsapp: phoneField,

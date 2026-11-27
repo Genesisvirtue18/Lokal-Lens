@@ -9,7 +9,7 @@ import { Button, cx } from "@/components/ds";
 const columnsFor = (width) => (width < 640 ? 2 : width < 1024 ? 3 : 4);
 
 // Full-screen viewer: one photo at a time with arrows, keys, swipe and a strip of thumbnails; or every photo at once in a grid.
-function Lightbox({ photos, name, start = 0, startMode = "viewer", onClose }) {
+export function Lightbox({ photos, name, start = 0, startMode = "viewer", onClose }) {
   const [index, setIndex] = useState(start);
   const [mode, setMode] = useState(startMode);
   const [columns, setColumns] = useState(3);

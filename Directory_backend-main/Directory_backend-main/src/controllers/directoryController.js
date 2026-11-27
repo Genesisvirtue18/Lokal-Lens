@@ -74,7 +74,7 @@ const relevanceExpr = (tokens, phrase) => {
 const caseInsensitiveExact = value => new RegExp(`^${String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 export const categories = () => async (req, res, next) => { try { const q = req.validated.query; const filter = { isActive: q.active ?? true }; if (q.parent) filter.parentCategory = q.parent; if (q.search) filter.$text = { $search: q.search }; sendSuccess(res, 'Categories retrieved successfully', await pageResult(Category, filter, req)); } catch (e) { next(e); } };
 export const categoryBySlug = () => async (req, res, next) => { try { const item = await Category.findOne({ slug: req.params.slug, isActive: true }); if (!item) throw new AppError('Category not found', 404); sendSuccess(res, 'Category retrieved successfully', { item }); } catch (e) { next(e); } };
-export const categoryTree = () => async (req,res,next) => { try { const items = await Category.find({ isActive: true }).sort('displayOrder name').lean(); const roots = []; const map = new Map(items.map(x => [String(x._id), { ...x, children: [] }])); for (const item of map.values()) item.parentCategory && map.has(String(item.parentCategory)) ? map.get(String(item.parentCategory)).children.push(item) : roots.push(item); sendSuccess(res,'Category tree retrieved successfully',{items:roots}); } catch(e){next(e);} };
+export const categoryTree = () => async (req,res,next) => { try { const found = Category.find({ isActive: true }).sort('displayOrder name'); if (req.query.lite === '1') found.select('name slug icon parentCategory description displayOrder'); const items = await found.lean(); const roots = []; const map = new Map(items.map(x => [String(x._id), { ...x, children: [] }])); for (const item of map.values()) item.parentCategory && map.has(String(item.parentCategory)) ? map.get(String(item.parentCategory)).children.push(item) : roots.push(item); sendSuccess(res,'Category tree retrieved successfully',{items:roots}); } catch(e){next(e);} };
 export const locations = type => () => async (req,res,next) => { try { const q=req.validated.query; const filter={ type, isActive:true }; if(q.search) filter.name=new RegExp(q.search.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'i'); if(q.state) { const state=await Location.findOne({slug:q.state,type:'state'}); filter.state=state?._id || null; } if(q.city) { const city=await Location.findOne({slug:q.city,type:'city'}); filter.city=city?._id || null; } sendSuccess(res,`${type}s retrieved successfully`,await pageResult(Location,filter,req)); } catch(e){next(e);} };
 // Cities that have published businesses, busiest first, with how many businesses each has.
 export const businessCities = () => async (req, res, next) => {
@@ -134,13 +134,13 @@ export const businessList = () => async (req,res,next) => { try {
       for (const token of tokens) {
         const rx = new RegExp(escapeRegex(token), 'i');
         const categoryIds = await Category.find({ isActive: true, name: rx }).select('_id').limit(100).lean().then(rows => rows.map(row => row._id));
-        filter.$and.push({ $or: [{ name: rx }, { keywords: rx }, { services: rx }, { description: rx }, { 'address.locality': rx }, { 'address.city': rx }, ...(categoryIds.length ? [{ category: { $in: categoryIds } }, { secondaryCategories: { $in: categoryIds } }] : [])] });
+        filter.$and.push({ $or: [{ name: rx }, { keywords: rx }, { services: rx }, { description: rx }, { 'address.locality': rx }, { 'address.city': rx }, ...(categoryIds.length ? [{ category: { $in: categoryIds } }, { subcategories: { $in: categoryIds } }, { secondaryCategories: { $in: categoryIds } }] : [])] });
       }
     }
   }
   if(q.category) {
     const cat = await Category.findOne({ slug: q.category, isActive: true }).select('_id').lean();
-    if (!cat) filter.category = null; else filter.$and = [...(filter.$and || []), { $or: [{ category: cat._id }, { secondaryCategories: cat._id }] }];
+    if (!cat) filter.category = null; else filter.$and = [...(filter.$and || []), { $or: [{ category: cat._id }, { subcategories: cat._id }, { secondaryCategories: cat._id }] }];
   }
   if (q.city) filter['address.city'] = caseInsensitiveExact(q.city.trim());
   if(q.locality) filter['address.locality']=q.q ? caseInsensitiveExact(q.locality) : q.locality;
@@ -275,7 +275,7 @@ export const offersList = () => async (req, res, next) => { try {
   const { city, occasion, limit } = req.validated.query;
   const now = new Date();
   const filter = { listingStatus: 'published', deletedAt: null, ...(city ? { 'address.city': new RegExp(`^${city.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } : {}), 'offers.0': { $exists: true } };
-  const businesses = await Business.find(filter).select('name slug images logo address category verificationStatus offers phone').populate('category', 'name').limit(300).lean();
+  const businesses = await Business.find(filter).select('name slug images logo address category verificationStatus offers phone').populate('category', 'name slug').limit(300).lean();
   const items = [];
   for (const business of businesses) {
     for (const offer of business.offers || []) {
@@ -283,7 +283,7 @@ export const offersList = () => async (req, res, next) => { try {
       if (offer.validFrom && new Date(offer.validFrom) > now) continue;
       if (offer.validUntil && new Date(offer.validUntil) < now) continue;
       if (occasion && String(offer.occasion || '').toLowerCase() !== occasion.toLowerCase()) continue;
-      items.push({ _id: String(offer._id), title: offer.title, description: offer.description, code: offer.code, occasion: offer.occasion, howToAvail: offer.howToAvail, validUntil: offer.validUntil, business: { _id: String(business._id), name: business.name, slug: business.slug, image: business.images?.[0] || business.logo || '', city: business.address?.city, locality: business.address?.locality, category: business.category?.name, verified: business.verificationStatus === 'verified', phone: business.phone } });
+      items.push({ _id: String(offer._id), title: offer.title, description: offer.description, code: offer.code, occasion: offer.occasion, howToAvail: offer.howToAvail, validUntil: offer.validUntil, business: { _id: String(business._id), name: business.name, slug: business.slug, image: business.images?.[0] || business.logo || '', city: business.address?.city, locality: business.address?.locality, category: business.category?.name, categorySlug: business.category?.slug, verified: business.verificationStatus === 'verified', phone: business.phone } });
     }
   }
   items.sort((a, b) => (a.validUntil ? new Date(a.validUntil).getTime() : Infinity) - (b.validUntil ? new Date(b.validUntil).getTime() : Infinity));

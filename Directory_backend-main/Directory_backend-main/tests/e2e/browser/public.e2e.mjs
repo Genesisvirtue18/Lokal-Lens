@@ -17,8 +17,8 @@ const idOf = (url) => url.split("/").pop().split("_")[0];
 console.log("Public pages");
 for (const p of ["/", "/directory", "/terms", "/privacy", "/categories", "/saved"]) await check(`${p} opens without errors`, async () => { await t.goto(p, 4000); return !(await broken()) && t.errors.length === 0; });
 await check("an unknown page shows a friendly 404 with a way back", async () => { await t.goto("/no-such-page-xyz", 3500); return (await t.has("couldn.t find that page")) && (await t.has("Explore|Home|directory")); });
-await check("a business link with a made-up id shows 404, not a crash", async () => { await t.goto("/ghaziabad/nope/aaaaaaaaaaaaaaaaaaaaaaaa_BZDET", 4500); return (await t.has("couldn.t find")) && !(await broken()); });
-await check("a business link with a broken id shows 404, not a crash", async () => { await t.goto("/ghaziabad/nope/zzz_BZDET", 4500); return (await t.has("couldn.t find")) && !(await broken()); });
+await check("a business link with a made-up id shows 404, not a crash", async () => { await t.goto("/ghaziabad/healthcare/nope/aaaaaaaaaaaaaaaaaaaaaaaa_BZDET", 4500); return (await t.has("couldn.t find")) && !(await broken()); });
+await check("a business link with a broken id shows 404, not a crash", async () => { await t.goto("/ghaziabad/healthcare/nope/zzz_BZDET", 4500); return (await t.has("couldn.t find")) && !(await broken()); });
 await check("a real business page shows its name, rating, contact buttons and reviews", async () => { await t.goto(urlOf("smile-dental"), 5000); const x = await t.text(); return /Smile Dental/.test(x) && /reviews/i.test(x) && /Send inquiry/.test(x) && /Write a review/.test(x); });
 
 console.log("\nSearch: strange things typed into the box or the address bar");

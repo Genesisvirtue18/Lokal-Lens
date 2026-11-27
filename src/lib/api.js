@@ -13,7 +13,12 @@ async function request(path, query = {}, options = {}) {
 }
 
 export const getBusinesses = (query) => request("/businesses", query);
-export const getCategories = (query) => request("/categories", query);
+export const getCategoryTree = (query) => request("/categories/tree", query);
+// Every active category as one flat list (parents first, each followed by its subcategories). The tree has no page limit.
+export const getCategories = async () => {
+  const { items = [] } = await getCategoryTree({ lite: 1 }); // names, addresses and icons only
+  return { items: items.flatMap(({ children = [], ...root }) => [root, ...children.map((child) => ({ ...child, children: undefined }))]) };
+};
 export const getCities = (query) => request("/locations/cities", query);
 export const getBusinessCities = () => request("/locations/business-cities");
 export const getCityCategories = () => request("/locations/city-categories", {}, { next: { revalidate: 600 } });

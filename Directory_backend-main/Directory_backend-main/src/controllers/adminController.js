@@ -5,6 +5,7 @@ import { AppError } from '../utils/AppError.js';
 import { sendSuccess } from '../utils/response.js';
 import { dashboardUrl, emailPerson } from '../services/notices.js';
 import { labelsOf } from '../services/pendingChanges.js';
+import { cleanAttributes } from '../services/categoryAttributes.js';
 
 const slugify = value => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 110) || 'category';
 const uniqueSlug = async (name, reserved = new Set()) => { const base = slugify(name); let slug = base; let suffix = 2; while (reserved.has(slug) || await Category.exists({ slug })) slug = `${base}-${suffix++}`; reserved.add(slug); return slug; };
@@ -209,6 +210,7 @@ export const updateBusiness = () => async (req, res, next) => { try {
   const { googlePlaceId, ...body } = req.validated.body; // Google Place links are verified through their own routes
   void googlePlaceId;
   const category = body.category || item.category;
+  if (body.attributes) body.attributes = await cleanAttributes(body.attributes, category, body.subcategories ?? item.subcategories);
   if (body.category && !await Category.exists({ _id: body.category, isActive: true, parentCategory: null })) throw new AppError('Category not found', 422);
   const subcategories = body.subcategories ?? item.subcategories;
   if (subcategories?.length && await Category.countDocuments({ _id: { $in: subcategories }, isActive: true, parentCategory: category }) !== new Set(subcategories.map(String)).size) throw new AppError('Select subcategories belonging to the chosen category', 422);
@@ -267,6 +269,7 @@ export const assignBusinessOwner = () => async (req, res, next) => { try {
 
 export const createBusiness = () => async (req, res, next) => { try {
   const { ownerId, publish, ...business } = req.validated.body;
+  if (business.attributes) business.attributes = await cleanAttributes(business.attributes, business.category, business.subcategories);
   if (ownerId && !await User.exists({ _id: ownerId, role: 'business_owner', status: 'active', deletedAt: null })) throw new AppError('Active business owner not found', 422);
   if (!await Category.exists({ _id: business.category, isActive: true, parentCategory: null })) throw new AppError('Category not found', 422);
   if (business.subcategories?.length && await Category.countDocuments({ _id: { $in: business.subcategories }, isActive: true, parentCategory: business.category }) !== new Set(business.subcategories.map(String)).size) throw new AppError('Select subcategories belonging to the chosen category', 422);

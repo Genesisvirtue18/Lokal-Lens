@@ -29,7 +29,7 @@ const PAGE_SIZE = 20;
 const STATUS_LABEL: Record<BusinessListing['status'], string> = { Active: 'Live', Pending: 'In review', Rejected: 'Rejected', Draft: 'Draft', Suspended: 'Suspended', Paused: 'Paused by owner' };
 const STATUS_FILTERS: { value: string; label: string }[] = [{ value: 'all', label: 'All statuses' }, { value: 'Pending', label: 'In review' }, { value: 'Active', label: 'Live' }, { value: 'Draft', label: 'Draft' }, { value: 'Paused', label: 'Paused' }, { value: 'Suspended', label: 'Suspended' }, { value: 'Rejected', label: 'Rejected' }];
 
-const publicPath = (business: BusinessListing) => businessDetailPath({ address: business.address, slug: business.slug, name: business.name, id: business.id });
+const publicPath = (business: BusinessListing) => businessDetailPath({ address: business.address, category: business.category, slug: business.slug, name: business.name, id: business.id });
 const fieldBase = 'h-10 rounded-[10px] border border-[#bdbcb5] bg-white px-3 text-[14px] outline-none focus:border-2 focus:border-[#002fa7]';
 
 function StatusBadge({ status }: { status: BusinessListing['status'] }) {

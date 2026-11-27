@@ -30,7 +30,7 @@ export default function FooterLinks() {
   useEffect(() => {
     const controller = new AbortController();
     Promise.all([
-      fetch(`${apiUrl}/categories?limit=100`, { signal: controller.signal }).then((response) => response.json()).catch(() => null),
+      fetch(`${apiUrl}/categories/tree?lite=1`, { signal: controller.signal }).then((response) => response.json()).catch(() => null),
       fetch(`${apiUrl}/locations/business-cities`, { signal: controller.signal }).then((response) => response.json()).catch(() => null),
     ]).then(([categoryBody, cityBody]) => {
       const categories = (categoryBody?.data?.items || []).filter((category) => !category.parentCategory).slice(0, 12).map((category) => [category.name, `/directory?category=${encodeURIComponent(category.slug || category.name)}`]);

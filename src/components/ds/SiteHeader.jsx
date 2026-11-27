@@ -12,7 +12,7 @@ import { authedFetch, logout as endSession } from "@/dashboard/api";
 //  variant="compact"  76px bar, logo + inline search + nav + actions (directory, profile)
 // Below 1024px it becomes the 64px mobile bar with Search and Menu.
 const browseItems = [["Explore businesses", "/directory", "explore", Store], ["Categories", "/categories", "categories", LayoutGrid]];
-const moreItems = [["Offers near you", "/offers", "offers", Tag], ["Ask Lokal", "/ask", "ask", MessageCircleQuestion], ["Saved businesses", "/saved", "saved", Heart]];
+const moreItems = [["Get quotes", "/quote", "quote", MessageCircleQuestion], ["Offers near you", "/offers", "offers", Tag], ["Ask Lokal", "/ask", "ask", MessageCircleQuestion], ["Saved businesses", "/saved", "saved", Heart]];
 
 const subscribe = (callback) => { window.addEventListener("storage", callback); return () => window.removeEventListener("storage", callback); };
 const readSignedIn = () => { try { return Boolean(localStorage.getItem("directflow_access_token")); } catch { return false; } };

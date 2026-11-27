@@ -207,6 +207,12 @@ export default async function DirectoryPage({ searchParams, routeCity, routeCate
     <div className="mx-auto grid max-w-[1440px] grid-cols-[minmax(0,1fr)] items-start gap-8 px-4 pb-20 pt-3 md:px-8 lg:px-[72px]">
 
       <section aria-label="Business results" className="min-w-0">
+        {businesses.length > 0 && (
+          <div className="mb-4 flex flex-col items-start gap-3 rounded-[14px] border border-[#002fa7]/25 bg-[#e6ebf7] p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-[14px] leading-5"><span className="font-display font-semibold">Need prices?</span> Write once and send it to up to 5 businesses you choose.</p>
+            <Button type="primary" size="s" href={`/quote${categorySlug || cityName ? `?${new URLSearchParams({ ...(categorySlug ? { category: categorySlug } : {}), ...(cityName ? { city: cityName } : {}) })}` : ""}`}>Get quotes</Button>
+          </div>
+        )}
         {view === "map" ? (
           <DirectoryMapView businesses={businesses} emptyState={<EmptyState category={titleCategory} city={cityName} />} />
         ) : businesses.length ? (

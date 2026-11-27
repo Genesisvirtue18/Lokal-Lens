@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import React, { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Search, Star, Trash2 } from 'lucide-react';
 import { Button, cx } from '@/components/ds';
@@ -59,6 +60,7 @@ export const AdminReviewsTab: React.FC<{ onOpenBusiness: (id: string) => void; o
                 <button type="button" onClick={() => onOpenBusiness(review.businessId)} className="ml-auto truncate text-[14px] font-medium text-[#002fa7] hover:underline">{review.businessName}</button>
               </div>
               {review.comment ? <p className="text-[15px] leading-6 text-[#2f3138]">{review.comment}</p> : <p className="text-[14px] text-[#6e7079]">No written comment.</p>}
+              {(review as { photos?: string[] }).photos?.length ? <div className="flex flex-wrap gap-2">{(review as { photos?: string[] }).photos!.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer" className="block h-16 w-16 overflow-hidden rounded-[8px] border border-[#dcdbd5]"><Image src={url} alt="Review photo" width={64} height={64} unoptimized className="h-full w-full object-cover" /></a>)}</div> : null}
               {review.reply && <p className="rounded-[10px] bg-[#f7f7f4] px-3 py-2 text-[14px] leading-5 text-[#4a4c55]"><span className="font-semibold">Owner replied:</span> {review.reply}</p>}
               <div className="flex justify-end"><button type="button" onClick={() => void remove(review)} className="inline-flex h-9 items-center gap-1.5 rounded-[8px] px-2.5 font-display text-[14px] font-medium text-[#b42318] hover:bg-[#fdecea]"><Trash2 size={16} aria-hidden="true" />Delete review</button></div>
             </li>

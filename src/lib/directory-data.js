@@ -10,11 +10,20 @@ export function toSeoSlug(value = "") {
   return String(value).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+// The category part of a listing's address. A category arrives as an object ({ name, slug }), as a plain name, or not at all;
+// a bare database id says nothing to a reader, so it is skipped. The listing page redirects to the exact address if this guess differs.
+function categorySegment(business) {
+  const { category, categorySlug } = business;
+  const text = categorySlug || category?.slug || category?.name || (typeof category === "string" && !/^[a-f0-9]{24}$/i.test(category) ? category : "");
+  return toSeoSlug(text) || "business";
+}
+
+// /<city>/<category>/<business-name>/<id>_BZDET
 export function businessDetailPath(business) {
   const city = toSeoSlug(business.address?.city || "india") || "india";
   const name = toSeoSlug(business.slug || business.name || "business");
   const identifier = business._id || business.id || business.slug;
-  return `/${city}/${name}/${encodeURIComponent(identifier)}_BZDET`;
+  return `/${city}/${categorySegment(business)}/${name}/${encodeURIComponent(identifier)}_BZDET`;
 }
 
 export function categoryListingPath(city, category) {
@@ -37,6 +46,7 @@ export function toDirectoryBusiness(business, index = 0) {
   return {
     ...business,
     category: business.category?.name || business.keywords?.[0] || "Business",
+    categorySlug: business.category?.slug || business.categorySlug,
     area: business.address?.locality || business.address?.city || "Location not provided",
     status: business.listingStatus === "published" ? "Published" : "Pending review",
     closesAt: closingHour ? `Closes ${closingHour}` : undefined,
@@ -52,6 +62,7 @@ export function toHomeBusiness(business) {
   return {
     ...business,
     category: business.category?.name || business.keywords?.[0] || "Business",
+    categorySlug: business.category?.slug || business.categorySlug,
     city: business.address?.city || "Location not provided",
     image: imageUrl(business.images?.[0] || business.logo),
   };
