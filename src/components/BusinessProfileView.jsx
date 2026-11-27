@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Globe, MessageCircle, Navigation, Sparkles, ImageIcon, MapPin, Phone } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaYoutube } from "react-icons/fa";
@@ -7,9 +6,10 @@ import { businessDetailPath, categoryListingPath } from "@/lib/directory-data";
 import { buildBusinessJsonLd, buildBreadcrumbJsonLd, buildFaqJsonLd, jsonLdString } from "@/lib/business-schema";
 import { openStatus } from "@/lib/open-status";
 import BusinessServices from "@/components/BusinessServices";
-import GooglePlacesReviews from "@/components/GooglePlacesReviews";
 import BusinessActivityStats from "@/components/BusinessActivityStats";
 import BusinessContactForm from "@/components/BusinessContactForm";
+import { tidyText } from "@/lib/text";
+import OfferCards from "@/components/OfferCards";
 import BusinessProfileActions from "@/components/BusinessProfileActions";
 import CustomerReviews from "@/components/CustomerReviews";
 import AnchorTabs from "@/components/AnchorTabs";
@@ -20,15 +20,15 @@ import { Badge, Button, cx } from "@/components/ds";
 import TrackedButton from "@/components/TrackedButton";
 import ClaimBusiness from "@/components/ClaimBusiness";
 import ReportListingButton from "@/components/ReportListingButton";
-import { optimizedImage } from "@/lib/images";
+import { PhotoGrid, PhotoHero } from "@/components/PhotoGallery";
 
 
 function Section({ id, eyebrow, title, children }) {
   return (
-    <section id={id} className="flex scroll-mt-36 flex-col gap-5">
+    <section id={id} className={`flex scroll-mt-36 flex-col gap-5 ${id === "overview" ? "" : "border-t border-[#dcdbd5] pt-10"}`}>
       <div className="flex flex-col gap-2">
-        <p className="font-eyebrow text-[#6e7079]">{eyebrow}</p>
-        <h2 className="text-[24px] font-semibold leading-8 tracking-[-0.0208em]">{title}</h2>
+        <p className="font-eyebrow text-[#002fa7]">{eyebrow}</p>
+        <h2 className="text-[28px] font-semibold leading-9 tracking-[-0.02em]">{title}</h2>
       </div>
       {children}
     </section>
@@ -95,7 +95,8 @@ export default function BusinessProfileView({ business, related = [], preview = 
   const coordinates = business.location?.coordinates;
   const coordinateQuery = coordinates ? `${coordinates[1]},${coordinates[0]}` : "";
   const mapQuery = address ? `${business.name}, ${address}` : coordinateQuery || business.name;
-  const directionsQuery = coordinateQuery || mapQuery;
+  // Name + address first, so Google Maps shows the business like a place; raw coordinates only when there is no address.
+  const directionsQuery = address ? mapQuery : coordinateQuery || mapQuery;
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(directionsQuery)}`;
   const mapEmbedUrl = business.mapEmbedUrl && /^https:\/\/(www\.)?google\.com\/maps\/embed/.test(business.mapEmbedUrl) ? business.mapEmbedUrl : `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=17&output=embed`;
   const whatsappDigits = (business.whatsapp || "").replace(/\D/g, "");
@@ -114,10 +115,9 @@ export default function BusinessProfileView({ business, related = [], preview = 
   const openBadge = status.tone === "open" ? { tone: "open", text: status.until ? `Open · until ${status.until}` : "Open now" } : status.tone === "closed" ? { tone: "closed", text: status.label } : null;
   const todayName = new Intl.DateTimeFormat("en-US", { timeZone: business.timeZone || "Asia/Kolkata", weekday: "long" }).format(new Date()).toLowerCase();
   const eyebrowLine = [categoryName, [business.address?.locality, business.address?.city].filter(Boolean).join(", ")].filter(Boolean).join(" · ");
-  const thumbs = photos.slice(1, 5);
   const facts = [
     languages.length > 0 && ["Languages", languages.join(", ")],
-    business.establishedYear && ["Established", `${business.establishedYear} · as provided by the owner`],
+    business.establishedYear && ["Established", String(business.establishedYear)],
     business.teamSize && ["Team size", `${business.teamSize} people`],
     business.responseTimeMinutes !== undefined && business.responseTimeMinutes !== null && ["Typical response", business.responseTimeMinutes < 60 ? `${business.responseTimeMinutes} min` : `${Math.round(business.responseTimeMinutes / 60)} hr`],
     paymentModes.length > 0 && ["Payments", paymentModes.join(", ")],
@@ -125,7 +125,7 @@ export default function BusinessProfileView({ business, related = [], preview = 
     business.contactPerson?.name && ["Contact person", `${business.contactPerson.name}${business.contactPerson.designation ? `, ${business.contactPerson.designation}` : ""}`],
   ].filter(Boolean);
   const attributeList = [...new Set([...highlights, ...amenities, ...(business.homeDelivery ? ["Home delivery / service"] : []), ...(business.gstVerified ? ["GST verified"] : [])])];
-  const tabs = [{ id: "overview", label: "Overview" }, { id: "services", label: "Services" }, { id: "photos", label: "Photos" }, { id: "customer-reviews", label: "Reviews" }, { id: "location", label: "Location & hours" }];
+  const tabs = [{ id: "overview", label: "Overview" }, { id: "services", label: "Services" }, { id: "photos", label: "Photos" }, { id: "customer-reviews", label: "Reviews" }, { id: "location", label: "Location" }];
   const updated = business.updatedAt ? new Date(business.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "";
   const backHref = `/directory?category=${encodeURIComponent(categorySlug)}${business.address?.city ? `&city=${encodeURIComponent(business.address.city)}` : ""}`;
 
@@ -139,7 +139,7 @@ export default function BusinessProfileView({ business, related = [], preview = 
 
       {/* Profile nav */}
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 pb-4 pt-5 md:px-8 lg:px-[72px]">
-        <Button type="ghost" size="s" href={backHref} icon={<ChevronRight size={18} className="rotate-180" aria-hidden="true" />}>Back to results</Button>
+        <Button type="ghost" size="s" href={backHref} style={{ paddingLeft: 0, paddingRight: 8, gap: 4 }} icon={<ChevronRight size={18} className="rotate-180" aria-hidden="true" />}>Back to results</Button>
         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-[14px] leading-5 text-[#4a4c55]">
           {breadcrumbs.map((crumb, index) => (
             <span key={`${crumb.label}-${index}`} className="flex items-center gap-1.5">
@@ -153,25 +153,7 @@ export default function BusinessProfileView({ business, related = [], preview = 
       {/* Gallery */}
       <section aria-label={`${business.name} photos`} className="mx-auto max-w-[1440px] px-4 md:px-8 lg:px-[72px]">
         {photos.length ? (
-          <div className="grid gap-3 lg:h-[460px] lg:grid-cols-[minmax(0,1fr)_480px]">
-            <a href={photos[0]} target="_blank" rel="noreferrer" className="relative block h-[260px] overflow-hidden rounded-[16px] bg-[#e4e3de] sm:h-[360px] lg:h-full" aria-label="Open main photo">
-              <Image src={optimizedImage(photos[0], 1200)} alt={`${business.name} main photo`} fill priority fetchPriority="high" unoptimized sizes="(max-width: 1024px) 100vw, 800px" className="object-cover" />
-            </a>
-            {thumbs.length > 0 && (
-              <div className="hidden grid-cols-2 grid-rows-2 gap-3 lg:grid">
-                {[0, 1, 2, 3].map((index) => {
-                  const photo = thumbs[index];
-                  const last = index === 3;
-                  return photo ? (
-                    <a key={photo} href={photo} target="_blank" rel="noreferrer" className="relative block overflow-hidden rounded-[16px] bg-[#e4e3de]" aria-label={`Open photo ${index + 2}`}>
-                      <Image src={optimizedImage(photo, 600)} alt={`${business.name} photo ${index + 2}`} fill unoptimized loading="lazy" sizes="240px" className="object-cover transition duration-500 hover:scale-[1.03]" />
-                      {last && photoCount > 5 && <span className="absolute bottom-3 right-3 inline-flex h-11 items-center gap-2 rounded-[12px] border border-[#bdbcb5] bg-white px-4 font-display text-[14px] font-medium"><ImageIcon size={18} aria-hidden="true" />All {photoCount} photos</span>}
-                    </a>
-                  ) : <div key={index} className="rounded-[16px] bg-[#e4e3de]" aria-hidden="true" />;
-                })}
-              </div>
-            )}
-          </div>
+          <PhotoHero photos={photos} name={business.name} photoCount={photoCount} />
         ) : (
           <div className="grid h-[260px] place-items-center rounded-[16px] border border-[#dcdbd5] bg-white text-center"><div className="flex flex-col items-center gap-2 text-[#6e7079]"><ImageIcon size={28} aria-hidden="true" /><p className="text-[14px]">This business hasn’t added photos yet.</p></div></div>
         )}
@@ -192,22 +174,22 @@ export default function BusinessProfileView({ business, related = [], preview = 
               {verified && <Badge tone="verified">Verified business</Badge>}
               {Number(business.reviewCount) > 0 ? <a href="#customer-reviews" className="inline-flex items-center gap-1 text-[14px] leading-5"><span className="font-semibold">{Number(business.averageRating).toFixed(1)}</span><span className="text-[#4a4c55]">({business.reviewCount} reviews)</span></a> : <span className="text-[14px] leading-5 text-[#6e7079]">No reviews yet</span>}
               {openBadge && <Badge tone={openBadge.tone}>{openBadge.text}</Badge>}
-              {workingHours.length > 0 && <Button type="ghost" size="s" href="#location">See all hours</Button>}
+              {workingHours.length > 0 && <Link href="#location" className="inline-flex items-center font-display text-[14px] font-medium leading-5 text-[#002fa7] hover:underline">See all hours</Link>}
             </div>
-            {business.tagline && <p className="max-w-[760px] font-serif text-[26px] leading-[34px] tracking-[-0.0115em]">{business.tagline}</p>}
+            {business.tagline && <p className="max-w-[760px] font-serif text-[26px] leading-[34px] tracking-[-0.0115em]">{tidyText(business.tagline)}</p>}
           </div>
 
           <AnchorTabs tabs={tabs} />
 
           <Section id="overview" eyebrow="Overview" title={`About ${business.name}`}>
-            <p className="whitespace-pre-line text-[18px] leading-7">{business.description || `${business.name} is a local ${categoryName.toLowerCase()} in ${business.address?.locality || business.address?.city || "your area"}. Contact the business directly for current information.`}</p>
+            <p className="whitespace-pre-line text-[18px] leading-7">{tidyText(business.description) || `${business.name} is a local ${categoryName.toLowerCase()} in ${business.address?.locality || business.address?.city || "your area"}. Contact the business directly for current information.`}</p>
             {attributeList.length > 0 && <ul className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">{attributeList.slice(0, 12).map((item) => <li key={item} className="flex min-h-[50px] items-center gap-2.5 rounded-[12px] border border-[#dcdbd5] bg-white px-3 py-2.5 text-[14px] leading-5 sm:px-4 sm:py-3 sm:text-[15px]"><Sparkles size={18} className="shrink-0 text-[#002fa7]" aria-hidden="true" /><span className="min-w-0">{item}</span></li>)}</ul>}
             {facts.length > 0 && (
-              <dl className="grid gap-x-10 gap-y-5 border-y border-[#dcdbd5] py-5 sm:grid-cols-2 lg:grid-cols-3">
-                {facts.map(([label, value]) => <div key={label} className="flex flex-col gap-1"><dt className="font-eyebrow text-[#6e7079]">{label}</dt><dd className="text-[16px] leading-6">{value}</dd></div>)}
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-5 border-y border-[#dcdbd5] py-5 sm:gap-x-3 lg:grid-cols-3">
+                {facts.map(([label, value]) => <div key={label} className="flex flex-col gap-1.5"><dt className="font-eyebrow" style={{ fontWeight: 500, color: "#5a5c66", fontSize: 12 }}>{label}</dt><dd className="text-[18px] leading-6 text-[#101115]" style={{ fontWeight: 600 }}>{value}</dd></div>)}
               </dl>
             )}
-            {secondaryCategories.length > 0 && <div className="flex flex-wrap items-center gap-2"><span className="font-eyebrow text-[#6e7079]">Also listed under</span>{secondaryCategories.map((item) => <Link key={item.slug} href={`/directory?category=${encodeURIComponent(item.slug)}${cityQuery}`} className="inline-flex h-10 items-center rounded-full border border-[#dcdbd5] bg-white px-4 font-display text-[13px] font-medium text-[#002fa7] hover:border-[#002fa7]">{item.name}</Link>)}</div>}
+            {secondaryCategories.length > 0 && <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3"><span className="font-eyebrow" style={{ fontWeight: 500, color: "#5a5c66", fontSize: 12 }}>Also listed under</span><div className="flex flex-wrap gap-2">{secondaryCategories.map((item) => <Link key={item.slug} href={`/directory?category=${encodeURIComponent(item.slug)}${cityQuery}`} className="inline-flex h-10 items-center rounded-full border border-[#dcdbd5] bg-white px-4 font-display text-[13px] font-medium text-[#002fa7] hover:border-[#002fa7]">{item.name}</Link>)}</div></div>}
             {(business.videoUrl || business.brochureUrl) && <div className="flex flex-wrap gap-3">{business.videoUrl && <Button type="secondary" size="s" href={business.videoUrl} target="_blank" rel="noreferrer">Watch video</Button>}{business.brochureUrl && <Button type="secondary" size="s" href={business.brochureUrl} target="_blank" rel="noreferrer">View brochure / menu</Button>}</div>}
           </Section>
 
@@ -215,21 +197,17 @@ export default function BusinessProfileView({ business, related = [], preview = 
 
           {activeOffers.length > 0 && (
             <Section id="offers" eyebrow="Offers" title="Current offers">
-              <div className="grid gap-4 sm:grid-cols-2">{activeOffers.map((offer) => <article key={offer._id || offer.title} className="rounded-[16px] border border-[#dcdbd5] bg-white p-6"><h3 className="font-display text-[16px] font-semibold leading-6">{offer.title}</h3>{offer.description && <p className="mt-1.5 text-[14px] leading-5 text-[#4a4c55]">{offer.description}</p>}{offer.code && <p className="mt-3 inline-block rounded-[8px] bg-[#e6ebf7] px-2.5 py-1 font-meta text-[#002fa7]">Code {offer.code}</p>}</article>)}</div>
+              <OfferCards offers={activeOffers} />
             </Section>
           )}
 
           <Section id="photos" eyebrow={`Photos · ${photoCount || photos.length}`} title="Photos">
             {photos.length ? (
-              <>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{photos.slice(0, 8).map((photo, index) => <a key={`${photo}-${index}`} href={photo} target="_blank" rel="noreferrer" className="relative block h-40 overflow-hidden rounded-[12px] bg-[#e4e3de]" aria-label={`Open photo ${index + 1}`}><Image src={photo} alt={`${business.name} photo ${index + 1}`} fill unoptimized sizes="25vw" className="object-cover transition duration-500 hover:scale-[1.03]" /></a>)}</div>
-                {photos.length > 8 && <div><Button type="secondary" href={photos[8]} target="_blank" rel="noreferrer">View all {photoCount || photos.length} photos</Button></div>}
-              </>
+              <PhotoGrid photos={photos} name={business.name} total={photoCount} />
             ) : <p className="rounded-[16px] border border-[#dcdbd5] bg-white px-6 py-8 text-center text-[14px] text-[#4a4c55]">No business photos have been added yet.</p>}
           </Section>
 
           <section id="customer-reviews" className="scroll-mt-36"><CustomerReviews key={businessId} businessId={businessId} businessName={business.name} initialReviews={business.reviews || []} initialAverage={Number(business.averageRating) || 0} initialCount={Number(business.reviewCount) || 0} /></section>
-          <section id="reviews" className="scroll-mt-36 empty:hidden"><GooglePlacesReviews key={businessId} businessId={businessId} /></section>
 
           <Section id="location" eyebrow="Location" title="Location & hours">
             <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_340px]">
@@ -294,7 +272,7 @@ export default function BusinessProfileView({ business, related = [], preview = 
             {contactPhone && <ActionRow caption="Calls the business directly"><TrackedButton event="call" businessName={business.name} label={prettyPhone(contactPhone)} external={false} businessId={preview ? "" : businessId} type="primary" href={`tel:${contactPhoneHref}`} icon={<Phone size={18} aria-hidden="true" />} className="w-full">Call {maskPhone(contactPhone) || "now"}</TrackedButton></ActionRow>}
             {whatsappUrl && <ActionRow caption="Opens WhatsApp — a new chat with the business"><TrackedButton event="whatsapp" businessName={business.name} label={"WhatsApp"} external={true} businessId={preview ? "" : businessId} type="secondary" href={whatsappUrl} target="_blank" rel="noreferrer" icon={<MessageCircle size={18} aria-hidden="true" />} className="w-full">WhatsApp</TrackedButton></ActionRow>}
             <ActionRow caption="Opens Google Maps in a new tab"><TrackedButton event="directions" businessName={business.name} label={"Google Maps"} external={true} businessId={preview ? "" : businessId} type="secondary" href={directionsUrl} target="_blank" rel="noreferrer" icon={<Navigation size={18} aria-hidden="true" />} className="w-full">Get directions</TrackedButton></ActionRow>
-            {business.website && <ActionRow caption={`${business.website.replace(/^https?:\/\//, "").replace(/\/$/, "")} · external site`}><TrackedButton event="website" businessName={business.name} label={(business.website || "").replace(/^https?:\/\//, "").replace(/\/$/, "")} external={true} businessId={preview ? "" : businessId} type="secondary" href={business.website} target="_blank" rel="noreferrer" icon={<Globe size={18} aria-hidden="true" />} className="w-full">Website</TrackedButton></ActionRow>}
+            {business.website && <ActionRow caption="Opens the business’s own website in a new tab"><TrackedButton event="website" businessName={business.name} label="" external={true} businessId={preview ? "" : businessId} type="secondary" href={business.website} target="_blank" rel="noreferrer" icon={<Globe size={18} aria-hidden="true" />} className="w-full">Website</TrackedButton></ActionRow>}
             {(business.email || business.alternatePhone || business.landline || business.tollFree || social.length > 0) && (
               <div className="flex flex-col gap-2 border-t border-[#dcdbd5] pt-4 text-[14px] leading-5 text-[#4a4c55]">
                 {business.alternatePhone && <a className="hover:text-[#002fa7]" href={`tel:${business.alternatePhone}`}>Alternate · {business.alternatePhone}</a>}
@@ -323,12 +301,13 @@ export default function BusinessProfileView({ business, related = [], preview = 
         </section>
       )}
       {(contactPhone || whatsappUrl) && (
-        <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2 border-t border-[#dcdbd5] bg-white p-3 lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-[#dcdbd5] bg-white p-3 lg:hidden" style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}>
           {contactPhone && <TrackedButton event="call" businessName={business.name} label={prettyPhone(contactPhone)} external={false} businessId={preview ? "" : businessId} type="primary" href={`tel:${contactPhoneHref}`} icon={<Phone size={18} aria-hidden="true" />} className="flex-1">Call</TrackedButton>}
-          {whatsappUrl && <TrackedButton event="whatsapp" businessName={business.name} label={"WhatsApp"} external={true} businessId={preview ? "" : businessId} type="secondary" href={whatsappUrl} target="_blank" rel="noreferrer" icon={<MessageCircle size={18} aria-hidden="true" />} className="flex-1">WhatsApp</TrackedButton>}
-          <TrackedButton event="directions" businessName={business.name} label={"Google Maps"} external={true} businessId={preview ? "" : businessId} type="secondary" href={directionsUrl} target="_blank" rel="noreferrer" aria-label="Get directions" icon={<MapPin size={18} aria-hidden="true" />} />
+          {whatsappUrl && <TrackedButton event="whatsapp" businessName={business.name} label={"WhatsApp"} external={false} businessId={preview ? "" : businessId} type="secondary" href={whatsappUrl} target="_blank" rel="noreferrer" className="min-w-0 flex-1">WhatsApp</TrackedButton>}
+          <TrackedButton event="directions" businessName={business.name} label={"Google Maps"} external={false} businessId={preview ? "" : businessId} type="secondary" href={directionsUrl} target="_blank" rel="noreferrer" aria-label="Get directions" style={{ width: 48, paddingLeft: 0, paddingRight: 0 }} />
         </div>
       )}
+      {(contactPhone || whatsappUrl) && <div className="lg:hidden" style={{ height: 88 }} aria-hidden="true" />}
       <SiteFooter />
     </main>
   );

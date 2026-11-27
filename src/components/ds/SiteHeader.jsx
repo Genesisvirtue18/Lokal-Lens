@@ -64,8 +64,8 @@ function MoreMenu({ active, signedIn }) {
 function InlineSearch({ query = "", city = "", cities = [] }) {
   return (
     <form action="/directory" method="get" role="search" className="flex h-12 w-full items-center rounded-full border border-[#bdbcb5] bg-white pl-4 pr-3 transition-shadow focus-within:border-[#002fa7] focus-within:ring-2 focus-within:ring-[#002fa7]/20">
-      <button type="submit" aria-label="Search" className="grid shrink-0 place-items-center text-[#6e7079] transition-colors hover:text-[#002fa7]"><Search size={18} aria-hidden="true" /></button>
-      <input name="q" defaultValue={query} placeholder="Business or service" aria-label="Business or service" className="ml-[10px] min-w-0 flex-1 bg-transparent text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
+      <button type="submit" aria-label="Search" className="grid shrink-0 place-items-center text-[#002fa7] transition-colors hover:text-[#00248a]"><Search size={18} aria-hidden="true" /></button>
+      <input name="q" defaultValue={query} placeholder="Search" aria-label="Search for a business or service" className="ml-[10px] min-w-0 flex-1 bg-transparent text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
       <span className="mx-3 h-5 w-px shrink-0 bg-[#dcdbd5]" aria-hidden="true" />
       <span className="flex shrink-0 items-center" style={{ gap: 8 }}>
         <MapPin size={16} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
@@ -84,7 +84,7 @@ export default function SiteHeader({ active = "", cities = [], city = "", query 
   menuLinks.push(signedIn ? ["My account", "/account", "dashboard"] : ["Sign in", "/login", "login"]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#dcdbd5] bg-[#f1f1ee]">
+    <header className="relative z-40 border-b border-[#dcdbd5] bg-[#f1f1ee] lg:sticky lg:top-0">
       <BarContainer>
         <div className="flex h-16 items-center gap-3 lg:h-20 lg:gap-6">
           <Link href="/" aria-label="Lokal Lens home" className="shrink-0"><Logo /></Link>
@@ -92,6 +92,7 @@ export default function SiteHeader({ active = "", cities = [], city = "", query 
           <div className="hidden min-w-0 flex-1 justify-center lg:flex"><div className="w-full" style={{ maxWidth: 560 }}><InlineSearch query={query} city={city} cities={cities} /></div></div>
 
           <nav aria-label="Primary" className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
+            <Link href={city ? `/directory?city=${encodeURIComponent(city)}` : "/directory"} aria-current={active === "explore" ? "page" : undefined} className={cx("flex h-10 items-center whitespace-nowrap rounded-[10px] px-3 font-display text-[15px] font-medium leading-5 transition-colors hover:bg-white", active === "explore" ? "text-[#002fa7]" : "text-[#101115]")}>All businesses</Link>
             <Link href="/categories" aria-current={active === "categories" ? "page" : undefined} className={cx("flex h-10 items-center whitespace-nowrap rounded-[10px] px-3 font-display text-[15px] font-medium leading-5 transition-colors hover:bg-white", active === "categories" ? "text-[#002fa7]" : "text-[#101115]")}>Categories</Link>
             <Button type="secondary" size="s" href="/add-business" icon={<Plus size={18} aria-hidden="true" />}>Add Your Business</Button>
             {signedIn ? <MoreMenu active={active} signedIn={signedIn} /> : <Button type="primary" size="s" href="/login">Sign in</Button>}

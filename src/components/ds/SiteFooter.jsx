@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { BarContainer, Logo } from "@/components/ds";
+import FooterLinks from "@/components/ds/FooterLinks";
 
 // Footer: Figma "Brand, header & footer / Footer". White bar, 1px top border, 56px top padding, columns 180px wide with a 64px gap.
 const columns = [
-  { title: "Explore", links: [["Explore businesses", "/directory"], ["All categories", "/categories"], ["Browse by area", "/directory"], ["Saved businesses", "/saved"], ["Offers near you", "/offers"], ["Ask Lokal", "/ask"]] },
+  { title: "Explore", links: [["Explore businesses", "/directory"], ["All categories", "/categories"], ["Saved businesses", "/saved"], ["Offers near you", "/offers"], ["Ask Lokal", "/ask"]] },
   { title: "For businesses", links: [["Add your business", "/add-business"], ["Claim a listing", "/login"], ["Owner dashboard", "/business-owner"]] },
   { title: "Lokal Lens", links: [["How it works", "/#how-it-works"], ["What “Verified” means", "/terms#verified"], ["Report a listing", "/terms#reporting"], ["Terms & contact", "/terms#contact"]] },
 ];
@@ -28,7 +29,8 @@ export default function SiteFooter() {
             ))}
           </div>
         </div>
-        <div className="flex flex-col gap-3 text-[14px] leading-5 text-[#6e7079] md:flex-row md:items-start md:justify-between">
+        <FooterLinks />
+        <div className="flex flex-col gap-3 border-t border-[#dcdbd5] pt-6 text-[14px] leading-5 text-[#6e7079] md:flex-row md:items-start md:justify-between">
           <p>© {new Date().getFullYear()} Lokal Lens · <Link href="/privacy" className="hover:text-[#002fa7]">Privacy</Link> · <Link href="/terms" className="hover:text-[#002fa7]">Terms</Link></p>
           <p>Listings are submitted by businesses and reviewed before going live.</p>
         </div>

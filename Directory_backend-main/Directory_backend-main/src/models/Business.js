@@ -69,6 +69,8 @@ const offerSchema = new Schema({
   description: { type: String, trim: true, maxlength: 2000 },
   code: { type: String, trim: true, uppercase: true, maxlength: 50 },
   occasion: { type: String, trim: true, maxlength: 40 },
+  // How to use the offer, in the owner's words: "Show this code at the shop", "Use the code when you order online"...
+  howToAvail: { type: String, trim: true, maxlength: 160 },
   validFrom: Date,
   validUntil: Date,
   isActive: { type: Boolean, default: true },

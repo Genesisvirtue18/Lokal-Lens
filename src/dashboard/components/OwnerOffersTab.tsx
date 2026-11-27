@@ -12,14 +12,14 @@ type Offer = NonNullable<BusinessListing['offers']>[number];
 const today = () => new Date().toISOString().slice(0, 10);
 const when = (value?: string) => { try { return new Date(value || '').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return ''; } };
 const state = (offer: Offer) => (offer.isActive === false ? 'paused' : offer.validUntil && new Date(offer.validUntil) < new Date() ? 'expired' : 'live');
-const payload = (offers: Offer[]) => offers.map((offer) => ({ title: offer.title, ...(offer.description ? { description: offer.description } : {}), ...(offer.code ? { code: offer.code } : {}), ...(offer.occasion ? { occasion: offer.occasion } : {}), ...(offer.validUntil ? { validUntil: new Date(offer.validUntil).toISOString() } : {}), isActive: offer.isActive }));
+const payload = (offers: Offer[]) => offers.map((offer) => ({ title: offer.title, ...(offer.description ? { description: offer.description } : {}), ...(offer.code ? { code: offer.code } : {}), ...(offer.occasion ? { occasion: offer.occasion } : {}), ...(offer.howToAvail ? { howToAvail: offer.howToAvail } : {}), ...(offer.validUntil ? { validUntil: new Date(offer.validUntil).toISOString() } : {}), isActive: offer.isActive }));
 
 // Offers across all listings. Live offers appear on the profile and on the public Offers page.
 export const OwnerOffersTab: React.FC<Props> = ({ businesses, onChanged, showToast }) => {
   const confirm = useConfirm();
   const [adding, setAdding] = useState(false);
   const [target, setTarget] = useState(businesses[0]?.id || '');
-  const [draft, setDraft] = useState({ title: '', occasion: '', validUntil: '', code: '', description: '' });
+  const [draft, setDraft] = useState({ title: '', occasion: '', validUntil: '', code: '', description: '', howToAvail: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
 
@@ -38,8 +38,8 @@ export const OwnerOffersTab: React.FC<Props> = ({ businesses, onChanged, showToa
     const existing = business.offers || [];
     const message = checkOffer(draft, existing.map((offer) => ({ title: offer.title })) as never);
     if (message) { setError(message); return; }
-    const next: Offer = { id: '', title: draft.title.trim(), description: draft.description.trim(), code: draft.code.toUpperCase(), occasion: draft.occasion.trim(), validUntil: `${draft.validUntil}T23:59:59`, isActive: true };
-    if (await save(business, [...existing, next], business.status === 'Active' ? 'Offer added — it’s live now.' : 'Offer added. It goes live when your listing is approved.')) { setAdding(false); setDraft({ title: '', occasion: '', validUntil: '', code: '', description: '' }); }
+    const next: Offer = { id: '', title: draft.title.trim(), description: draft.description.trim(), code: draft.code.toUpperCase(), occasion: draft.occasion.trim(), howToAvail: draft.howToAvail.trim(), validUntil: `${draft.validUntil}T23:59:59`, isActive: true };
+    if (await save(business, [...existing, next], business.status === 'Active' ? 'Offer added — it’s live now.' : 'Offer added. It goes live when your listing is approved.')) { setAdding(false); setDraft({ title: '', occasion: '', validUntil: '', code: '', description: '', howToAvail: '' }); }
   }
   const toggle = (business: BusinessListing, offer: Offer) => save(business, (business.offers || []).map((item) => (item.id === offer.id ? { ...item, isActive: !item.isActive } : item)), offer.isActive ? 'Offer paused.' : 'Offer is live again.');
   const remove = async (business: BusinessListing, offer: Offer) => { if (await confirm({ title: `Delete “${offer.title}”?`, message: 'Customers will no longer see this offer.', confirmLabel: 'Delete offer', tone: 'danger' })) save(business, (business.offers || []).filter((item) => item.id !== offer.id), 'Offer deleted.'); };
@@ -59,6 +59,7 @@ export const OwnerOffersTab: React.FC<Props> = ({ businesses, onChanged, showToa
           <Field label="Valid until" required><input type="date" min={today()} value={draft.validUntil} onChange={(event) => { setDraft({ ...draft, validUntil: event.target.value }); setError(''); }} className={fieldClass} /></Field>
           <Field label="Coupon code" optional><input value={draft.code} onChange={(event) => { setDraft({ ...draft, code: event.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 20) }); setError(''); }} maxLength={20} placeholder="e.g. DIWALI20" className={fieldClass} /></Field>
           <Field label="Details" optional><input value={draft.description} onChange={(event) => setDraft({ ...draft, description: clean.text(event.target.value, 200) })} maxLength={200} placeholder="Conditions, who it’s for…" className={fieldClass} /></Field>
+          <Field label="How to get this offer" optional className="sm:col-span-2"><input value={draft.howToAvail} onChange={(event) => setDraft({ ...draft, howToAvail: clean.text(event.target.value, 160) })} maxLength={160} placeholder="e.g. Show this code at the shop" className={fieldClass} /><span className="mt-2 flex flex-wrap gap-1.5">{["Show this code at the shop", "Use this code when you order online", "Mention this offer when you call"].map((text) => <button key={text} type="button" onClick={() => setDraft({ ...draft, howToAvail: text })} className="rounded-full border border-[#bdbcb5] bg-white px-3 py-1 font-display text-[12px] font-medium text-[#4a4c55] hover:border-[#002fa7] hover:text-[#002fa7]">{text}</button>)}</span></Field>
           {error && <p role="alert" className="text-[14px] leading-5 text-[#b42318] sm:col-span-2">{error}</p>}
           <div className="flex gap-3 sm:col-span-2"><Button type="primary" size="s" onClick={add} disabled={Boolean(busy)}>{busy ? 'Saving…' : 'Add offer'}</Button><Button type="ghost" size="s" onClick={() => { setAdding(false); setError(''); }}>Cancel</Button></div>
         </section>

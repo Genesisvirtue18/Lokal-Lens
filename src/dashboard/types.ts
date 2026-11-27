@@ -20,7 +20,7 @@ export interface BusinessListing {
   sentForReview?: boolean;
   changedFields?: string[];
   kycRejectionReason?: string;
-  offers?: { id: string; title: string; description: string; code: string; occasion: string; validUntil: string; isActive: boolean }[];
+  offers?: { id: string; title: string; description: string; code: string; occasion: string; howToAvail?: string; validUntil: string; isActive: boolean }[];
   timeAgo: string;
   rating?: number;
   reviewsCount?: number;

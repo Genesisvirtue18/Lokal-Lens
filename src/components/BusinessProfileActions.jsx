@@ -44,7 +44,7 @@ export default function BusinessProfileActions({ business, compact = false }) {
       localStorage.setItem(SAVED_BUSINESSES_KEY, JSON.stringify(next));
       window.dispatchEvent(new Event("lokal-saved-businesses-change"));
       syncToAccount(business.id, !saved);
-      if (!compact) flash(saved ? { icon: "heart", text: "Removed from saved", undo: true } : { icon: "check", text: "Saved to your list", href: "/saved", action: "View saved" });
+      if (!compact) flash(saved ? { icon: "heart", text: "Removed from saved", undo: true } : localStorage.getItem("directflow_access_token") ? { icon: "check", text: "Saved to your list", href: "/saved", action: "View saved" } : { icon: "check", text: "Saved on this device", href: "/login", action: "Sign in to keep it everywhere" });
     } catch { /* Storage can be unavailable in private browsing modes. */ }
   }
 

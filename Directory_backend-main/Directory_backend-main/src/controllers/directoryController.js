@@ -283,7 +283,7 @@ export const offersList = () => async (req, res, next) => { try {
       if (offer.validFrom && new Date(offer.validFrom) > now) continue;
       if (offer.validUntil && new Date(offer.validUntil) < now) continue;
       if (occasion && String(offer.occasion || '').toLowerCase() !== occasion.toLowerCase()) continue;
-      items.push({ _id: String(offer._id), title: offer.title, description: offer.description, code: offer.code, occasion: offer.occasion, validUntil: offer.validUntil, business: { _id: String(business._id), name: business.name, slug: business.slug, image: business.images?.[0] || business.logo || '', city: business.address?.city, locality: business.address?.locality, category: business.category?.name, verified: business.verificationStatus === 'verified', phone: business.phone } });
+      items.push({ _id: String(offer._id), title: offer.title, description: offer.description, code: offer.code, occasion: offer.occasion, howToAvail: offer.howToAvail, validUntil: offer.validUntil, business: { _id: String(business._id), name: business.name, slug: business.slug, image: business.images?.[0] || business.logo || '', city: business.address?.city, locality: business.address?.locality, category: business.category?.name, verified: business.verificationStatus === 'verified', phone: business.phone } });
     }
   }
   items.sort((a, b) => (a.validUntil ? new Date(a.validUntil).getTime() : Infinity) - (b.validUntil ? new Date(b.validUntil).getTime() : Infinity));

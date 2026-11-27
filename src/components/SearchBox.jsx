@@ -70,13 +70,12 @@ export default function SearchBox({ cities = [], defaultCity = "" }) {
   }
 
   return (
-    <form onSubmit={submit} role="search" className="flex flex-col gap-1 rounded-[20px] border border-[#dcdbd5] bg-white p-2 shadow-[0_1px_2px_rgba(16,17,21,.04),0_8px_24px_rgba(16,17,21,.06)] sm:flex-row sm:items-center sm:gap-0">
+    <form onSubmit={submit} role="search" className="flex flex-col gap-1 rounded-[24px] border border-[#dcdbd5] bg-white p-2 shadow-[0_1px_2px_rgba(16,17,21,.04),0_8px_24px_rgba(16,17,21,.06)] sm:flex-row sm:items-center sm:gap-0 sm:rounded-full sm:pl-3">
       <div ref={box} className="relative min-w-0 flex-1">
-        <label className={cx("flex min-w-0 items-center gap-3 rounded-[14px] px-4 py-[10px] transition-colors", open && typed ? "bg-[#e6ebf7]" : "")}>
-          <Search size={22} className="shrink-0 text-[#101115]" aria-hidden="true" />
-          <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
-            <span className="font-display text-[13px] font-medium leading-[18px] text-[#4a4c55]">What are you looking for?</span>
-            <input name="q" value={query} autoComplete="off" role="combobox" aria-expanded={open && options.length > 0} aria-controls={listId} aria-autocomplete="list" onChange={(event) => { setQuery(event.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onKeyDown={onKeyDown} placeholder="Business, service or category" className="w-full truncate bg-transparent text-[18px] leading-7 text-[#101115] outline-none placeholder:text-[#6e7079]" />
+        <label className={cx("flex h-12 min-w-0 items-center gap-3 rounded-full px-4 transition-colors", open && typed ? "bg-[#e6ebf7]" : "")}>
+          <Search size={20} className="shrink-0 text-[#4a4c55]" aria-hidden="true" />
+          <span className="flex min-w-0 flex-1 items-center">
+            <input name="q" value={query} autoComplete="off" role="combobox" aria-expanded={open && options.length > 0} aria-controls={listId} aria-autocomplete="list" onChange={(event) => { setQuery(event.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onKeyDown={onKeyDown} placeholder="Business, service or category" aria-label="What are you looking for?" className="w-full truncate bg-transparent text-[16px] leading-6 text-[#101115] outline-none placeholder:text-[#6e7079]" />
           </span>
         </label>
         {open && options.length > 0 && (
@@ -105,14 +104,13 @@ export default function SearchBox({ cities = [], defaultCity = "" }) {
       </div>
       <span className="mx-1 hidden h-10 w-px shrink-0 bg-[#dcdbd5] sm:block" aria-hidden="true" />
       <span className="mx-2 my-0.5 h-px bg-[#dcdbd5] sm:hidden" aria-hidden="true" />
-      <label className="flex min-w-0 items-center gap-3 rounded-[14px] px-4 py-[10px] sm:w-[250px] sm:shrink-0">
-        <MapPin size={22} className="shrink-0 text-[#101115]" aria-hidden="true" />
-        <span className="flex min-w-0 flex-1 flex-col gap-[2px]">
-          <span className="font-display text-[13px] font-medium leading-[18px] text-[#4a4c55]">Where</span>
-          <CityField name="city" defaultValue={city} cities={cities} onValueChange={setCity} placeholder="All cities" align="left" className="w-full" inputClassName="truncate text-[18px] leading-7 text-[#101115]" />
+      <label className="flex h-12 min-w-0 items-center gap-3 rounded-full px-4 sm:w-[240px] sm:shrink-0">
+        <MapPin size={20} className="shrink-0 text-[#002fa7]" aria-hidden="true" />
+        <span className="flex min-w-0 flex-1 items-center">
+          <CityField name="city" defaultValue={city} cities={cities} onValueChange={setCity} placeholder="All cities" align="left" className="w-full" inputClassName="truncate text-[16px] leading-6 text-[#101115]" />
         </span>
       </label>
-      <Button type="primary" size="m" htmlType="submit" className="h-12 w-full sm:ml-1 sm:h-14 sm:w-auto" icon={<Search size={18} aria-hidden="true" />}>Search</Button>
+      <Button type="primary" size="m" htmlType="submit" className="mt-2 h-12 w-full !rounded-[16px] sm:ml-1 sm:mt-0 sm:w-auto sm:!rounded-full" icon={<Search size={18} aria-hidden="true" />}>Search</Button>
     </form>
   );
 }

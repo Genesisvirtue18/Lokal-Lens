@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { tidyText } from "@/lib/text";
 import Link from "next/link";
 import { BadgeCheck, ImageIcon, Phone, Star } from "lucide-react";
 import BusinessProfileActions from "@/components/BusinessProfileActions";
@@ -33,7 +34,7 @@ export function cardData(business, sponsoredProp) {
   let open = null;
   if (status.tone === "open") open = minutesLeft !== undefined && minutesLeft <= 60 ? { tone: "closing", text: `Closes in ${minutesLeft} min` } : { tone: "open", text: status.until ? `Open · until ${status.until}` : "Open now" };
   else if (status.tone === "closed") open = { tone: "closed", text: status.label === "Closed today" ? "Closed today" : "Closed" };
-  const description = String(business.tagline || business.description || "").trim();
+  const description = tidyText(String(business.tagline || business.description || "").trim());
   return {
     href: business.href || businessDetailPath(business),
     id: String(business._id || business.id || ""),
@@ -54,12 +55,12 @@ export function cardData(business, sponsoredProp) {
   };
 }
 
-function PhotoArea({ data, className, sizes, children, fit = "contain" }) {
+function PhotoArea({ data, className, sizes, children, fit = "cover" }) {
   return (
     <div className={cx("relative overflow-hidden bg-[#f7f7f4]", className)}>
       {data.image ? (
         <Link href={data.href} aria-label={`View ${data.name}`} tabIndex={-1} className="absolute inset-0 block">
-          {fit === "contain" && <Image src={optimizedImage(data.image, 48)} alt="" fill unoptimized sizes="64px" aria-hidden="true" className="scale-125 object-cover opacity-70 blur-xl" />}
+          {fit === "contain" && <Image src={optimizedImage(data.image, 48)} alt="" fill unoptimized sizes="64px" aria-hidden="true" className="scale-125 object-cover blur-2xl" />}
           <Image src={optimizedImage(data.image, 640)} alt="" fill unoptimized sizes={sizes} className={fit === "contain" ? "object-contain" : "object-cover"} />
         </Link>
       ) : (
@@ -80,7 +81,7 @@ function SaveButton({ data, business }) {
   return <BusinessProfileActions compact business={{ id: data.id, name: data.name, href: data.href, category: data.categoryName, area: data.locality || data.city, city: data.city, address: business.address || {}, image: data.image || "", description: data.description, hasGooglePlaceId: business.hasGooglePlaceId, verified: data.verified, phone: data.phone, isFeatured: data.sponsored }} />;
 }
 
-export default function BusinessCard({ business, layout = "grid", sponsored, className = "", selected = false }) {
+export default function BusinessCard({ business, layout = "grid", sponsored, className = "", selected = false, dense = false }) {
   const data = cardData(business, sponsored);
   const shell = cx("overflow-hidden rounded-[16px] border bg-white", selected ? "border-[#002fa7] ring-2 ring-[#002fa7]/30" : "border-[#dcdbd5]");
 
@@ -110,7 +111,7 @@ export default function BusinessCard({ business, layout = "grid", sponsored, cla
   if (layout === "list") {
     return (
       <article className={cx(shell, "flex flex-col sm:flex-row", className)}>
-        <PhotoArea data={data} className="h-[160px] shrink-0 sm:h-auto sm:min-h-[168px] sm:w-[220px]" sizes="220px"><SaveButton data={data} business={business} /></PhotoArea>
+        <PhotoArea data={data} className="h-[160px] shrink-0 sm:h-auto sm:min-h-[168px] sm:w-[220px]" sizes="220px" fit="contain"><SaveButton data={data} business={business} /></PhotoArea>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-4">
           <p className="truncate font-eyebrow text-[11px] text-[#002fa7]">{data.eyebrow}{data.distance ? ` · ${data.distance}` : ""}</p>
           <h3 className="font-display text-[17px] font-semibold leading-6 text-[#101115]">
@@ -130,7 +131,7 @@ export default function BusinessCard({ business, layout = "grid", sponsored, cla
 
   return (
     <article className={cx(shell, "flex h-full min-w-0 flex-col", className)}>
-      <PhotoArea data={data} className="h-[132px] shrink-0" sizes="(max-width: 640px) 92vw, (max-width: 1280px) 33vw, 320px"><SaveButton data={data} business={business} /></PhotoArea>
+      <PhotoArea data={data} className="aspect-[16/10] w-full shrink-0" fit="contain" sizes="(max-width: 640px) 92vw, (max-width: 1280px) 33vw, 320px"><SaveButton data={data} business={business} /></PhotoArea>
       <div className="flex flex-1 flex-col gap-1 p-3">
         <p className="truncate font-eyebrow text-[11px] text-[#002fa7]">{data.eyebrow}{data.distance ? ` · ${data.distance}` : ""}</p>
         <h3 className="line-clamp-2 font-display text-[15px] font-semibold leading-5 text-[#101115]">
@@ -141,10 +142,10 @@ export default function BusinessCard({ business, layout = "grid", sponsored, cla
           {data.rating ? <span className="inline-flex items-center gap-1 font-semibold"><Star size={14} className="fill-[#002fa7] text-[#002fa7]" aria-hidden="true" />{data.rating.toFixed(1)}<span className="font-normal text-[#6e7079]">({data.reviews})</span></span> : <span className="text-[#6e7079]">No reviews yet</span>}
           {data.open && <span className={cx("inline-flex items-center gap-1.5 font-medium", tone)}><span className={cx("h-1.5 w-1.5 rounded-full", dot)} aria-hidden="true" />{data.open.text}</span>}
         </div>
-        {data.description && <p className="line-clamp-2 text-[13px] leading-[18px] text-[#4a4c55]">{data.description}</p>}
+        {data.description && <p className={cx("line-clamp-2 text-[13px] leading-[18px] text-[#4a4c55]", dense && "hidden sm:block")}>{data.description}</p>}
         <div className="mt-auto flex items-center gap-2 pt-2">
-          <Button type="secondary" size="s" href={data.href} className="h-10 flex-1 px-3">View details</Button>
-          {data.phone && <Button type="ghost" size="s" href={`tel:${data.phone}`} aria-label={`Call ${data.name}`} className="h-10 w-10 shrink-0 border border-[#dcdbd5] px-0 [&>svg]:shrink-0" icon={<Phone size={18} aria-hidden="true" />} />}
+          <Button type="secondary" size="s" href={data.href} className="h-10 min-w-0 !shrink flex-1 px-3 text-[12px] sm:text-[14px]">View details</Button>
+          {data.phone && <Button type="ghost" size="s" href={`tel:${data.phone}`} aria-label={`Call ${data.name}`} className="h-10 w-9 shrink-0 border border-[#dcdbd5] px-0 sm:w-10 [&>svg]:shrink-0" icon={<Phone size={18} aria-hidden="true" />} />}
         </div>
       </div>
     </article>

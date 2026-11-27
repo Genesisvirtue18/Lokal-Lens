@@ -81,7 +81,7 @@ export default function CityField({ cities = [], name = "city", defaultValue = "
         onFocus={() => setOpen(true)} onKeyDown={onKeyDown}
         style={{ height: 24, lineHeight: "24px", padding: 0 }} className={cx("min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#6e7079]", inputClassName)}
       />
-      <button type="button" tabIndex={-1} aria-label="Show cities" onMouseDown={(event) => event.preventDefault()} onClick={() => setOpen((current) => !current)} className="shrink-0 text-[#6e7079] hover:text-[#101115]"><ChevronDown size={16} aria-hidden="true" className={cx("transition-transform", open && "rotate-180")} /></button>
+      <button type="button" tabIndex={-1} aria-label="Show cities" onMouseDown={(event) => event.preventDefault()} onClick={() => setOpen((current) => !current)} className="grid h-6 w-6 shrink-0 place-items-center text-[#4a4c55] hover:text-[#101115]"><ChevronDown size={18} aria-hidden="true" className={cx("block transition-transform", open && "rotate-180")} /></button>
       {open && (
         <div className={cx("absolute top-full z-50 mt-3 flex max-h-[360px] w-[280px] flex-col overflow-hidden rounded-[14px] border border-[#dcdbd5] bg-white shadow-[0_12px_32px_rgba(16,17,21,.14)]", align === "right" ? "right-0" : "left-0")}>
           <div className="flex shrink-0 items-center gap-2 border-b border-[#ecebe7] px-3 py-2.5">

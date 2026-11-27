@@ -10,7 +10,7 @@ import ReportReviewButton from "@/components/ReportReviewButton";
 const apiUrl = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "production" ? "" : "http://localhost:5000/api/v1")).replace(/\/$/, "");
 
 function Stars({ value, size = 16 }) {
-  return <span className="inline-flex gap-0.5" role="img" aria-label={`${Number(value).toFixed(1)} out of 5`}>{[1, 2, 3, 4, 5].map((n) => <Star key={n} size={size} className={n <= Math.round(value) ? "fill-[#101115] text-[#101115]" : "text-[#bdbcb5]"} aria-hidden="true" />)}</span>;
+  return <span className="inline-flex gap-0.5" role="img" aria-label={`${Number(value).toFixed(1)} out of 5`}>{[1, 2, 3, 4, 5].map((n) => <Star key={n} size={size} className={n <= Math.round(value) ? "fill-[#f5a623] text-[#f5a623]" : "text-[#bdbcb5]"} aria-hidden="true" />)}</span>;
 }
 
 const subscribeToStorage = (callback) => { window.addEventListener("storage", callback); return () => window.removeEventListener("storage", callback); };
@@ -63,7 +63,7 @@ export default function CustomerReviews({ businessId, businessName, initialRevie
 
       <div className="flex flex-col gap-6 rounded-[16px] border border-[#dcdbd5] bg-white p-6 md:flex-row md:items-center md:gap-10">
         <div className="flex shrink-0 flex-col gap-1">
-          <p className="text-[56px] font-semibold leading-[62px] tracking-[-0.0357em]">{count ? Number(average).toFixed(1) : "–"}</p>
+          {count ? <p className="text-[56px] font-semibold leading-[62px] tracking-[-0.0357em]">{Number(average).toFixed(1)}</p> : null}
           <Stars value={average} size={18} />
           <p className="text-[14px] leading-5 text-[#4a4c55]">{count} {count === 1 ? "review" : "reviews"}</p>
         </div>
@@ -87,7 +87,7 @@ export default function CustomerReviews({ businessId, businessName, initialRevie
       {writing && signedIn && (
         <form onSubmit={submit} className="flex flex-col gap-3 rounded-[16px] border border-[#dcdbd5] bg-white p-6">
           <h3 className="font-display text-[16px] font-semibold">Rate {businessName}</h3>
-          <div className="flex gap-1" onMouseLeave={() => setHover(0)} role="radiogroup" aria-label="Your rating">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} onMouseEnter={() => setHover(n)} onClick={() => setRating(n)} className="p-0.5"><Star size={28} className={n <= (hover || rating) ? "fill-[#101115] text-[#101115]" : "text-[#bdbcb5]"} aria-hidden="true" /></button>)}</div>
+          <div className="flex gap-1" onMouseLeave={() => setHover(0)} role="radiogroup" aria-label="Your rating">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} star${n > 1 ? "s" : ""}`} onMouseEnter={() => setHover(n)} onClick={() => setRating(n)} className="p-0.5"><Star size={28} className={n <= (hover || rating) ? "fill-[#f5a623] text-[#f5a623]" : "text-[#bdbcb5]"} aria-hidden="true" /></button>)}</div>
           <textarea value={comment} onChange={(event) => setComment(event.target.value)} maxLength={3000} rows={3} placeholder="Share your experience (optional)" className="w-full rounded-[10px] border border-[#bdbcb5] px-3.5 py-3 text-[16px] outline-none placeholder:text-[#6e7079] hover:border-[#101115] focus:border-2 focus:border-[#002fa7] focus:px-[13px]" />
           <div className="flex items-center gap-3"><Button type="primary" size="s" htmlType="submit" disabled={saving}>{saving ? "Saving…" : "Submit review"}</Button>{status.text && <p role={status.type === "error" ? "alert" : "status"} className={`text-[14px] ${status.type === "error" ? "text-[#b3261e]" : "text-[#4a4c55]"}`}>{status.text}</p>}</div>
         </form>

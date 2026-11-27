@@ -95,7 +95,7 @@ function fromApi(item) {
     mode: item.serviceMode || "visit", addressLine1: item.address?.addressLine1 || "", locality: item.address?.locality || "", city: item.address?.city || "", state: item.address?.state || "", postalCode: item.address?.postalCode || "", landmark: item.address?.landmark || "", serviceAreas: item.serviceAreas || [],
     services: item.serviceItems?.length ? item.serviceItems.map(({ name, priceFrom, priceTo, unit }) => ({ name, ...(priceFrom ? { priceFrom } : {}), ...(priceTo ? { priceTo } : {}), ...(unit ? { unit } : {}) })) : (item.services || []).map((name) => ({ name })),
     hours, special: item.specialHours || [], paymentModes: item.paymentModes || [], languages: item.languages || [], priceRange: item.priceRange || "", amenities: item.amenities || [], homeDelivery: Boolean(item.homeDelivery),
-    offers: (item.offers || []).map((offer) => ({ title: offer.title, description: offer.description || "", code: offer.code || "", occasion: offer.occasion || "", validUntil: offer.validUntil ? new Date(offer.validUntil).toISOString().slice(0, 10) : "" })),
+    offers: (item.offers || []).map((offer) => ({ title: offer.title, description: offer.description || "", code: offer.code || "", occasion: offer.occasion || "", howToAvail: offer.howToAvail || "", validUntil: offer.validUntil ? new Date(offer.validUntil).toISOString().slice(0, 10) : "" })),
     phone: item.phone || "", alternatePhone: item.alternatePhone || "", whatsapp: item.whatsapp || "", email: item.email || "", website: item.website || "",
     facebook: item.socialLinks?.facebook || "", instagram: item.socialLinks?.instagram || "", youtube: item.socialLinks?.youtube || "",
     gstNumber: item.gstNumber || "", kycDocuments: item.kycDocuments || [], faqs: (item.faqs || []).map(({ question, answer }) => ({ question, answer })),
@@ -328,7 +328,7 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
   function addOffer() {
     const message = checkOffer(offerDraft, data.offers);
     if (message) { setOfferError(message); return; }
-    update({ offers: [...data.offers, { title: offerDraft.title.trim(), description: (offerDraft.description || "").trim(), code: (offerDraft.code || "").toUpperCase(), occasion: (offerDraft.occasion || "").trim(), validUntil: offerDraft.validUntil }] }); setOfferDraft(null); setOfferError("");
+    update({ offers: [...data.offers, { title: offerDraft.title.trim(), description: (offerDraft.description || "").trim(), code: (offerDraft.code || "").toUpperCase(), occasion: (offerDraft.occasion || "").trim(), howToAvail: (offerDraft.howToAvail || "").trim(), validUntil: offerDraft.validUntil }] }); setOfferDraft(null); setOfferError("");
   }
   function addFaq() {
     const message = checkFaq(faqDraft, data.faqs);
@@ -360,7 +360,7 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
         services: data.services.map((service) => service.name), serviceItems: data.services,
         workingHours: DAYS.map((day) => ({ day, isClosed: !data.hours[day].open, ...(data.hours[day].open ? { opens: data.hours[day].opens, closes: data.hours[day].closes } : {}) })),
         specialHours: data.special, paymentModes: data.paymentModes, languages: data.languages, ...(data.priceRange ? { priceRange: data.priceRange } : {}), amenities: data.amenities, homeDelivery: data.homeDelivery,
-        offers: data.offers.map((offer) => ({ title: offer.title, ...(offer.description ? { description: offer.description } : {}), ...(offer.code ? { code: offer.code } : {}), ...(offer.occasion ? { occasion: offer.occasion } : {}), validUntil: new Date(`${offer.validUntil}T23:59:59`).toISOString(), isActive: true })),
+        offers: data.offers.map((offer) => ({ title: offer.title, ...(offer.description ? { description: offer.description } : {}), ...(offer.code ? { code: offer.code } : {}), ...(offer.occasion ? { occasion: offer.occasion } : {}), ...(offer.howToAvail ? { howToAvail: offer.howToAvail } : {}), validUntil: new Date(`${offer.validUntil}T23:59:59`).toISOString(), isActive: true })),
         phone: data.phone, alternatePhone: data.alternatePhone, whatsapp: data.whatsapp, email: data.email.trim(), website: data.website.trim(), socialLinks: social,
         ...(data.gstNumber ? { gstNumber: data.gstNumber.toUpperCase() } : { gstNumber: "" }), kycDocuments: data.kycDocuments.map(({ type, url }) => ({ type, url })),
         faqs: data.faqs, ...(photoUrls.length ? { images: photoUrls, logo: photoUrls[0] } : { images: [] }),
@@ -586,10 +586,11 @@ export default function AddBusinessWizard({ embedded = false, admin = false, edi
                     <Field label="Valid until" required><input type="date" min={new Date().toISOString().slice(0, 10)} value={offerDraft.validUntil ?? ""} onChange={(event) => { setOfferDraft({ ...offerDraft, validUntil: event.target.value }); setOfferError(""); }} className={fieldClass} /></Field>
                     <Field label="Coupon code" optional><input value={offerDraft.code ?? ""} onChange={(event) => { setOfferDraft({ ...offerDraft, code: event.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 20) }); setOfferError(""); }} maxLength={20} placeholder="e.g. DIWALI20" className={fieldClass} /></Field>
                     <Field label="Details" optional className="sm:col-span-2"><input value={offerDraft.description ?? ""} onChange={(event) => setOfferDraft({ ...offerDraft, description: clean.text(event.target.value, 200) })} maxLength={200} placeholder="Conditions, who it’s for…" className={fieldClass} /></Field>
+                    <Field label="How to get this offer" optional className="sm:col-span-2"><input value={offerDraft.howToAvail ?? ""} onChange={(event) => setOfferDraft({ ...offerDraft, howToAvail: clean.text(event.target.value, 160) })} maxLength={160} placeholder="e.g. Show this code at the shop" className={fieldClass} /><span className="mt-2 flex flex-wrap gap-1.5">{["Show this code at the shop", "Use this code when you order online", "Mention this offer when you call"].map((text) => <button key={text} type="button" onClick={() => setOfferDraft({ ...offerDraft, howToAvail: text })} className="rounded-full border border-[#bdbcb5] bg-white px-3 py-1 font-display text-[12px] font-medium text-[#4a4c55] hover:border-[#002fa7] hover:text-[#002fa7]">{text}</button>)}</span></Field>
                     {offerError && <p role="alert" className="text-[14px] leading-5 text-[#b42318] sm:col-span-2">{offerError}</p>}
                     <div className="flex gap-3 sm:col-span-2"><Button type="primary" size="s" onClick={addOffer}>Add offer</Button><Button type="ghost" size="s" onClick={() => { setOfferDraft(null); setOfferError(""); }}>Cancel</Button></div>
                   </div>
-                ) : <div><Button type="secondary" size="s" onClick={() => setOfferDraft({ title: "", occasion: "", validUntil: "", code: "", description: "" })} icon={<Plus size={18} aria-hidden="true" />}>Add an offer</Button></div>}
+                ) : <div><Button type="secondary" size="s" onClick={() => setOfferDraft({ title: "", occasion: "", validUntil: "", code: "", description: "", howToAvail: "" })} icon={<Plus size={18} aria-hidden="true" />}>Add an offer</Button></div>}
               </div>
 
               <div className="flex flex-col gap-4 border-t border-[#ecebe7] pt-5">

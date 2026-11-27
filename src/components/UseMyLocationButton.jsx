@@ -33,8 +33,8 @@ export default function UseMyLocationButton({ category, searchTerm, compact = fa
   }
 
   return (
-    <div className="flex flex-col items-start gap-1.5">
-      <Button type={compact ? "ghost" : "secondary"} size="s" onClick={locate} disabled={loading} icon={<LocateFixed size={18} aria-hidden="true" />}>{loading ? "Finding your location…" : "Use my location"}</Button>
+    <div className="flex w-full flex-col items-stretch gap-1.5 sm:w-auto sm:items-start">
+      <Button type={compact ? "ghost" : "secondary"} size="s" className="!h-11 !rounded-full w-full sm:!h-10 sm:w-auto" onClick={locate} disabled={loading} icon={<LocateFixed size={18} aria-hidden="true" />}>{loading ? "Finding your location…" : "Use my location"}</Button>
       {message && <p role="status" aria-live="polite" className={cx("max-w-[320px] text-[13px] leading-[18px]", failed ? "text-[#b42318]" : "text-[#4a4c55]")}>{message}</p>}
     </div>
   );
